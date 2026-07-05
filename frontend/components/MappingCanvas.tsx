@@ -105,12 +105,13 @@ export default function MappingCanvas() {
                     </select>
                   </td>
                   <td className="px-3 py-1.5">
-                    <input className="input !w-28 !py-1.5 font-mono text-xs" placeholder="%d/%m/%Y"
+                    <input className="input !w-28 !py-1.5 font-mono text-xs"
+                      placeholder={["date", "timestamp"].includes(m.cast_type) ? "e.g. %d/%m/%Y" : "—"}
                       value={m.cast_format} disabled={!m.enabled || !["date", "timestamp"].includes(m.cast_type)}
                       onChange={(e) => patchColumnMap(m.source_col, { cast_format: e.target.value })} />
                   </td>
                   <td className="px-3 py-1.5">
-                    <input className="input !w-64 !py-1.5 font-mono text-xs" placeholder="split_part(value, ' ', -1)"
+                    <input className="input !w-64 !py-1.5 font-mono text-xs" placeholder="e.g. split_part(value, ' ', -1)"
                       value={m.transform_expr} disabled={!m.enabled}
                       onChange={(e) => patchColumnMap(m.source_col, { transform_expr: e.target.value })} />
                   </td>
