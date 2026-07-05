@@ -129,3 +129,108 @@ export type RunEvent =
 
 export const CAST_TYPES = ["", "text", "int", "numeric", "bool", "date", "timestamp", "uuid"];
 export const FLAVORS: Flavor[] = ["mysql", "postgresql", "supabase", "neon"];
+
+// ---- Database Explorer ----
+export interface QueryResult {
+  ok: boolean;
+  columns?: string[];
+  rows?: (string | number | boolean | null)[][];
+  rowcount?: number;
+  is_select?: boolean;
+  executed?: number;
+  truncated?: boolean;
+  elapsed_ms?: number;
+  error?: string;
+}
+
+export interface TableData {
+  columns: ColumnInfo[];
+  colnames: string[];
+  rows: (string | number | boolean | null)[][];
+  total: number;
+  pk_cols: string[];
+}
+
+export interface ExportResult {
+  export_id: string;
+  mode: string;
+  rows: number;
+}
+
+export interface ImportResult {
+  ok: boolean;
+  inserted: number;
+  total: number;
+  errors: string[];
+}
+
+export interface FilterCond {
+  column: string;
+  op: string;
+  value: string;
+}
+
+export interface GridResult {
+  columns: string[];
+  rows: (string | number | boolean | null)[][];
+  note?: boolean;
+}
+
+export interface ColumnDef {
+  name: string;
+  type: string;
+  nullable: boolean;
+  pk: boolean;
+}
+
+export interface SchemaGraphTable {
+  name: string;
+  columns: { name: string; type: string; pk: boolean; fk: string }[];
+}
+
+export interface SchemaGraph {
+  tables: SchemaGraphTable[];
+  relationships: { from_table: string; from_column: string; to_table: string; to_column: string }[];
+}
+
+export const FILTER_OPS: { value: string; label: string; noValue?: boolean }[] = [
+  { value: "=", label: "=" },
+  { value: "!=", label: "≠" },
+  { value: ">", label: ">" },
+  { value: ">=", label: "≥" },
+  { value: "<", label: "<" },
+  { value: "<=", label: "≤" },
+  { value: "contains", label: "contains" },
+  { value: "starts_with", label: "starts with" },
+  { value: "ends_with", label: "ends with" },
+  { value: "like", label: "LIKE" },
+  { value: "in", label: "IN (a,b,c)" },
+  { value: "is_null", label: "IS NULL", noValue: true },
+  { value: "not_null", label: "IS NOT NULL", noValue: true },
+];
+
+export const PAGE_SIZES = [10, 25, 50, 100, 250, 500];
+
+// Common SQL column types offered in dropdowns (portable across MySQL/Postgres/SQLite).
+export const COLUMN_TYPES = [
+  "INTEGER",
+  "BIGINT",
+  "SMALLINT",
+  "SERIAL",
+  "BIGSERIAL",
+  "NUMERIC(10,2)",
+  "DECIMAL(10,2)",
+  "REAL",
+  "DOUBLE PRECISION",
+  "BOOLEAN",
+  "VARCHAR(255)",
+  "VARCHAR(100)",
+  "TEXT",
+  "CHAR(36)",
+  "DATE",
+  "TIME",
+  "TIMESTAMP",
+  "UUID",
+  "JSON",
+  "JSONB",
+];

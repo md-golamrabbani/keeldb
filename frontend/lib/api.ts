@@ -1,9 +1,17 @@
 import type {
+  ColumnDef,
   ColumnInfo,
   ConnectionProfile,
   ConnectionProfileIn,
+  ExportResult,
+  FilterCond,
+  GridResult,
+  ImportResult,
   MappingProfile,
+  QueryResult,
   RunEvent,
+  SchemaGraph,
+  TableData,
   TableInfo,
   TestResult,
   TransformedPreviewRow,
@@ -78,6 +86,76 @@ export const api = {
   },
 
   exportUrl: (exportId: string, mode: string) => `${BASE}/migrate/export/${exportId}?mode=${mode}`,
+
+  // ---- Database Explorer ----
+  runSql: (connId: string, sql: string, schema = "", maxRows = 1000) =>
+    req<QueryResult>(`/db/${connId}/query`, { method: "POST", body: JSON.stringify({ sql, max_rows: maxRows, schema_name: schema }) }),
+  tableData: (
+    connId: string,
+    p: { schema: string; table: string; limit: number; offset: number; order_by?: string; order_dir?: string; search?: string; filters?: FilterCond[] }
+  ) =>
+    req<TableData>(`/db/${connId}/table-data`, {
+      method: "POST",
+      body: JSON.stringify({
+        schema_name: p.schema, table: p.table, limit: p.limit, offset: p.offset,
+        order_by: p.order_by ?? "", order_dir: p.order_dir ?? "asc", search: p.search ?? "", filters: p.filters ?? [],
+      }),
+    }),
+  insertRow: (connId: string, schema: string, table: string, values: Record<string, unknown>) =>
+    req<{ ok: boolean }>(`/db/${connId}/row/insert`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, values }) }),
+  updateRow: (connId: string, schema: string, table: string, pk: Record<string, unknown>, values: Record<string, unknown>) =>
+    req<{ ok: boolean; updated: number }>(`/db/${connId}/row/update`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, pk, values }) }),
+  deleteRow: (connId: string, schema: string, table: string, pk: Record<string, unknown>) =>
+    req<{ ok: boolean; deleted: number }>(`/db/${connId}/row/delete`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, pk }) }),
+  deleteRowsBulk: (connId: string, schema: string, table: string, pks: Record<string, unknown>[]) =>
+    req<{ ok: boolean; deleted: number }>(`/db/${connId}/row/delete-bulk`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, pks }) }),
+  exportTable: (connId: string, schema: string, table: string, format: string, where = "", includeDdl = true) =>
+    req<ExportResult>(`/db/${connId}/export`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, format, where, include_ddl: includeDdl }) }),
+  importCsv: async (connId: string, schema: string, table: string, file: File): Promise<ImportResult> => {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("schema_name", schema);
+    fd.append("table", table);
+    const res = await fetch(`${BASE}/db/${connId}/import-csv`, { method: "POST", body: fd });
+    if (!res.ok) {
+      let detail = res.statusText;
+      try { detail = (await res.json()).detail ?? detail; } catch {}
+      throw new Error(detail);
+    }
+    return res.json();
+  },
+
+  // ---- Admin / DDL ----
+  tableDdl: (connId: string, schema: string, table: string) =>
+    req<{ ddl: string }>(`/db/${connId}/ddl/table`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
+  schemaGraph: (connId: string, schema: string) =>
+    req<SchemaGraph>(`/db/${connId}/ddl/schema-graph`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
+  createTable: (connId: string, schema: string, name: string, columns: ColumnDef[]) =>
+    req<{ ok: boolean }>(`/db/${connId}/table/create`, { method: "POST", body: JSON.stringify({ schema_name: schema, name, columns }) }),
+  dropTable: (connId: string, schema: string, table: string) =>
+    req<{ ok: boolean }>(`/db/${connId}/table/drop`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
+  truncateTable: (connId: string, schema: string, table: string) =>
+    req<{ ok: boolean }>(`/db/${connId}/table/truncate`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
+  renameTable: (connId: string, schema: string, table: string, newName: string) =>
+    req<{ ok: boolean }>(`/db/${connId}/table/rename`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, new_name: newName }) }),
+  addColumn: (connId: string, schema: string, table: string, c: { name: string; type: string; nullable: boolean; default?: string | null }) =>
+    req<{ ok: boolean }>(`/db/${connId}/column/add`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, ...c }) }),
+  renameColumn: (connId: string, schema: string, table: string, name: string, newName: string) =>
+    req<{ ok: boolean }>(`/db/${connId}/column/rename`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name, new_name: newName }) }),
+  dropColumn: (connId: string, schema: string, table: string, name: string) =>
+    req<{ ok: boolean }>(`/db/${connId}/column/drop`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name }) }),
+  modifyColumn: (connId: string, schema: string, table: string, name: string, newType: string, nullable: boolean | null) =>
+    req<{ ok: boolean }>(`/db/${connId}/column/modify`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name, new_type: newType, nullable }) }),
+  createDatabase: (connId: string, name: string) =>
+    req<{ ok: boolean }>(`/db/${connId}/database/create`, { method: "POST", body: JSON.stringify({ name }) }),
+  dropDatabase: (connId: string, name: string) =>
+    req<{ ok: boolean }>(`/db/${connId}/database/drop`, { method: "POST", body: JSON.stringify({ name }) }),
+  renameDatabase: (connId: string, name: string, newName: string) =>
+    req<{ ok: boolean }>(`/db/${connId}/database/rename`, { method: "POST", body: JSON.stringify({ name, new_name: newName }) }),
+  listTriggers: (connId: string, schema: string) =>
+    req<GridResult>(`/db/${connId}/triggers`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
+  listPrivileges: (connId: string, schema: string) =>
+    req<GridResult>(`/db/${connId}/privileges`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
 };
 
 /** Stream /migrate/run NDJSON events. */

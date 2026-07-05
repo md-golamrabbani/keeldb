@@ -52,8 +52,21 @@ def load_sql_dump(sql_text: str, sqlite_path: str) -> LoadResult:
                 if not table:
                     continue
                 schemas[table.name] = table
-                cols_sql = ", ".join(f"{_quote(c.name)} {c.affinity}" for c in table.columns)
-                cur.execute(f"CREATE TABLE IF NOT EXISTS {_quote(table.name)} ({cols_sql})")
+                col_names = {c.name for c in table.columns}
+                defs = [f"{_quote(c.name)} {c.affinity}" for c in table.columns]
+                if table.primary_key:
+                    defs.append("PRIMARY KEY (" + ", ".join(_quote(p) for p in table.primary_key) + ")")
+                for fk in table.foreign_keys:
+                    # Only emit FKs whose local columns are real; SQLite tolerates
+                    # a forward reference to a table defined later in the dump.
+                    if not fk.columns or not all(c in col_names for c in fk.columns):
+                        continue
+                    ref = f" ({', '.join(_quote(c) for c in fk.ref_columns)})" if fk.ref_columns else ""
+                    defs.append(
+                        "FOREIGN KEY (" + ", ".join(_quote(c) for c in fk.columns) + ") "
+                        f"REFERENCES {_quote(fk.ref_table)}{ref}"
+                    )
+                cur.execute(f"CREATE TABLE IF NOT EXISTS {_quote(table.name)} ({', '.join(defs)})")
                 result.tables.setdefault(table.name, 0)
             elif head.startswith("INSERT"):
                 ins = parse_insert(stmt)

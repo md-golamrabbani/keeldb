@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import type { ConnectionProfile } from "@/lib/types";
 import ConnectionForm from "@/components/ConnectionForm";
 import StatusPill, { type PillState } from "@/components/StatusPill";
-import { IconDatabase, IconEdit, IconFile, IconPlus, IconTrash } from "@/components/icons";
+import { IconDatabase, IconEdit, IconFile, IconPlus, IconTable, IconTrash } from "@/components/icons";
 
 const FLAVOR_BADGE: Record<string, string> = {
   mysql: "badge-warning",
@@ -94,6 +95,7 @@ export default function ConnectionsPage() {
 
             <div className="mt-auto flex items-center justify-between pt-1">
               <div className="flex gap-1.5">
+                <Link className="btn btn-primary btn-sm" href={`/explorer?conn=${c.id}`}><IconTable width={13} height={13} /> Explore</Link>
                 <button className="btn btn-secondary btn-sm" onClick={() => test(c.id)}>Test</button>
                 {c.flavor !== "sqlfile" && (
                   <button className="btn btn-ghost btn-sm" onClick={() => { setEditing(c); setShowForm(true); }} aria-label="Edit"><IconEdit width={14} height={14} /></button>

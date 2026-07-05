@@ -22,9 +22,18 @@ class ParsedColumn:
 
 
 @dataclass
+class ParsedForeignKey:
+    columns: list[str]
+    ref_table: str
+    ref_columns: list[str]
+
+
+@dataclass
 class ParsedTable:
     name: str
     columns: list[ParsedColumn] = field(default_factory=list)
+    primary_key: list[str] = field(default_factory=list)
+    foreign_keys: list[ParsedForeignKey] = field(default_factory=list)
 
 
 @dataclass
@@ -190,17 +199,50 @@ def parse_create_table(stmt: str) -> Optional[ParsedTable]:
     name = _unquote_ident(raw_name.split(".")[-1])
     body = m.group(2)
     cols: list[ParsedColumn] = []
+    pk: list[str] = []
+    fks: list[ParsedForeignKey] = []
     for piece in _split_top_commas(body):
-        if not piece or _CONSTRAINT_KW.match(piece):
+        if not piece:
+            continue
+        if _CONSTRAINT_KW.match(piece):
+            pkm = re.match(r"\s*PRIMARY\s+KEY\s*\((.*?)\)", piece, re.IGNORECASE | re.DOTALL)
+            if pkm:
+                pk = [_unquote_ident(c) for c in _split_top_commas(pkm.group(1))]
+            fkm = re.match(
+                r"\s*FOREIGN\s+KEY\s*\((.*?)\)\s*REFERENCES\s+([`\"\[]?[\w$]+[`\"\]]?)\s*\((.*?)\)",
+                piece, re.IGNORECASE | re.DOTALL,
+            )
+            if fkm:
+                fks.append(ParsedForeignKey(
+                    columns=[_unquote_ident(c) for c in _split_top_commas(fkm.group(1))],
+                    ref_table=_unquote_ident(fkm.group(2).split(".")[-1]),
+                    ref_columns=[_unquote_ident(c) for c in _split_top_commas(fkm.group(3))],
+                ))
             continue
         cm = re.match(r"\s*([`\"\[]?[\w$]+[`\"\]]?)\s+(.*)", piece, re.DOTALL)
         if not cm:
             continue
         col_name = _unquote_ident(cm.group(1))
-        cols.append(ParsedColumn(name=col_name, affinity=_affinity(cm.group(2))))
+        rest = cm.group(2)
+        cols.append(ParsedColumn(name=col_name, affinity=_affinity(rest)))
+        if re.search(r"\bPRIMARY\s+KEY\b", rest, re.IGNORECASE):
+            pk.append(col_name)  # inline column PRIMARY KEY
+        # Inline column REFERENCES other(col)
+        refm = re.search(
+            r"\bREFERENCES\s+([`\"\[]?[\w$]+[`\"\]]?)\s*(?:\(\s*([`\"\[]?[\w$]+[`\"\]]?)\s*\))?",
+            rest, re.IGNORECASE,
+        )
+        if refm:
+            fks.append(ParsedForeignKey(
+                columns=[col_name],
+                ref_table=_unquote_ident(refm.group(1).split(".")[-1]),
+                ref_columns=[_unquote_ident(refm.group(2))] if refm.group(2) else [],
+            ))
     if not cols:
         return None
-    return ParsedTable(name=name, columns=cols)
+    names = {c.name for c in cols}
+    pk = [p for p in pk if p in names]
+    return ParsedTable(name=name, columns=cols, primary_key=pk, foreign_keys=fks)
 
 
 def _parse_value(tok: str) -> Any:

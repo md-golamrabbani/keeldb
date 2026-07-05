@@ -138,3 +138,51 @@ export const IconFile = (p: SVGProps<SVGSVGElement>) => (
     <path d="M14 2v6h6" />
   </svg>
 );
+
+export const IconTable = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+  </svg>
+);
+
+export const IconTerminal = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="m4 17 6-6-6-6" />
+    <path d="M12 19h8" />
+  </svg>
+);
+
+export const IconColumns = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M9 3v18M15 3v18" />
+  </svg>
+);
+
+export const IconSearch = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m21 21-4.3-4.3" />
+  </svg>
+);
+
+export const IconChevronLeft = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="m15 18-6-6 6-6" /></svg>
+);
+
+export const IconChevronRight = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="m9 18 6-6-6-6" /></svg>
+);
+
+export const IconArrowUpRight = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M7 17 17 7M8 7h9v9" /></svg>
+);
+
+export const IconLink = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M9 15 15 9" />
+    <path d="M11 6l1-1a4 4 0 0 1 6 6l-1 1" />
+    <path d="M13 18l-1 1a4 4 0 0 1-6-6l1-1" />
+  </svg>
+);
