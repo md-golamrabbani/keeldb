@@ -1,0 +1,15 @@
+# secrets & local state — never commit
+data/
+
+# python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# node / next
+frontend/node_modules/
+frontend/.next/
+frontend/next-env.d.ts
+frontend/tsconfig.tsbuildinfo
+
+.DS_Store
