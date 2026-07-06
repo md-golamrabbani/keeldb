@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import TopNav from "@/components/TopNav";
+import BackendProvider from "@/components/BackendProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,7 +25,7 @@ export default function RootLayout({
       <body>
         <TopNav />
         <main className="mx-auto w-full max-w-[1600px] px-6 pb-7 pt-3">
-          {children}
+          <BackendProvider>{children}</BackendProvider>
         </main>
       </body>
     </html>

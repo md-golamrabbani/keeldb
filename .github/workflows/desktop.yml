@@ -1,0 +1,81 @@
+name: Desktop build
+
+# Build the Tauri desktop app (with the PyInstaller Python sidecar) for
+# Windows, macOS, and Linux. Triggered manually or on a version tag.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+          - os: windows-latest
+          - os: macos-latest      # arm64
+          - os: macos-13          # x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Linux system deps (WebKitGTK)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf build-essential
+
+      - name: Build backend sidecar (Unix)
+        if: runner.os != 'Windows'
+        run: bash backend/build_sidecar.sh
+
+      - name: Build backend sidecar (Windows)
+        if: runner.os == 'Windows'
+        run: powershell -File backend/build_sidecar.ps1
+
+      - name: Place sidecar with target-triple name
+        shell: bash
+        run: |
+          TRIPLE=$(rustc -Vv | grep '^host:' | cut -d' ' -f2)
+          mkdir -p frontend/src-tauri/binaries
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp backend/dist/migration-backend.exe "frontend/src-tauri/binaries/migration-backend-${TRIPLE}.exe"
+          else
+            cp backend/dist/migration-backend "frontend/src-tauri/binaries/migration-backend-${TRIPLE}"
+            chmod +x "frontend/src-tauri/binaries/migration-backend-${TRIPLE}"
+          fi
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Generate app icons (placeholder if none committed)
+        working-directory: frontend
+        shell: bash
+        run: |
+          if [ ! -f src-tauri/icons/icon.png ]; then
+            npx @tauri-apps/cli icon ../logo.png || echo "Provide src-tauri/icons via 'npx @tauri-apps/cli icon <png>'"
+          fi
+
+      - name: Build desktop app
+        working-directory: frontend
+        run: npx tauri build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: migration-studio-${{ matrix.os }}
+          path: |
+            frontend/src-tauri/target/release/bundle/**/*.dmg
+            frontend/src-tauri/target/release/bundle/**/*.AppImage
+            frontend/src-tauri/target/release/bundle/**/*.deb
+            frontend/src-tauri/target/release/bundle/**/*.rpm
+            frontend/src-tauri/target/release/bundle/**/*.msi
+            frontend/src-tauri/target/release/bundle/**/*.exe

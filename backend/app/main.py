@@ -9,7 +9,10 @@ app = FastAPI(title="Universal DB Migration Studio", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    # Web dev origins + the Tauri desktop webview origins (tauri://localhost on
+    # macOS/Linux, http(s)://tauri.localhost on Windows). The regex covers them
+    # all; the backend only ever listens on localhost so this is safe.
+    allow_origin_regex=r"^(https?://(localhost|127\.0\.0\.1)(:\d+)?|tauri://localhost|https?://tauri\.localhost)$",
     allow_methods=["*"],
     allow_headers=["*"],
 )

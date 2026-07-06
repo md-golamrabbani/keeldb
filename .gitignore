@@ -9,7 +9,20 @@ __pycache__/
 # node / next
 frontend/node_modules/
 frontend/.next/
+frontend/out/
 frontend/next-env.d.ts
 frontend/tsconfig.tsbuildinfo
+
+# tauri / desktop build artifacts
+frontend/src-tauri/target/
+frontend/src-tauri/gen/
+frontend/src-tauri/binaries/*
+!frontend/src-tauri/binaries/README.md
+frontend/src-tauri/icons/*
+!frontend/src-tauri/icons/README.md
+backend/build/
+backend/dist/
+backend/.build-venv/
+*.spec.bak
 
 .DS_Store
