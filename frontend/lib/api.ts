@@ -88,6 +88,11 @@ export const api = {
 
   exportUrl: (exportId: string, mode: string) => `${apiBaseSync()}/migrate/export/${exportId}?mode=${mode}`,
 
+  generateTarget: (p: {
+    source_conn_id: string; source_schema: string; source_table: string;
+    target_conn_id: string; target_schema: string; target_table: string; execute: boolean;
+  }) => req<{ ddl: string; created: boolean }>("/migrate/generate-target", { method: "POST", body: JSON.stringify(p) }),
+
   // ---- Database Explorer ----
   runSql: (connId: string, sql: string, schema = "", maxRows = 1000) =>
     req<QueryResult>(`/db/${connId}/query`, { method: "POST", body: JSON.stringify({ sql, max_rows: maxRows, schema_name: schema }) }),

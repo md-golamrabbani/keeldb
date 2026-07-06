@@ -5,13 +5,52 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
 
+from .. import schemagen
+from ..connectors import connector_for
+from ..dbops import clean_error
 from ..models import MigrateRequest
 from ..runner import EXPORT_DIR, run_migration
 from ..sinks import EXPORT_EXT, EXPORT_MEDIA
 from ..store import connection_store
 
 router = APIRouter(prefix="/migrate", tags=["migrate"])
+
+
+class GenerateTargetRequest(BaseModel):
+    source_conn_id: str
+    source_schema: str = ""
+    source_table: str
+    target_conn_id: str
+    target_schema: str = ""
+    target_table: str
+    execute: bool = False
+
+
+@router.post("/generate-target")
+def generate_target(req: GenerateTargetRequest):
+    """Generate (and optionally create) a target table matching the source's
+    columns, with types translated to the target dialect."""
+    src = connection_store.get(req.source_conn_id)
+    tgt = connection_store.get(req.target_conn_id)
+    if not src or not tgt:
+        raise HTTPException(404, "source or target connection not found")
+    sc = connector_for(src)
+    tc = connector_for(tgt)
+    try:
+        return schemagen.create_target_table(
+            sc, req.source_schema, req.source_table,
+            tc, req.target_schema, req.target_table or req.source_table,
+            execute=req.execute,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    except Exception as exc:
+        raise HTTPException(400, clean_error(exc))
+    finally:
+        sc.dispose()
+        tc.dispose()
 
 
 @router.post("/run")

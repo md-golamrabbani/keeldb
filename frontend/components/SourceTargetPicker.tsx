@@ -3,42 +3,73 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useWizard, type EndpointSel } from "@/lib/store";
 import type { TableInfo } from "@/lib/types";
-import { IconArrows, IconDatabase, IconFile } from "./icons";
+import { IconArrows, IconDatabase, IconFile, IconPlus } from "./icons";
 
 function EndpointPanel({
   title,
   sel,
   onChange,
+  source,
 }: {
   title: string;
   sel: EndpointSel;
   onChange: (patch: Partial<EndpointSel>) => void;
+  source?: EndpointSel; // when set, this is the Target panel → enable "generate from source"
 }) {
   const connections = useWizard((s) => s.connections);
   const [schemas, setSchemas] = useState<string[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [error, setError] = useState("");
   const conn = connections.find((c) => c.id === sel.connId);
+  const isTarget = source !== undefined;
+
+  // generate-target state
+  const [genName, setGenName] = useState("");
+  const [genDdl, setGenDdl] = useState("");
+  const [genBusy, setGenBusy] = useState(false);
+  const [genMsg, setGenMsg] = useState("");
+
+  const loadTables = useCallback(() => {
+    if (!sel.connId || !sel.schema) { setTables([]); return; }
+    api.listTables(sel.connId, sel.schema).then(setTables).catch((e) => setError(String(e)));
+  }, [sel.connId, sel.schema]);
 
   useEffect(() => {
     setSchemas([]);
     setError("");
     if (!sel.connId) return;
     api.listSchemas(sel.connId)
-      .then((s) => {
-        setSchemas(s);
-        if (s.length === 1 && !sel.schema) onChange({ schema: s[0], table: "" });
-      })
+      .then((s) => { setSchemas(s); if (s.length === 1 && !sel.schema) onChange({ schema: s[0], table: "" }); })
       .catch((e) => setError(String(e)));
   }, [sel.connId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    setTables([]);
-    if (!sel.connId || !sel.schema) return;
-    api.listTables(sel.connId, sel.schema).then(setTables).catch((e) => setError(String(e)));
-  }, [sel.connId, sel.schema]);
+  useEffect(() => { setTables([]); loadTables(); }, [loadTables]);
 
   const rowEstimate = tables.find((t) => t.name === sel.table)?.row_estimate;
+  const sourceReady = !!(source?.connId && source.schema && source.table);
+  const targetLocReady = !!(sel.connId && sel.schema);
+  const effName = () => (genName.trim() || source?.table || "");
+
+  const genPayload = (execute: boolean) => ({
+    source_conn_id: source!.connId, source_schema: source!.schema, source_table: source!.table,
+    target_conn_id: sel.connId, target_schema: sel.schema, target_table: effName(), execute,
+  });
+
+  const preview = async () => {
+    setGenBusy(true); setGenMsg(""); setGenDdl("");
+    try { setGenDdl((await api.generateTarget(genPayload(false))).ddl); }
+    catch (e) { setGenMsg(String(e)); } finally { setGenBusy(false); }
+  };
+  const create = async () => {
+    setGenBusy(true); setGenMsg("");
+    try {
+      await api.generateTarget(genPayload(true));
+      const name = effName();
+      setGenMsg(`Created "${name}".`); setGenDdl("");
+      loadTables();
+      onChange({ table: name });
+    } catch (e) { setGenMsg(String(e)); } finally { setGenBusy(false); }
+  };
 
   return (
     <div className="card card-pad flex-1 space-y-4">
@@ -53,9 +84,7 @@ function EndpointPanel({
         <select className="select" value={sel.connId}
           onChange={(e) => onChange({ connId: e.target.value, schema: "", table: "" })}>
           <option value="">— select —</option>
-          {connections.map((c) => (
-            <option key={c.id} value={c.id}>{c.name} ({c.flavor})</option>
-          ))}
+          {connections.map((c) => (<option key={c.id} value={c.id}>{c.name} ({c.flavor})</option>))}
         </select>
       </div>
       <div>
@@ -81,6 +110,23 @@ function EndpointPanel({
       {sel.table && rowEstimate != null && (
         <p className="text-xs muted">Estimated rows: ~{rowEstimate.toLocaleString()}</p>
       )}
+
+      {isTarget && targetLocReady && sourceReady && (
+        <div className="rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
+          <p className="mb-2 text-xs muted">Target table doesn’t exist yet? Generate it from <b>{source!.table}</b>.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input className="input !w-44 !py-1.5" placeholder={source!.table} value={genName}
+              onChange={(e) => setGenName(e.target.value)} />
+            <button className="btn btn-secondary btn-sm" onClick={preview} disabled={genBusy}>Preview DDL</button>
+            <button className="btn btn-primary btn-sm" onClick={create} disabled={genBusy}>
+              <IconPlus width={13} height={13} /> Create table
+            </button>
+          </div>
+          {genDdl && <pre className="mt-2 overflow-x-auto rounded-md p-2 font-mono text-xs" style={{ background: "var(--surface-2)", color: "var(--text)" }}>{genDdl}</pre>}
+          {genMsg && <p className="mt-1 text-xs" style={{ color: genMsg.startsWith("Created") ? "var(--success)" : "var(--danger)" }}>{genMsg}</p>}
+        </div>
+      )}
+
       {error && <p className="text-xs" style={{ color: "var(--danger)" }}>{error}</p>}
     </div>
   );
@@ -98,7 +144,7 @@ export default function SourceTargetPicker() {
           <IconArrows width={18} height={18} />
         </span>
       </div>
-      <EndpointPanel title="Target" sel={target} onChange={onTarget} />
+      <EndpointPanel title="Target" sel={target} onChange={onTarget} source={source} />
     </div>
   );
 }
