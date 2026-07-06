@@ -13,10 +13,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS-only for now (private repo → save CI minutes). Full matrix
-          # (ubuntu + windows) is restored on the branch after this run.
-          - os: macos-latest      # arm64 (Apple Silicon)
-          - os: macos-13          # x86_64 (Intel)
+          - os: ubuntu-22.04      # linux x86_64
+          - os: windows-latest    # windows x86_64
+          - os: macos-latest      # macOS arm64 (Apple Silicon)
+          - os: macos-13          # macOS x86_64 (Intel)
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
