@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..models import SavedConnection
 from .base import Connector
+from .sanitize import sanitize_rows_for_pg
 
 
 class PostgresConnector(Connector):
@@ -59,6 +60,9 @@ class PostgresConnector(Connector):
         if not rows:
             return {"written": 0, "skipped": 0}
         t = self._table(schema, table)
+        # Coerce MySQL-isms (zero dates, ''-in-number/date/bool columns) that
+        # Postgres would reject into NULL / proper types, keyed by target type.
+        rows = sanitize_rows_for_pg(t, rows)
         stmt = pg_insert(t).values(rows)
         if conflict_strategy in ("upsert", "skip"):
             keys = conflict_keys or [c.name for c in t.primary_key.columns]
