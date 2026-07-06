@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { Flavor, QueryResult } from "@/lib/types";
+import type { Environment, Flavor, QueryResult } from "@/lib/types";
+import { analyzeSql, type StmtInfo } from "@/lib/sqlguard";
 import SqlCodeEditor from "./SqlCodeEditor";
+import GuardDialog from "./GuardDialog";
 import { IconDownload, IconPlay } from "@/components/icons";
 
 interface LintError {
@@ -111,12 +113,16 @@ export default function SqlEditor({
   table,
   flavor,
   tableNames = [],
+  environment = "dev",
+  readOnly = false,
 }: {
   connId: string;
   schema: string;
   table?: string;
   flavor?: Flavor;
   tableNames?: string[];
+  environment?: Environment;
+  readOnly?: boolean;
 }) {
   const [sql, setSql] = useState(
     table ? `SELECT *\nFROM ${table}\nLIMIT 100;` : "SELECT 1;",
@@ -127,6 +133,7 @@ export default function SqlEditor({
   const [rowLimit, setRowLimit] = useState(1000); // 0 = no cap ("All"), like Workbench's row-limit selector
   const [usedLimit, setUsedLimit] = useState(1000);
   const [colCache, setColCache] = useState<Record<string, string[]>>({});
+  const [guard, setGuard] = useState<StmtInfo[] | null>(null); // pending write awaiting confirmation
 
   // Fetch columns for tables referenced in the query so autocomplete can suggest them.
   useEffect(() => {
@@ -198,7 +205,8 @@ export default function SqlEditor({
     };
   }, [sql, flavor]);
 
-  const run = async () => {
+  const execute = async () => {
+    setGuard(null);
     setRunning(true);
     setUsedLimit(rowLimit);
     try {
@@ -208,6 +216,18 @@ export default function SqlEditor({
     } finally {
       setRunning(false);
     }
+  };
+
+  // Safe Query Assistant: reads run immediately; writes go through the guard.
+  const run = async () => {
+    const stmts = analyzeSql(sql);
+    const writes = stmts.filter((s) => s.isWrite);
+    if (writes.length === 0) { await execute(); return; }
+    if (readOnly) {
+      setResult({ ok: false, error: "This connection is read-only. Turn off read-only mode on the connection to run writes." });
+      return;
+    }
+    setGuard(stmts); // open the guard dialog; it confirms, then calls execute()
   };
 
   const downloadCsv = () => {
@@ -369,6 +389,18 @@ export default function SqlEditor({
             </div>
           )}
         </>
+      )}
+
+      {guard && (
+        <GuardDialog
+          connId={connId}
+          schema={schema}
+          sql={sql}
+          statements={guard}
+          environment={environment}
+          onConfirm={execute}
+          onClose={() => setGuard(null)}
+        />
       )}
     </div>
   );

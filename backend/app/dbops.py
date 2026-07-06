@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import time
 import uuid
 from datetime import date, datetime
@@ -61,6 +62,58 @@ def _apply_schema(conn, connector: Connector, schema: str) -> None:
         conn.execute(sa.text(f"SET search_path TO {q}"))
 
 
+# -- Guard: write detection & read-only enforcement ------------------------
+# Verbs that modify data or schema. DML is transactional (safe to preview via
+# rollback); the rest is DDL/privilege which auto-commits on MySQL.
+_DML_WRITE = {"insert", "update", "delete", "replace", "merge"}
+_WRITE_VERBS = _DML_WRITE | {
+    "create", "alter", "drop", "truncate", "grant", "revoke", "call", "rename", "comment",
+}
+
+
+def first_keyword(stmt: str) -> str:
+    m = re.match(r"\s*([a-zA-Z]+)", stmt)
+    return m.group(1).lower() if m else ""
+
+
+def is_write(stmt: str) -> bool:
+    return first_keyword(stmt) in _WRITE_VERBS
+
+
+def _ensure_writable(connector: Connector) -> None:
+    if getattr(connector.profile, "read_only", False):
+        raise ValueError("This connection is read-only. Turn off read-only mode on the connection to make changes.")
+
+
+def preview_write(connector: Connector, sql: str, schema: str = "") -> dict[str, Any]:
+    """Estimate the impact of write statements WITHOUT committing: run each DML
+    statement inside a transaction, capture its affected-row count, then ROLL
+    BACK so nothing actually changes. DDL/TRUNCATE is not executed (it can't be
+    rolled back on MySQL) — reported as not-previewable."""
+    statements = [s for s in split_statements(sql) if s.strip()]
+    if not statements:
+        return {"ok": False, "error": "No SQL statement."}
+    previews: list[dict[str, Any]] = []
+    try:
+        with connector.engine.connect() as conn:
+            trans = conn.begin()
+            try:
+                _apply_schema(conn, connector, schema)
+                for stmt in statements:
+                    kw = first_keyword(stmt)
+                    if kw in _DML_WRITE:
+                        res = conn.execute(sa.text(stmt))
+                        rc = res.rowcount
+                        previews.append({"kind": kw, "affected": rc if rc is not None and rc >= 0 else None, "previewable": True})
+                    else:
+                        previews.append({"kind": kw or "select", "affected": None, "previewable": False})
+            finally:
+                trans.rollback()  # nothing is persisted
+        return {"ok": True, "previews": previews}
+    except Exception as exc:
+        return {"ok": False, "error": clean_error(exc)}
+
+
 # -- SQL editor ------------------------------------------------------------
 def run_sql(connector: Connector, sql: str, max_rows: int = MAX_ROWS_DEFAULT, schema: str = "") -> dict[str, Any]:
     """Execute one or more statements in a single transaction. Returns the last
@@ -68,6 +121,8 @@ def run_sql(connector: Connector, sql: str, max_rows: int = MAX_ROWS_DEFAULT, sc
     statements = [s for s in split_statements(sql) if s.strip()]
     if not statements:
         return {"ok": False, "error": "No SQL statement to run."}
+    if getattr(connector.profile, "read_only", False) and any(is_write(s) for s in statements):
+        return {"ok": False, "error": "This connection is read-only. Turn off read-only mode on the connection to run writes."}
     columns: list[str] = []
     rows: list[list[Any]] = []
     rowcount = 0
@@ -215,6 +270,7 @@ def _clean(values: dict[str, Any], t: sa.Table) -> dict[str, Any]:
 
 
 def insert_row(connector: Connector, schema: str, table: str, values: dict[str, Any]) -> dict[str, Any]:
+    _ensure_writable(connector)
     t = connector._table(schema, table)
     clean = _clean(values, t)
     if not clean:
@@ -227,6 +283,7 @@ def insert_row(connector: Connector, schema: str, table: str, values: dict[str, 
 def update_row(
     connector: Connector, schema: str, table: str, pk: dict[str, Any], values: dict[str, Any]
 ) -> dict[str, Any]:
+    _ensure_writable(connector)
     t = connector._table(schema, table)
     pk_clean = _clean(pk, t)
     val_clean = _clean(values, t)
@@ -241,6 +298,7 @@ def update_row(
 
 
 def delete_row(connector: Connector, schema: str, table: str, pk: dict[str, Any]) -> dict[str, Any]:
+    _ensure_writable(connector)
     t = connector._table(schema, table)
     pk_clean = _clean(pk, t)
     if not pk_clean:
@@ -253,6 +311,7 @@ def delete_row(connector: Connector, schema: str, table: str, pk: dict[str, Any]
 
 def delete_rows(connector: Connector, schema: str, table: str, pks: list[dict[str, Any]]) -> dict[str, Any]:
     """Bulk-delete rows, each identified by its primary key, in one transaction."""
+    _ensure_writable(connector)
     t = connector._table(schema, table)
     if not pks:
         raise ValueError("no rows selected")
@@ -299,6 +358,7 @@ def export_table(
 
 
 def import_csv(connector: Connector, schema: str, table: str, csv_text: str) -> dict[str, Any]:
+    _ensure_writable(connector)
     t = connector._table(schema, table)
     tcols = {c.name for c in t.c}
     reader = csv.DictReader(io.StringIO(csv_text))

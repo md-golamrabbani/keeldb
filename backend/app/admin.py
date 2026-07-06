@@ -42,6 +42,8 @@ def _check_type(t: str) -> str:
 
 
 def _exec(connector: Connector, sql: str, autocommit: bool = False) -> None:
+    if getattr(connector.profile, "read_only", False):
+        raise ValueError("This connection is read-only. Turn off read-only mode on the connection to make changes.")
     if autocommit:
         with connector.engine.connect() as conn:
             conn.execution_options(isolation_level="AUTOCOMMIT").execute(sa.text(sql))

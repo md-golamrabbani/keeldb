@@ -270,6 +270,16 @@ function Explorer() {
 
       {error && <p className="alert-danger">{error}</p>}
 
+      {conn && (conn.environment === "prod" || conn.read_only) && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium"
+          style={conn.environment === "prod"
+            ? { background: "var(--danger-soft)", color: "var(--danger)", border: "1px solid var(--danger)" }
+            : { background: "var(--accent-soft)", color: "var(--accent)" }}>
+          {conn.environment === "prod" && <span>⚠ PRODUCTION connection — writes require confirmation.</span>}
+          {conn.read_only && <span>🔒 Read-only — writes are blocked.</span>}
+        </div>
+      )}
+
       {connId && schema && (
         <div className="flex gap-5">
           {/* table list */}
@@ -379,6 +389,7 @@ function Explorer() {
                     initialFilter={t.initialFilter}
                     filterNonce={t.nonce}
                     initialSub={t.initialSub}
+                    readOnly={conn?.read_only ?? false}
                     onOpenReference={openReference}
                     onRenamed={(n) => renameTab(t.id, n)}
                     onDropped={() => dropTab(t.id)}
@@ -391,6 +402,8 @@ function Explorer() {
                     table={activeTable || undefined}
                     flavor={conn?.flavor}
                     tableNames={tables.map((x) => x.name)}
+                    environment={conn?.environment ?? "dev"}
+                    readOnly={conn?.read_only ?? false}
                   />
                 )}
                 {t.kind === "designer" && (

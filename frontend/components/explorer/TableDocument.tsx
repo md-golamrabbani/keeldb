@@ -12,7 +12,7 @@ const SUBS: { id: Sub; label: string }[] = [
 ];
 
 export default function TableDocument({
-  connId, schema, table, initialFilter, filterNonce, initialSub = "data",
+  connId, schema, table, initialFilter, filterNonce, initialSub = "data", readOnly = false,
   onOpenReference, onRenamed, onDropped,
 }: {
   connId: string;
@@ -21,6 +21,7 @@ export default function TableDocument({
   initialFilter?: { column: string; value: string } | null;
   filterNonce: number;
   initialSub?: Sub;
+  readOnly?: boolean;
   onOpenReference: (table: string, column: string, value: string) => void;
   onRenamed: (newName: string) => void;
   onDropped: () => void;
@@ -42,7 +43,7 @@ export default function TableDocument({
 
       {sub === "data" && (
         <DataGrid key={`${table}:${filterNonce}`} connId={connId} schema={schema} table={table}
-          initialFilter={initialFilter} onOpenReference={onOpenReference} />
+          initialFilter={initialFilter} onOpenReference={onOpenReference} readOnly={readOnly} />
       )}
       {sub === "structure" && <StructureEditor connId={connId} schema={schema} table={table} />}
       {sub === "operations" && (

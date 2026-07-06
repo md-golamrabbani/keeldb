@@ -13,13 +13,14 @@ import {
 type Cell = string | number | boolean | null;
 
 export default function DataGrid({
-  connId, schema, table, initialFilter, onOpenReference,
+  connId, schema, table, initialFilter, onOpenReference, readOnly = false,
 }: {
   connId: string;
   schema: string;
   table: string;
   initialFilter?: { column: string; value: string } | null;
   onOpenReference?: (table: string, column: string, value: string) => void;
+  readOnly?: boolean;
 }) {
   const [data, setData] = useState<TableData | null>(null);
   const [page, setPage] = useState(0);
@@ -65,7 +66,7 @@ export default function DataGrid({
   useEffect(() => { load(); }, [load]);
 
   const flash = (msg: string) => { setNotice(msg); setTimeout(() => setNotice(""), 2500); };
-  const editable = (data?.pk_cols.length ?? 0) > 0;
+  const editable = (data?.pk_cols.length ?? 0) > 0 && !readOnly;
   const colnames = useMemo(() => data?.colnames ?? [], [data]);
 
   const pkFor = (row: Cell[]): Record<string, Cell> => {
@@ -175,7 +176,7 @@ export default function DataGrid({
         <div className="ml-auto flex items-center gap-2">
           <input ref={fileInput} type="file" accept=".csv,text/csv" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.currentTarget.value = ""; }} />
-          <button className="btn btn-secondary btn-sm !h-9" onClick={() => fileInput.current?.click()}><IconUpload width={14} height={14} /> Import CSV</button>
+          <button className="btn btn-secondary btn-sm !h-9" onClick={() => fileInput.current?.click()} disabled={readOnly} title={readOnly ? "Connection is read-only" : ""}><IconUpload width={14} height={14} /> Import CSV</button>
           <div className="flex h-9 items-center gap-1 rounded-lg border px-1.5" style={{ borderColor: "var(--border-strong)" }}>
             <IconDownload width={14} height={14} style={{ color: "var(--text-muted)" }} />
             {["csv", "json", "sql"].map((f) => (
@@ -187,7 +188,13 @@ export default function DataGrid({
 
       {showFilter && data && <AdvancedFilter columns={data.columns} onApply={(f) => { setFilters(f); setPage(0); }} onClear={() => { setFilters([]); setPage(0); }} />}
 
-      {!editable && data && <p className="text-xs muted">This table has no primary key — cells are read-only and rows can't be edited or deleted.</p>}
+      {!editable && data && (
+        <p className="text-xs muted">
+          {readOnly
+            ? "This connection is read-only — enable writes on the connection to edit."
+            : "This table has no primary key — cells are read-only and rows can't be edited or deleted."}
+        </p>
+      )}
       {notice && <p className="text-xs" style={{ color: "var(--success)" }}>{notice}</p>}
       {error && <p className="alert-danger whitespace-pre-wrap">{error}</p>}
 

@@ -26,6 +26,8 @@ const empty = (flavor: Flavor = "mysql"): ConnectionProfileIn => ({
   ssh_user: "",
   ssh_password: "",
   ssh_private_key: "",
+  environment: "dev",
+  read_only: false,
 });
 
 export default function ConnectionForm({
@@ -44,7 +46,7 @@ export default function ConnectionForm({
       ? { ...empty(initial.flavor), name: initial.name, flavor: initial.flavor, host: initial.host,
           port: initial.port, database: initial.database, user: initial.user, ssl: initial.ssl,
           ssh_enabled: initial.ssh_enabled, ssh_host: initial.ssh_host, ssh_port: initial.ssh_port,
-          ssh_user: initial.ssh_user }
+          ssh_user: initial.ssh_user, environment: initial.environment, read_only: initial.read_only }
       : empty()
   );
   const [pill, setPill] = useState<PillState>({ status: "idle" });
@@ -117,6 +119,27 @@ export default function ConnectionForm({
         <input className="input" value={form.name} placeholder="e.g. Legacy HRIS (MySQL)"
           onChange={(e) => set({ name: e.target.value })} />
       </div>
+
+      {mode === "db" && (
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="label">Environment</label>
+            <select className="select !w-40" value={form.environment}
+              onChange={(e) => set({ environment: e.target.value as ConnectionProfileIn["environment"] })}>
+              <option value="dev">Development</option>
+              <option value="staging">Staging</option>
+              <option value="prod">Production</option>
+            </select>
+          </div>
+          <label className="flex items-center gap-2 pb-2.5 text-sm">
+            <input type="checkbox" checked={form.read_only} onChange={(e) => set({ read_only: e.target.checked })} />
+            Read-only (block all writes)
+          </label>
+          {form.environment === "prod" && (
+            <span className="badge badge-danger pb-0.5">production — extra guards on</span>
+          )}
+        </div>
+      )}
 
       {mode === "sqlfile" ? (
         <div>

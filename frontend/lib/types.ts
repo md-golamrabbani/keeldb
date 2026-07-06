@@ -1,6 +1,7 @@
 export type Flavor = "mysql" | "postgresql" | "supabase" | "neon" | "sqlfile";
 export type ConflictStrategy = "insert" | "upsert" | "skip";
 export type OutputMode = "push" | "sql" | "csv" | "json";
+export type Environment = "dev" | "staging" | "prod";
 
 export interface ConnectionProfileIn {
   name: string;
@@ -20,6 +21,8 @@ export interface ConnectionProfileIn {
   ssh_user: string;
   ssh_password: string;
   ssh_private_key: string;
+  environment: Environment;
+  read_only: boolean;
 }
 
 export interface ConnectionProfile {
@@ -41,6 +44,15 @@ export interface ConnectionProfile {
   has_ssh_key: boolean;
   source_filename: string;
   table_count: number;
+  environment: Environment;
+  read_only: boolean;
+}
+
+// Guard: estimated impact of write statements (from a rolled-back dry run).
+export interface WritePreview {
+  ok: boolean;
+  error?: string;
+  previews?: { kind: string; affected: number | null; previewable: boolean }[];
 }
 
 export interface TestResult {

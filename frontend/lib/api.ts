@@ -15,6 +15,7 @@ import type {
   TableInfo,
   TestResult,
   TransformedPreviewRow,
+  WritePreview,
 } from "./types";
 
 const BASE = "/api";
@@ -90,6 +91,8 @@ export const api = {
   // ---- Database Explorer ----
   runSql: (connId: string, sql: string, schema = "", maxRows = 1000) =>
     req<QueryResult>(`/db/${connId}/query`, { method: "POST", body: JSON.stringify({ sql, max_rows: maxRows, schema_name: schema }) }),
+  previewWrite: (connId: string, sql: string, schema = "") =>
+    req<WritePreview>(`/db/${connId}/preview-write`, { method: "POST", body: JSON.stringify({ sql, schema_name: schema }) }),
   tableData: (
     connId: string,
     p: { schema: string; table: string; limit: number; offset: number; order_by?: string; order_dir?: string; search?: string; filters?: FilterCond[] }

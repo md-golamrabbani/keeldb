@@ -77,9 +77,15 @@ export default function ConnectionsPage() {
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
                   {c.flavor === "sqlfile" ? <IconFile width={17} height={17} /> : <IconDatabase width={17} height={17} />}
                 </span>
-                <div>
-                  <div className="font-medium leading-tight">{c.name}</div>
+                <div className="flex flex-wrap items-center gap-1">
+                  <div className="w-full font-medium leading-tight">{c.name}</div>
                   <span className={`badge ${FLAVOR_BADGE[c.flavor]} mt-0.5`}>{c.flavor}</span>
+                  {c.flavor !== "sqlfile" && (
+                    <span className={`badge mt-0.5 ${c.environment === "prod" ? "badge-danger" : c.environment === "staging" ? "badge-warning" : ""}`}>
+                      {c.environment}
+                    </span>
+                  )}
+                  {c.read_only && <span className="badge badge-accent mt-0.5">read-only</span>}
                 </div>
               </div>
               {c.ssh_enabled && <span className="badge">ssh</span>}

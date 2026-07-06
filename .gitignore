@@ -9,7 +9,15 @@ __pycache__/
 # node / next
 frontend/node_modules/
 frontend/.next/
+frontend/out/
 frontend/next-env.d.ts
 frontend/tsconfig.tsbuildinfo
+
+# build artifacts (PyInstaller sidecar, tauri)
+backend/build/
+backend/dist/
+backend/.build-venv/
+frontend/src-tauri/target/
+frontend/src-tauri/gen/
 
 .DS_Store

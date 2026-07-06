@@ -78,6 +78,16 @@ def run_query(conn_id: str, req: QueryRequest):
         c.dispose()
 
 
+@router.post("/{conn_id}/preview-write")
+def preview_write(conn_id: str, req: QueryRequest):
+    """Guard: estimate affected rows for write statements without committing."""
+    c = _connector(conn_id)
+    try:
+        return dbops.preview_write(c, req.sql, req.schema_name)
+    finally:
+        c.dispose()
+
+
 @router.post("/{conn_id}/table-data")
 def table_data(conn_id: str, req: TableDataRequest):
     c = _connector(conn_id)

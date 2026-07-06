@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 Flavor = Literal["mysql", "postgresql", "supabase", "neon", "sqlfile"]
 ConflictStrategy = Literal["insert", "upsert", "skip"]
 OutputMode = Literal["push", "sql", "csv", "json"]
+Environment = Literal["dev", "staging", "prod"]
 
 # flavor -> real engine
 ENGINE_FOR_FLAVOR: dict[str, str] = {
@@ -39,6 +40,10 @@ class ConnectionProfileIn(BaseModel):
     ssh_user: str = ""
     ssh_password: str = ""
     ssh_private_key: str = ""
+    # Guard: environment label (drives UI coloring + stricter write guards on prod)
+    # and a read-only switch enforced by the backend.
+    environment: Environment = "dev"
+    read_only: bool = False
 
 
 class ConnectionProfileOut(BaseModel):
@@ -63,6 +68,8 @@ class ConnectionProfileOut(BaseModel):
     # sqlfile connections: original filename + loaded table count, for display.
     source_filename: str = ""
     table_count: int = 0
+    environment: Environment = "dev"
+    read_only: bool = False
 
 
 class TestResult(BaseModel):
@@ -179,6 +186,8 @@ class SavedConnection(BaseModel):
     sqlite_path: str = ""
     source_filename: str = ""
     table_count: int = 0
+    environment: Environment = "dev"
+    read_only: bool = False
 
     def public(self) -> ConnectionProfileOut:
         return ConnectionProfileOut(
@@ -200,4 +209,6 @@ class SavedConnection(BaseModel):
             has_ssh_key=bool(self.ssh_private_key),
             source_filename=self.source_filename,
             table_count=self.table_count,
+            environment=self.environment,
+            read_only=self.read_only,
         )
