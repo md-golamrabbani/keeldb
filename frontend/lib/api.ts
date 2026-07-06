@@ -8,6 +8,8 @@ import type {
   GridResult,
   ImportResult,
   MappingProfile,
+  MigrationProject,
+  ProjectEvent,
   QueryResult,
   RunEvent,
   SchemaGraph,
@@ -65,6 +67,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ mapping, limit }),
     }),
+
+  listProjects: () => req<MigrationProject[]>("/projects"),
+  saveProject: (p: Partial<MigrationProject> & { name: string; mapping_ids: string[] }) =>
+    req<MigrationProject>("/projects", { method: "POST", body: JSON.stringify({ auto_order: true, stop_on_error: true, ...p }) }),
+  deleteProject: (id: string) => req<{ ok: boolean }>(`/projects/${id}`, { method: "DELETE" }),
+  projectOrder: (id: string) => req<{ order: string[] }>(`/projects/${id}/order`),
 
   listMappings: () => req<MappingProfile[]>("/mappings"),
   saveMapping: (m: MappingProfile) =>
@@ -198,4 +206,34 @@ export async function runMigration(
     }
   }
   if (buffer.trim()) onEvent(JSON.parse(buffer) as RunEvent);
+}
+
+/** Stream a whole project's run (many tables, FK-ordered). */
+export async function runProject(
+  projectId: string,
+  dryRun: boolean,
+  onEvent: (e: ProjectEvent) => void
+): Promise<void> {
+  const res = await fetch(`${await resolveApiBase()}/projects/${projectId}/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dry_run: dryRun }),
+  });
+  if (!res.ok || !res.body) {
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail ?? detail; } catch {}
+    throw new Error(detail);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) if (line.trim()) onEvent(JSON.parse(line) as ProjectEvent);
+  }
+  if (buffer.trim()) onEvent(JSON.parse(buffer) as ProjectEvent);
 }

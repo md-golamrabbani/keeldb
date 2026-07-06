@@ -126,6 +126,16 @@ class MappingProfile(BaseModel):
     include_ddl: bool = True  # SQL export: emit CREATE TABLE before the INSERTs
 
 
+class MigrationProject(BaseModel):
+    """An ordered group of mapping profiles run together (e.g. a whole-schema
+    migration). Tables are loaded FK-parents-first when auto_order is on."""
+    id: str = ""
+    name: str
+    mapping_ids: list[str] = Field(default_factory=list)
+    auto_order: bool = True       # topologically order by target FKs before running
+    stop_on_error: bool = True    # halt remaining tables if one fails (children need parents)
+
+
 class PreviewRequest(BaseModel):
     conn_id: str
     schema_name: str = ""

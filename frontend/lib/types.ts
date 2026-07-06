@@ -48,6 +48,25 @@ export interface ConnectionProfile {
   read_only: boolean;
 }
 
+export interface MigrationProject {
+  id: string;
+  name: string;
+  mapping_ids: string[];
+  auto_order: boolean;
+  stop_on_error: boolean;
+}
+
+// Streamed events from running a whole project.
+export type ProjectEvent =
+  | { event: "project_start"; order: string[]; count: number }
+  | { event: "table_start"; table: string; mapping: string }
+  | { event: "progress"; table: string; rows_read: number; rows_written: number; rows_skipped: number; rows_errored: number }
+  | { event: "row_error"; table: string; row_index: number; column: string; message: string }
+  | { event: "fatal"; table?: string; message: string }
+  | { event: "project_aborted"; table: string }
+  | { event: "done"; table: string; report: Report }
+  | { event: "project_done"; tables: { table: string; mapping: string; report: Report | null }[]; totals: { rows_written: number; rows_skipped: number; rows_errored: number }; ok: boolean };
+
 // Guard: estimated impact of write statements (from a rolled-back dry run).
 export interface WritePreview {
   ok: boolean;

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import admin, connections, explorer, introspect, mappings, migrate, preview
+from .api import admin, connections, explorer, introspect, mappings, migrate, preview, projects
 
 app = FastAPI(title="Universal DB Migration Studio", version="0.1.0")
 
@@ -25,6 +25,7 @@ app.include_router(migrate.router)
 app.include_router(mappings.router)
 app.include_router(explorer.router)
 app.include_router(admin.router)
+app.include_router(projects.router)
 
 
 @app.get("/health")

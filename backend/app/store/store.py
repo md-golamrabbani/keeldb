@@ -11,7 +11,7 @@ from typing import Optional
 
 from cryptography.fernet import Fernet
 
-from ..models import ConnectionProfileIn, MappingProfile, SavedConnection
+from ..models import ConnectionProfileIn, MappingProfile, MigrationProject, SavedConnection
 
 DATA_DIR = Path(os.environ.get("DBMS_DATA_DIR", Path(__file__).resolve().parents[3] / "data"))
 _SECRET_FIELDS = (
@@ -148,5 +148,33 @@ class MappingStore(_JsonStore):
         return True
 
 
+class ProjectStore(_JsonStore):
+    filename = "projects.json"
+
+    def list(self) -> list[MigrationProject]:
+        return [MigrationProject(**r) for r in self._load().values()]
+
+    def get(self, project_id: str) -> Optional[MigrationProject]:
+        r = self._load().get(project_id)
+        return MigrationProject(**r) if r else None
+
+    def save(self, project: MigrationProject) -> MigrationProject:
+        if not project.id:
+            project.id = str(uuid.uuid4())
+        items = self._load()
+        items[project.id] = project.model_dump()
+        self._save(items)
+        return project
+
+    def delete(self, project_id: str) -> bool:
+        items = self._load()
+        if project_id not in items:
+            return False
+        del items[project_id]
+        self._save(items)
+        return True
+
+
 connection_store = ConnectionStore()
 mapping_store = MappingStore()
+project_store = ProjectStore()
