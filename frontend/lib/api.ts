@@ -18,10 +18,10 @@ import type {
   WritePreview,
 } from "./types";
 
-const BASE = "/api";
+import { apiBaseSync, resolveApiBase } from "./backend";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${await resolveApiBase()}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
@@ -75,7 +75,7 @@ export const api = {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("name", name);
-    const res = await fetch(`${BASE}/connections/upload-sql`, { method: "POST", body: fd });
+    const res = await fetch(`${await resolveApiBase()}/connections/upload-sql`, { method: "POST", body: fd });
     if (!res.ok) {
       let detail = res.statusText;
       try {
@@ -86,7 +86,7 @@ export const api = {
     return res.json();
   },
 
-  exportUrl: (exportId: string, mode: string) => `${BASE}/migrate/export/${exportId}?mode=${mode}`,
+  exportUrl: (exportId: string, mode: string) => `${apiBaseSync()}/migrate/export/${exportId}?mode=${mode}`,
 
   // ---- Database Explorer ----
   runSql: (connId: string, sql: string, schema = "", maxRows = 1000) =>
@@ -119,7 +119,7 @@ export const api = {
     fd.append("file", file);
     fd.append("schema_name", schema);
     fd.append("table", table);
-    const res = await fetch(`${BASE}/db/${connId}/import-csv`, { method: "POST", body: fd });
+    const res = await fetch(`${await resolveApiBase()}/db/${connId}/import-csv`, { method: "POST", body: fd });
     if (!res.ok) {
       let detail = res.statusText;
       try { detail = (await res.json()).detail ?? detail; } catch {}
@@ -167,7 +167,7 @@ export async function runMigration(
   dryRun: boolean,
   onEvent: (e: RunEvent) => void
 ): Promise<void> {
-  const res = await fetch(`${BASE}/migrate/run`, {
+  const res = await fetch(`${await resolveApiBase()}/migrate/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mapping, dry_run: dryRun }),

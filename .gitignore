@@ -13,11 +13,16 @@ frontend/out/
 frontend/next-env.d.ts
 frontend/tsconfig.tsbuildinfo
 
-# build artifacts (PyInstaller sidecar, tauri)
+# build artifacts (PyInstaller sidecar, tauri desktop)
 backend/build/
 backend/dist/
 backend/.build-venv/
 frontend/src-tauri/target/
 frontend/src-tauri/gen/
+frontend/src-tauri/binaries/*
+!frontend/src-tauri/binaries/README.md
+frontend/src-tauri/icons/*
+!frontend/src-tauri/icons/README.md
+*.spec.bak
 
 .DS_Store
