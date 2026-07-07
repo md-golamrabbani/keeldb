@@ -5,7 +5,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from .. import dbops, verify
+from .. import dbops, duplicates, verify
 from ..connectors import connector_for
 from ..store import connection_store
 
@@ -15,6 +15,13 @@ router = APIRouter(prefix="/db", tags=["explorer"])
 class OrphanRequest(BaseModel):
     schema_name: str = ""
     table: str = ""  # empty = scan whole schema
+
+
+class DuplicatesRequest(BaseModel):
+    schema_name: str = ""
+    table: str
+    columns: list[str]
+    limit: int = 100
 
 
 def _connector(conn_id: str):
@@ -89,6 +96,20 @@ def orphan_scan(conn_id: str, req: OrphanRequest):
     c = _connector(conn_id)
     try:
         return verify.orphan_scan(c, req.schema_name, req.table or None)
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.post("/{conn_id}/duplicates")
+def find_duplicates(conn_id: str, req: DuplicatesRequest):
+    """Find rows sharing the same value(s) in the chosen column(s)."""
+    c = _connector(conn_id)
+    try:
+        return duplicates.find_duplicates(c, req.schema_name, req.table, req.columns, req.limit)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
     except Exception as exc:
         raise HTTPException(502, dbops.clean_error(exc))
     finally:

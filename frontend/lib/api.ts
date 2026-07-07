@@ -3,6 +3,7 @@ import type {
   ColumnInfo,
   ConnectionProfile,
   ConnectionProfileIn,
+  DuplicateResult,
   ExportResult,
   FilterCond,
   GridResult,
@@ -72,6 +73,8 @@ export const api = {
 
   orphanScan: (connId: string, schema: string, table = "") =>
     req<OrphanResult>(`/db/${connId}/orphans`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
+  findDuplicates: (connId: string, schema: string, table: string, columns: string[], limit = 100) =>
+    req<DuplicateResult>(`/db/${connId}/duplicates`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, columns, limit }) }),
 
   listProjects: () => req<MigrationProject[]>("/projects"),
   saveProject: (p: Partial<MigrationProject> & { name: string; mapping_ids: string[] }) =>

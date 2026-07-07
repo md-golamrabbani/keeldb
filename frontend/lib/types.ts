@@ -76,6 +76,18 @@ export interface RollbackSim {
   recommendation: string;
 }
 
+export interface DuplicateGroup {
+  values: Record<string, string | number | boolean | null>;
+  count: number;
+}
+export interface DuplicateResult {
+  columns: string[];
+  groups: DuplicateGroup[];
+  group_count: number;      // total duplicate groups (unbounded by limit)
+  redundant_rows: number;   // rows beyond the first in each group
+  truncated: boolean;
+}
+
 export interface MigrationProject {
   id: string;
   name: string;
