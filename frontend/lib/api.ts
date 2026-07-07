@@ -7,6 +7,7 @@ import type {
   DependentsResult,
   DuplicateResult,
   ExportResult,
+  HistoryEntry,
   IndexList,
   FilterCond,
   GridResult,
@@ -20,6 +21,7 @@ import type {
   QueryResult,
   RunEvent,
   SchemaGraph,
+  Snippet,
   TableData,
   TableInfo,
   TableProfile,
@@ -94,6 +96,14 @@ export const api = {
     req<{ ok: boolean }>(`/db/${connId}/index/drop`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name }) }),
   listConstraints: (connId: string, schema: string, table: string) =>
     req<ConstraintList>(`/db/${connId}/constraints`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
+
+  // query history + saved snippets
+  history: (connId: string, limit = 100) => req<HistoryEntry[]>(`/db/${connId}/history?limit=${limit}`),
+  clearHistory: (connId: string) => req<{ cleared: number }>(`/db/${connId}/history`, { method: "DELETE" }),
+  listSnippets: () => req<Snippet[]>("/snippets"),
+  createSnippet: (name: string, sql: string) =>
+    req<Snippet>("/snippets", { method: "POST", body: JSON.stringify({ name, sql }) }),
+  deleteSnippet: (id: string) => req<{ deleted: string }>(`/snippets/${id}`, { method: "DELETE" }),
 
   listProjects: () => req<MigrationProject[]>("/projects"),
   saveProject: (p: Partial<MigrationProject> & { name: string; mapping_ids: string[] }) =>

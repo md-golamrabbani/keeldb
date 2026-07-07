@@ -136,6 +136,25 @@ class MigrationProject(BaseModel):
     stop_on_error: bool = True    # halt remaining tables if one fails (children need parents)
 
 
+class Snippet(BaseModel):
+    """A saved, named SQL query the user can re-run from the editor."""
+    id: str = ""
+    name: str
+    sql: str
+    created_at: str = ""
+
+
+class HistoryEntry(BaseModel):
+    """One executed query, auto-recorded from the SQL editor."""
+    id: str = ""
+    conn_id: str = ""
+    sql: str
+    ok: bool = True
+    rowcount: Optional[int] = None
+    elapsed_ms: Optional[float] = None
+    ran_at: str = ""
+
+
 class PreviewRequest(BaseModel):
     conn_id: str
     schema_name: str = ""

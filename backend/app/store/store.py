@@ -6,12 +6,20 @@ from __future__ import annotations
 import json
 import os
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 from cryptography.fernet import Fernet
 
-from ..models import ConnectionProfileIn, MappingProfile, MigrationProject, SavedConnection
+from ..models import (
+    ConnectionProfileIn,
+    HistoryEntry,
+    MappingProfile,
+    MigrationProject,
+    SavedConnection,
+    Snippet,
+)
 
 DATA_DIR = Path(os.environ.get("DBMS_DATA_DIR", Path(__file__).resolve().parents[3] / "data"))
 _SECRET_FIELDS = (
@@ -175,6 +183,74 @@ class ProjectStore(_JsonStore):
         return True
 
 
+class SnippetStore(_JsonStore):
+    filename = "snippets.json"
+
+    def list(self) -> list[Snippet]:
+        items = sorted(self._load().values(), key=lambda r: r.get("created_at", ""), reverse=True)
+        return [Snippet(**r) for r in items]
+
+    def save(self, snippet: Snippet) -> Snippet:
+        if not snippet.id:
+            snippet.id = str(uuid.uuid4())
+        if not snippet.created_at:
+            snippet.created_at = datetime.now(timezone.utc).isoformat()
+        items = self._load()
+        items[snippet.id] = snippet.model_dump()
+        self._save(items)
+        return snippet
+
+    def delete(self, snippet_id: str) -> bool:
+        items = self._load()
+        if snippet_id not in items:
+            return False
+        del items[snippet_id]
+        self._save(items)
+        return True
+
+
+class HistoryStore(_JsonStore):
+    """Recent executed queries, newest first, capped. Stored as a JSON list."""
+    filename = "history.json"
+    MAX = 200
+
+    def _load_list(self) -> list[dict]:
+        if not self.path.exists():
+            return []
+        data = json.loads(self.path.read_text())
+        return data if isinstance(data, list) else []
+
+    def record(self, entry: HistoryEntry) -> HistoryEntry:
+        if not entry.id:
+            entry.id = str(uuid.uuid4())
+        if not entry.ran_at:
+            entry.ran_at = datetime.now(timezone.utc).isoformat()
+        items = self._load_list()
+        # Skip consecutive duplicates (same connection re-running the same SQL).
+        if items and items[0].get("sql") == entry.sql and items[0].get("conn_id") == entry.conn_id:
+            return entry
+        items.insert(0, entry.model_dump())
+        self._save(items[:self.MAX])
+        return entry
+
+    def list(self, conn_id: Optional[str] = None, limit: int = 100) -> list[HistoryEntry]:
+        items = self._load_list()
+        if conn_id:
+            items = [r for r in items if r.get("conn_id") == conn_id]
+        return [HistoryEntry(**r) for r in items[:limit]]
+
+    def clear(self, conn_id: Optional[str] = None) -> int:
+        items = self._load_list()
+        if conn_id is None:
+            self._save([])
+            return len(items)
+        kept = [r for r in items if r.get("conn_id") != conn_id]
+        self._save(kept)
+        return len(items) - len(kept)
+
+
 connection_store = ConnectionStore()
 mapping_store = MappingStore()
 project_store = ProjectStore()
+snippet_store = SnippetStore()
+history_store = HistoryStore()

@@ -7,7 +7,8 @@ from pydantic import BaseModel
 
 from .. import dbops, duplicates, explain, profiler, relational, verify
 from ..connectors import connector_for
-from ..store import connection_store
+from ..models import HistoryEntry
+from ..store import connection_store, history_store
 
 router = APIRouter(prefix="/db", tags=["explorer"])
 
@@ -97,9 +98,31 @@ class ExportRequest(BaseModel):
 def run_query(conn_id: str, req: QueryRequest):
     c = _connector(conn_id)
     try:
-        return dbops.run_sql(c, req.sql, req.max_rows, req.schema_name)
+        result = dbops.run_sql(c, req.sql, req.max_rows, req.schema_name)
+        _record_history(conn_id, req.sql, result)
+        return result
     finally:
         c.dispose()
+
+
+def _record_history(conn_id: str, sql: str, result: dict) -> None:
+    try:
+        history_store.record(HistoryEntry(
+            conn_id=conn_id, sql=sql, ok=bool(result.get("ok")),
+            rowcount=result.get("rowcount"), elapsed_ms=result.get("elapsed_ms"),
+        ))
+    except Exception:
+        pass  # history is best-effort; never fail a query over it
+
+
+@router.get("/{conn_id}/history")
+def query_history(conn_id: str, limit: int = 100):
+    return [h.model_dump() for h in history_store.list(conn_id, limit)]
+
+
+@router.delete("/{conn_id}/history")
+def clear_history(conn_id: str):
+    return {"cleared": history_store.clear(conn_id)}
 
 
 @router.post("/{conn_id}/orphans")

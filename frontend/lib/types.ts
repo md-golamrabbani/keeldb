@@ -122,6 +122,22 @@ export interface ConstraintList {
   checks: { name: string | null; sqltext: string | null }[];
 }
 
+export interface Snippet {
+  id: string;
+  name: string;
+  sql: string;
+  created_at: string;
+}
+export interface HistoryEntry {
+  id: string;
+  conn_id: string;
+  sql: string;
+  ok: boolean;
+  rowcount: number | null;
+  elapsed_ms: number | null;
+  ran_at: string;
+}
+
 export interface PlanHint {
   level: "warn" | "info";
   message: string;

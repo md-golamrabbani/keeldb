@@ -5,6 +5,7 @@ import type { Environment, Flavor, QueryPlan, QueryResult } from "@/lib/types";
 import { analyzeSql, type StmtInfo } from "@/lib/sqlguard";
 import SqlCodeEditor from "./SqlCodeEditor";
 import GuardDialog from "./GuardDialog";
+import QueryLibrary from "./QueryLibrary";
 import { IconDownload, IconPlay } from "@/components/icons";
 
 interface LintError {
@@ -137,6 +138,7 @@ export default function SqlEditor({
   const [plan, setPlan] = useState<QueryPlan | null>(null);
   const [planError, setPlanError] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
+  const [historyNonce, setHistoryNonce] = useState(0);
 
   // Fetch columns for tables referenced in the query so autocomplete can suggest them.
   useEffect(() => {
@@ -218,6 +220,7 @@ export default function SqlEditor({
       setResult({ ok: false, error: String(e) });
     } finally {
       setRunning(false);
+      setHistoryNonce((n) => n + 1); // refresh the history panel
     }
   };
 
@@ -322,6 +325,8 @@ export default function SqlEditor({
           </div>
         </div>
       </div>
+
+      <QueryLibrary connId={connId} sql={sql} onLoad={setSql} historyNonce={historyNonce} />
 
       {planError && <p className="alert-danger whitespace-pre-wrap">{planError}</p>}
       {plan && (
