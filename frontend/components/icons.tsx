@@ -32,4 +32,10 @@ export {
   X as IconClose,
   Save as IconSave,
   Settings as IconSettings,
+  Activity as IconActivity,
+  Bell as IconBell,
+  HardDrive as IconHardDrive,
+  Gauge as IconGauge,
+  Rows3 as IconRows,
+  TriangleAlert as IconWarning,
 } from "lucide-react";
