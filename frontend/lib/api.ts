@@ -95,6 +95,8 @@ export const api = {
     req<TableProfile>(`/db/${connId}/profile`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
   explainQuery: (connId: string, sql: string, schema = "") =>
     req<QueryPlan>(`/db/${connId}/explain`, { method: "POST", body: JSON.stringify({ sql, schema_name: schema }) }),
+  aiSql: (connId: string, schema: string, question: string) =>
+    req<{ available: boolean; sql: string; message?: string; model?: string }>(`/db/${connId}/ai/sql`, { method: "POST", body: JSON.stringify({ schema_name: schema, question }) }),
   listIndexes: (connId: string, schema: string, table: string) =>
     req<IndexList>(`/db/${connId}/indexes`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
   createIndex: (connId: string, schema: string, table: string, name: string, columns: string[], unique: boolean) =>
@@ -105,6 +107,8 @@ export const api = {
     req<ConstraintList>(`/db/${connId}/constraints`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
   health: (connId: string, schema: string) =>
     req<HealthReport>(`/db/${connId}/health`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
+  backupTable: (connId: string, schema: string, table: string) =>
+    req<{ table: string; rows: number; sql: string }>(`/db/${connId}/backup`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
   indexAdvice: (connId: string, schema: string) =>
     req<IndexAdvice>(`/db/${connId}/index-advice`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
   activity: (connId: string) => req<ActivityReport>(`/db/${connId}/activity`),

@@ -6,7 +6,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from .. import (
-    activity, advisor, alerts, dbops, duplicates, explain, health, metrics,
+    activity, advisor, ai, alerts, backup, dbops, duplicates, explain, health, metrics,
     profiler, relational, verify,
 )
 from ..connectors import connector_for
@@ -30,6 +30,11 @@ class DuplicatesRequest(BaseModel):
 
 class KillRequest(BaseModel):
     session_id: str
+
+
+class AiSqlRequest(BaseModel):
+    schema_name: str = ""
+    question: str
 
 
 class DependentsRequest(BaseModel):
@@ -188,6 +193,36 @@ def kill_session(conn_id: str, req: KillRequest):
         return activity.kill_session(c, req.session_id)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.post("/{conn_id}/ai/sql")
+def ai_sql(conn_id: str, req: AiSqlRequest):
+    """Natural-language → SQL (returns SQL for review; never executes)."""
+    c = _connector(conn_id)
+    try:
+        return ai.nl_to_sql(c, req.schema_name, req.question)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.post("/{conn_id}/backup")
+def backup_table(conn_id: str, req: OrphanRequest):
+    """Dump a table's schema + data as a .sql script."""
+    c = _connector(conn_id)
+    try:
+        if not req.table:
+            raise HTTPException(400, "table is required")
+        return backup.backup_table(c, req.schema_name, req.table)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(502, dbops.clean_error(exc))
     finally:

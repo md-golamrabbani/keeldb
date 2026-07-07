@@ -25,10 +25,29 @@ export default function OperationsPanel({
     catch (e) { setError(String(e)); }
   };
 
+  const doBackup = async () => {
+    setError("");
+    try {
+      const res = await api.backupTable(connId, schema, table);
+      const blob = new Blob([res.sql], { type: "application/sql" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${table}-backup.sql`; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      flash(`Backed up ${res.rows.toLocaleString()} row(s)`);
+    } catch (e) { setError(String(e)); }
+  };
+
   return (
     <div className="max-w-2xl space-y-4">
       {notice && <p className="text-xs" style={{ color: "var(--success)" }}>{notice}</p>}
       {error && <p className="alert-danger whitespace-pre-wrap">{error}</p>}
+
+      <div className="card card-pad space-y-2">
+        <h3 className="font-semibold">Backup table</h3>
+        <p className="text-sm muted">Download the table's schema and data as a <code>.sql</code> script you can restore by running it.</p>
+        <button className="btn btn-secondary" onClick={doBackup}>Download {table}-backup.sql</button>
+      </div>
 
       <div className="card card-pad space-y-2">
         <h3 className="font-semibold">Rename table</h3>
