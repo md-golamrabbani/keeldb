@@ -39,8 +39,9 @@ def _pg_tables(connector: Connector, schema: str) -> list[dict]:
 
 def _mysql_tables(connector: Connector, schema: str) -> list[dict]:
     sch = schema or connector.profile.database
+    # `rows` is a reserved word in MySQL 8 — alias must be back-quoted.
     q = sa.text(
-        "SELECT table_name AS name, table_rows AS rows, "
+        "SELECT table_name AS name, table_rows AS `rows`, "
         "(data_length + index_length) AS size_bytes, index_length AS index_bytes "
         "FROM information_schema.tables "
         "WHERE table_schema = :s AND table_type = 'BASE TABLE' "
