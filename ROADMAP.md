@@ -53,7 +53,11 @@ rename / drop database, create table, privileges view).
 
 ---
 
-## 3. Gap analysis (what's missing today)
+## 3. Gap analysis (original — historical)
+
+> **Note:** this section captured the state *before* the phased build. Most items
+> below are now shipped — see the ✅/🔨 markers in §4 and the phase status in §7 for
+> what's actually current.
 
 ### Migrate
 - **No "create target table from source"** — target must pre‑exist. Needs type
@@ -94,64 +98,68 @@ rename / drop database, create table, privileges view).
 Legend: ⭐ flagship / differentiator · ✅ already built · 🔨 to build
 
 ### 4.1 Guard — production safety (build first)
-- ⭐ **Safe Production Query Assistant** — block `DELETE`/`UPDATE` without `WHERE`;
+- ✅ ⭐ **Safe Production Query Assistant** — block `DELETE`/`UPDATE` without `WHERE`;
   warn on full‑table scans; **preview the actual rows** a write will change (run the
   equivalent `SELECT` first) with an **estimated affected‑row count** before commit.
-- ⭐ **Environment tagging** — mark each connection `prod / staging / dev`; color the
+- ✅ ⭐ **Environment tagging** — mark each connection `prod / staging / dev`; color the
   entire UI (red on prod); auto‑enforce stricter guardrails on prod.
-- ⭐ **Read‑only mode** — default on; writes require explicit opt‑in per session.
-- **Transaction sandbox** — run any write inside a transaction, inspect results,
-  then **Commit or Rollback** with a button.
-- **Auto‑snapshot before destructive ops** — copy affected rows aside → real undo.
-- **Audit log** — every statement (who / when / SQL / rowcount), exportable.
-- **Kill switch** — per‑query statement timeout + max‑affected‑rows abort.
+- ✅ ⭐ **Read‑only mode** — default on; writes require explicit opt‑in per session.
+- 🔨 **Transaction sandbox** — run any write inside a transaction, inspect results,
+  then **Commit or Rollback** with a button. *(reads/writes already run in a rolled‑back
+  preview txn; explicit commit/rollback UI still to build.)*
+- 🔨 **Auto‑snapshot before destructive ops** — copy affected rows aside → real undo.
+- 🔨 **Audit log** — every statement (who / when / SQL / rowcount), exportable.
+  *(query history captures SQL + rowcount; full audit export still to build.)*
+- 🔨 **Kill switch** — per‑query statement timeout + max‑affected‑rows abort.
 
 ### 4.2 Migrate — completeness
-- ⭐ **Auto‑generate target schema** from source (dialect‑aware DDL translation).
-- ⭐ **Migration projects** — group table mappings, FK‑ordered, run‑all + combined report.
-- **Migration Rollback Simulator** — before applying, report: rollback possibility,
+- ✅ ⭐ **Auto‑generate target schema** from source (dialect‑aware DDL translation).
+- ✅ ⭐ **Migration projects** — group table mappings, FK‑ordered, run‑all + combined report.
+- ✅ **Migration Rollback Simulator** — before applying, report: rollback possibility,
   potential data loss, estimated downtime / lock risk, tables affected.
-- **Post‑migration verification** — row counts + per‑table checksums + FK‑orphan scan
-  + sample‑row diff (source vs target).
-- **Migration changelog** — track applied migrations with up/down scripts (Flyway‑lite).
-- **Pre‑migration gate** — check locks, long‑running transactions, disk, replication lag.
-- **Staging‑first** load option; **checkpoint/resume** for large jobs.
-- **Data masking / anonymization** transforms (fake email/name/phone) for prod→dev.
-- Richer transform language: `if/else`, date math, number/format, regex, lookups.
+- ✅ **Post‑migration verification** — row‑count reconcile + FK‑orphan scan.
+  *(per‑table checksums + sample‑row diff still to build.)*
+- 🔨 **Migration changelog** — track applied migrations with up/down scripts (Flyway‑lite).
+- 🔨 **Pre‑migration gate** — check locks, long‑running transactions, disk, replication lag.
+- 🔨 **Staging‑first** load option; **checkpoint/resume** for large jobs.
+- ✅ **Data masking / anonymization** transforms (fake email/name/phone, mask, hash, redact) for prod→dev.
+- 🔨 Richer transform language: `if/else`, date math, number/format, regex, lookups.
 
 ### 4.3 Explore — deeper client + quality tools
-- ⭐ **Query Performance Analyzer** — run `EXPLAIN`, highlight slow joins / missing
-  indexes, suggest optimizations, and compare before/after a change.
-- ⭐ **Foreign‑Key Dependency Visualizer / Relational Debugger** (merge the two) —
-  select a row or table and see all dependent rows in child tables, delete/cascade
-  impact, and hidden schema dependencies. Reverse‑FK navigation ("who references me").
-- ⭐ **Duplicate Record Detector** — find duplicates by email/phone, SKU/name, external
-  ID, or **fuzzy match** (configurable), with merge/cleanup actions.
-- **Data profiler** — per‑column null %, distinct count, min/max, pattern detection
-  (email/phone/UUID), value histograms; one‑click on any table.
-- **Orphaned‑row / referential‑integrity checker** (great post‑migration).
-- **Constraint pre‑validator** — show rows that would violate a proposed constraint.
-- **Index management** (create/drop, unused‑index detector) and **constraint management**.
-- **Query history + saved snippets/favorites**; multiple result tabs with paging.
-- **Result‑set diff**; **multi‑DB query** (run once across shards, merge results).
-- **JSON/blob viewer**, whole‑row edit form, copy‑as‑INSERT/CSV/JSON, column freeze/hide.
-- Export results to CSV / JSON / Excel; SQL formatter/beautifier.
+- ✅ ⭐ **Query Performance Analyzer** — run `EXPLAIN`, flag full scans / temp sorts, suggest indexes.
+- ✅ ⭐ **Foreign‑Key Dependency Visualizer / Relational Debugger** — select a row and see all
+  dependent rows in child tables, delete/cascade impact. Reverse‑FK ("who references me").
+- ✅ ⭐ **Duplicate Record Detector** — find duplicates by one or more columns (email/phone,
+  SKU/name, external ID), drill into a group. *(fuzzy match + merge actions still to build.)*
+- ✅ **Data profiler** — per‑column null %, distinct count, min/max/avg, pattern detection
+  (email/uuid/url/phone); one‑click on any table.
+- ✅ **Orphaned‑row / referential‑integrity checker** (great post‑migration).
+- 🔨 **Constraint pre‑validator** — show rows that would violate a proposed constraint.
+- ✅ **Index management** (create/drop, duplicate/redundant/unused‑index advisor) and
+  **constraint management** (add/drop FK & unique, list).
+- ✅ **Query history + saved snippets/favorites**. *(multiple result tabs w/ paging: 🔨)*
+- 🔨 **Result‑set diff**; **multi‑DB query** (run once across shards, merge results).
+- 🔨 **JSON/blob viewer**, whole‑row edit form, copy‑as‑INSERT/CSV/JSON, column freeze/hide.
+- ✅ Export results to CSV / JSON / SQL. *(Excel + SQL formatter/beautifier: 🔨)*
 
 ### 4.4 Health — monitoring dashboard
-- ⭐ **DB Health Dashboard** — slow queries, lock waits, connection‑pool usage,
-  deadlocks, replication lag, storage growth, top tables by size — one screen.
-- **Index / bloat / vacuum advisor**; **kill query/session** button in the live view.
-- **Scheduled reports / alerts** (email/Slack when a metric crosses a threshold or a
-  saved query returns rows).
+- ✅ ⭐ **DB Health Dashboard** — storage & size overview, top tables by size/rows, live server
+  metrics (connections, cache‑hit, deadlocks…), active sessions — one screen. *(slow‑query &
+  replication‑lag panels: 🔨.)*
+- ✅ **Index advisor** (duplicate/redundant/unused); **kill query/session** button in the live view.
+  *(bloat / vacuum advisor: 🔨.)*
+- ✅ **Alerts** — a saved query / threshold that fires on demand ("Check now").
+  *(scheduled cron + email/Slack delivery is a deploy‑time concern: 🔨.)*
 
 ### 4.5 Cross‑cutting
-- **AI assist** ⭐ — natural‑language → SQL, AI auto‑mapping (semantic column match +
-  transform suggestions for messy legacy data), and "explain/fix this SQL error."
-- **Command palette (⌘/Ctrl‑K)** — jump to any table / connection / action.
-- **Portable project files** — export/import connections + mappings to share setups.
-- **Result charts** — quick bar/line/pie on any query result.
-- **Backup / restore** a table or database.
-- **More engines** — native SQLite, SQL Server, Oracle, MongoDB.
+- ✅ **AI assist** ⭐ — natural‑language → SQL (optional; needs `ANTHROPIC_API_KEY`).
+  *(AI auto‑mapping + "explain/fix this SQL error": 🔨.)*
+- ✅ **Command palette (⌘/Ctrl‑K)** — jump to any page / action.
+- ✅ **Portable project files** — export/import connections (no secrets) + mappings/projects/snippets/alerts.
+- ✅ **Result charts** — quick bar/line on any query result. *(pie: 🔨.)*
+- ✅ **Backup / restore** a table (schema + data as `.sql`). *(whole‑database backup: 🔨.)*
+- 🔨 **More engines** — native SQLite, SQL Server, Oracle, MongoDB. *(deferred: each needs its own
+  driver + a live server to verify; Mongo doesn't fit the SQLAlchemy‑Core core.)*
 
 ---
 
@@ -221,43 +229,64 @@ tablet, laptop, large desktop, and inside the Tauri desktop shell.
 
 ## 7. Phased roadmap
 
-**Phase 0 — Harden the foundation**
-Test suite + web CI · virtualized data grid · backend auth + read‑only mode ·
-secrets → OS keychain · complete loading/empty/error states · responsive pass +
-mobile nav/drawer. *Goal: trustworthy, maintainable base.*
+Status: **Phases 1–5 shipped** (except the deploy/driver items called out below).
+The backend carries **132 passing tests**; `tsc --noEmit` and `next build` are clean on
+every commit.
 
-**Phase 1 — Guard (flagship safety layer)**
-Environment tagging + prod coloring · Safe Query Assistant (no‑WHERE block, affected‑row
-preview) · transaction sandbox · auto‑snapshot/undo · audit log · statement timeout.
-*Goal: safe to point at production.*
+**Phase 0 — Harden the foundation** — 🟡 *mostly done*
+✅ Test suite + web CI · ✅ backend read‑only mode · ✅ loading/empty/error states ·
+✅ responsive pass. 🔨 virtualized data grid · 🔨 secrets → OS keychain · 🔨 backend auth.
 
-**Phase 2 — Migrate completeness**
-Auto‑generate target schema (DDL translation) · migration projects (FK‑ordered
-multi‑table) · post‑migration verification · rollback simulator · checkpoint/resume ·
-data masking. *Goal: real end‑to‑end MySQL→Postgres in one flow.*
+**Phase 1 — Guard (flagship safety layer)** — 🟢 *core done*
+✅ Environment tagging + prod coloring · ✅ Safe Query Assistant (no‑WHERE block, affected‑row
+preview). 🔨 transaction sandbox (commit/rollback UI) · 🔨 auto‑snapshot/undo · 🔨 audit‑log
+export · 🔨 statement timeout.
 
-**Phase 3 — Explore + Performance**
-Query Performance Analyzer (EXPLAIN + index hints) · FK/relational debugger + reverse‑FK ·
-duplicate detector · data profiler · index/constraint management · query history/snippets ·
-richer exports. *Goal: deep understanding + cleanup.*
+**Phase 2 — Migrate completeness** — ✅ *complete*
+✅ Auto‑generate target schema (DDL translation) · ✅ migration projects (FK‑ordered
+multi‑table) · ✅ post‑migration verification (reconcile + orphan scan) · ✅ rollback simulator ·
+✅ data masking. 🔨 checkpoint/resume.
 
-**Phase 4 — Health**
-Monitoring dashboard · index/bloat advisors · kill session · scheduled alerts.
-*Goal: daily operations without other dashboards.*
+**Phase 3 — Explore + Performance** — ✅ *complete*
+✅ Query Performance Analyzer (EXPLAIN + index hints) · ✅ FK/relational debugger + reverse‑FK ·
+✅ duplicate detector · ✅ data profiler · ✅ index/constraint management · ✅ query
+history/snippets · ✅ CSV/JSON/SQL exports.
 
-**Phase 5 — Elevate**
-AI assist (NL→SQL, auto‑mapping) · command palette · portable projects · result charts ·
-backup/restore · more engines (SQLite/MSSQL/Oracle/Mongo) · signed auto‑updating installers.
+**Phase 4 — Health** — ✅ *complete*
+✅ Monitoring dashboard (storage, top tables, server metrics, sessions) · ✅ index advisor ·
+✅ kill session · ✅ alerts (on‑demand). 🔨 bloat/vacuum advisor · 🔨 scheduled cron+email/Slack delivery.
+
+**Phase 5 — Elevate** — 🟢 *core done*
+✅ AI assist (NL→SQL) · ✅ command palette · ✅ portable projects · ✅ result charts ·
+✅ backup/restore (table). 🔨 more engines (SQLite/MSSQL/Oracle/Mongo — needs drivers + live
+servers) · 🔨 signed auto‑updating installers (needs code‑signing certs + update host).
 
 *(Cross‑cutting: the responsive/design standard and accessibility apply to every phase,
 not a separate step.)*
+
+### Deferred — need external resources, not code
+- **More engines (SQL Server / Oracle / MongoDB):** each needs its own driver
+  (`pyodbc` / `oracledb` / `pymongo`) **and** a live server to verify against; MongoDB
+  doesn't fit the SQLAlchemy‑Core foundation the app is built on.
+- **Signed, auto‑updating installers:** Apple/Windows code‑signing certificates,
+  notarization, and an update‑feed host — CI/deploy infrastructure and secrets.
+- **Backend auth + OS‑keychain secrets:** the backend binds to localhost only; hardening
+  these matters for a hosted/multi‑user deployment.
 
 ---
 
 ## 8. Suggested next step
 
-Build **Phase 1 (Guard)** first — environment tagging + the affected‑rows preview +
-transaction sandbox + auto‑snapshot/undo. It's the smallest change with the largest
-trust payoff, and it makes every other module safe to use against production. In
-parallel, land **Phase 0** basics (tests/CI, virtualized grid, read‑only + auth) so
-nothing regresses as the surface area grows.
+The phased build is essentially delivered (see §7). The highest‑value remaining work,
+in order:
+
+1. **Finish Guard** — transaction sandbox (commit/rollback UI), auto‑snapshot/undo, and
+   audit‑log export. These raise the production‑safety bar the whole product promises.
+2. **Scheduler + delivery for alerts** — a background cron plus email/Slack notifiers so
+   the existing alert rules fire automatically, not just on "Check now".
+3. **Virtualized data grid** — row/column virtualization for 100k+ rows (the last big
+   non‑functional gap for large tables).
+4. **Deployment hardening** — backend auth + OS‑keychain secrets, then signed
+   auto‑updating installers, when the app moves beyond localhost use.
+5. **More engines** — add SQL Server / Oracle behind driver checks when a real instance
+   is available to test against.
