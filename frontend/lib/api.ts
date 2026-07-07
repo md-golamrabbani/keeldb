@@ -113,6 +113,10 @@ export const api = {
   serverMetrics: (connId: string) => req<ServerMetrics>(`/db/${connId}/metrics`),
   checkAlerts: (connId: string, schema: string) =>
     req<AlertResult[]>(`/db/${connId}/alerts/check`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
+  exportPortable: () => req<Record<string, unknown>>("/portable/export"),
+  importPortable: (bundle: unknown) =>
+    req<{ imported: Record<string, number> }>("/portable/import", { method: "POST", body: JSON.stringify({ bundle }) }),
+
   listAlerts: () => req<AlertRule[]>("/alerts"),
   createAlert: (rule: { name: string; sql: string; condition: AlertCondition; threshold: number }) =>
     req<AlertRule>("/alerts", { method: "POST", body: JSON.stringify(rule) }),

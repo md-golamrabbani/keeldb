@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { useWizard } from "@/lib/store";
 import type { MappingProfile, MigrationProject } from "@/lib/types";
 import ProjectRunPanel from "@/components/ProjectRunPanel";
+import PortabilityBar from "@/components/PortabilityBar";
 import { IconBookmark, IconLayers, IconPlay, IconPlus, IconTrash } from "@/components/icons";
 
 const OUTPUT_LABEL: Record<string, string> = { push: "push", sql: ".sql", csv: ".csv", json: ".json" };
@@ -59,6 +60,8 @@ export default function ProfilesPage() {
 
   return (
     <div className="space-y-8">
+      <PortabilityBar onImported={refresh} />
+
       {/* ---- Projects ---- */}
       <section className="space-y-4">
         <div className="flex items-end justify-between">
