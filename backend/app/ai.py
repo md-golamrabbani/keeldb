@@ -50,10 +50,16 @@ def _strip_fences(text: str) -> str:
     return (m.group(1) if m else text).strip().rstrip(";").strip()
 
 
+# A real User-Agent is required — Groq/OpenAI sit behind Cloudflare, which blocks
+# the default "Python-urllib/x" signature (error 1010).
+_UA = "KeelDB/1.0 (+https://github.com/md-golamrabbani/MigrationStudio)"
+
+
 def _post(url: str, headers: dict, body: dict) -> dict:
     req = urllib.request.Request(
         url, data=json.dumps(body).encode(),
-        headers={**headers, "content-type": "application/json"}, method="POST",
+        headers={**headers, "content-type": "application/json", "accept": "application/json", "user-agent": _UA},
+        method="POST",
     )
     with urllib.request.urlopen(req, timeout=45) as r:
         return json.loads(r.read().decode())
