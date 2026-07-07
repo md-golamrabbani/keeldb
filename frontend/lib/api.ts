@@ -1,4 +1,5 @@
 import type {
+  ActivityReport,
   ColumnDef,
   ColumnInfo,
   ConnectionProfile,
@@ -102,6 +103,9 @@ export const api = {
     req<HealthReport>(`/db/${connId}/health`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
   indexAdvice: (connId: string, schema: string) =>
     req<IndexAdvice>(`/db/${connId}/index-advice`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
+  activity: (connId: string) => req<ActivityReport>(`/db/${connId}/activity`),
+  killSession: (connId: string, sessionId: string | number) =>
+    req<{ ok: boolean; id: number }>(`/db/${connId}/kill`, { method: "POST", body: JSON.stringify({ session_id: String(sessionId) }) }),
 
   // query history + saved snippets
   history: (connId: string, limit = 100) => req<HistoryEntry[]>(`/db/${connId}/history?limit=${limit}`),

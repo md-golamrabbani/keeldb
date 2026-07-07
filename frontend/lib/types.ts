@@ -134,6 +134,22 @@ export interface HealthReport {
   tables: TableStat[];
 }
 
+export interface Session {
+  id: number;
+  user: string | null;
+  db: string | null;
+  state: string | null;
+  wait: string | null;
+  query: string | null;
+  duration_s: number | null;
+  is_self: boolean;
+}
+export interface ActivityReport {
+  supported: boolean;
+  dialect: string;
+  sessions: Session[];
+}
+
 export interface IndexFinding {
   level: "warn" | "info";
   kind: "no_primary_key" | "duplicate_index" | "redundant_index" | "unused_index";

@@ -5,7 +5,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from .. import advisor, dbops, duplicates, explain, health, profiler, relational, verify
+from .. import activity, advisor, dbops, duplicates, explain, health, profiler, relational, verify
 from ..connectors import connector_for
 from ..models import HistoryEntry
 from ..store import connection_store, history_store
@@ -23,6 +23,10 @@ class DuplicatesRequest(BaseModel):
     table: str
     columns: list[str]
     limit: int = 100
+
+
+class KillRequest(BaseModel):
+    session_id: str
 
 
 class DependentsRequest(BaseModel):
@@ -131,6 +135,32 @@ def health_report(conn_id: str, req: OrphanRequest):
     c = _connector(conn_id)
     try:
         return health.report(c, req.schema_name)
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.get("/{conn_id}/activity")
+def list_activity(conn_id: str):
+    """Live server sessions / running queries (PostgreSQL / MySQL)."""
+    c = _connector(conn_id)
+    try:
+        return activity.list_activity(c)
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.post("/{conn_id}/kill")
+def kill_session(conn_id: str, req: KillRequest):
+    """Terminate a server session by id (PostgreSQL / MySQL)."""
+    c = _connector(conn_id)
+    try:
+        return activity.kill_session(c, req.session_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
     except Exception as exc:
         raise HTTPException(502, dbops.clean_error(exc))
     finally:

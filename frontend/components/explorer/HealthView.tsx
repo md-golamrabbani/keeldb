@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { HealthReport, IndexAdvice } from "@/lib/types";
+import ActivityPanel from "./ActivityPanel";
 import { IconRefresh } from "@/components/icons";
 
 function fmtBytes(n: number | null): string {
@@ -113,6 +114,10 @@ export default function HealthView({ connId, schema }: { connId: string; schema:
               )}
             </div>
           )}
+
+          <div className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
+            <ActivityPanel connId={connId} />
+          </div>
         </>
       )}
     </div>
