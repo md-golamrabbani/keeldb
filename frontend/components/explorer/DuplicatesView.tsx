@@ -8,7 +8,7 @@ import { IconSearch } from "@/components/icons";
 // drills into the Data grid filtered on the group's first column.
 export default function DuplicatesView({ connId, schema, table, onViewRows }: {
   connId: string; schema: string; table: string;
-  onViewRows: (column: string, value: string) => void;
+  onViewRows: (column: string, value: string | null) => void;
 }) {
   const [columns, setColumns] = useState<ColumnInfo[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
@@ -92,7 +92,10 @@ export default function DuplicatesView({ connId, schema, table, onViewRows }: {
                       <td className="px-3 py-1.5 text-right font-semibold" style={{ color: "var(--warning)" }}>{g.count}</td>
                       <td className="px-3 py-1.5 text-right">
                         <button className="btn btn-ghost btn-sm"
-                          onClick={() => onViewRows(res.columns[0], String(g.values[res.columns[0]] ?? ""))}>
+                          onClick={() => {
+                            const v = g.values[res.columns[0]];
+                            onViewRows(res.columns[0], v === null ? null : String(v));
+                          }}>
                           View rows
                         </button>
                       </td>

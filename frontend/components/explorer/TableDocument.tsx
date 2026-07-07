@@ -24,7 +24,7 @@ export default function TableDocument({
   connId: string;
   schema: string;
   table: string;
-  initialFilter?: { column: string; value: string } | null;
+  initialFilter?: { column: string; value: string | null } | null;
   filterNonce: number;
   initialSub?: Sub;
   readOnly?: boolean;
@@ -34,10 +34,11 @@ export default function TableDocument({
 }) {
   const [sub, setSub] = useState<Sub>(initialSub);
   // Drill-in filter set when "View rows" is clicked from the Duplicates view.
-  const [drill, setDrill] = useState<{ column: string; value: string } | null>(null);
+  // value may be null — a duplicate group can share a NULL value in the matched column.
+  const [drill, setDrill] = useState<{ column: string; value: string | null } | null>(null);
   const [drillNonce, setDrillNonce] = useState(0);
 
-  const viewRows = (column: string, value: string) => {
+  const viewRows = (column: string, value: string | null) => {
     setDrill({ column, value });
     setDrillNonce((n) => n + 1);
     setSub("data");

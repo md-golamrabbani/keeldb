@@ -22,7 +22,7 @@ export default function DataGrid({
   connId: string;
   schema: string;
   table: string;
-  initialFilter?: { column: string; value: string } | null;
+  initialFilter?: { column: string; value: string | null } | null;
   onOpenReference?: (table: string, column: string, value: string) => void;
   readOnly?: boolean;
 }) {
@@ -31,7 +31,11 @@ export default function DataGrid({
   const [pageSize, setPageSize] = useState(25);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterCond[]>(
-    initialFilter ? [{ column: initialFilter.column, op: "=", value: initialFilter.value }] : []
+    initialFilter
+      ? [initialFilter.value === null
+          ? { column: initialFilter.column, op: "is_null", value: "" }
+          : { column: initialFilter.column, op: "=", value: initialFilter.value }]
+      : []
   );
   const [showFilter, setShowFilter] = useState(!!initialFilter);
   const [peek, setPeek] = useState<{ table: string; column: string; value: string } | null>(null);
@@ -188,7 +192,15 @@ export default function DataGrid({
         </div>
       </div>
 
-      {showFilter && data && <AdvancedFilter columns={data.columns} onApply={(f) => { setFilters(f); setPage(0); }} onClear={() => { setFilters([]); setPage(0); }} />}
+      {showFilter && data && (
+        <AdvancedFilter
+          key={filters.map((f) => `${f.column}:${f.op}:${f.value}`).join("|")}
+          columns={data.columns}
+          initial={filters}
+          onApply={(f) => { setFilters(f); setPage(0); }}
+          onClear={() => { setFilters([]); setPage(0); }}
+        />
+      )}
 
       {!editable && data && (
         <p className="text-xs muted">

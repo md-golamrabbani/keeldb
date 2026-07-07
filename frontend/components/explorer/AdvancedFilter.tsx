@@ -8,14 +8,18 @@ const noValue = (op: string) => FILTER_OPS.find((o) => o.value === op)?.noValue 
 
 export default function AdvancedFilter({
   columns,
+  initial,
   onApply,
   onClear,
 }: {
   columns: ColumnInfo[];
+  initial?: FilterCond[];
   onApply: (filters: FilterCond[]) => void;
   onClear: () => void;
 }) {
-  const [rows, setRows] = useState<FilterCond[]>([{ column: columns[0]?.name ?? "", op: "=", value: "" }]);
+  const [rows, setRows] = useState<FilterCond[]>(
+    initial && initial.length ? initial : [{ column: columns[0]?.name ?? "", op: "=", value: "" }]
+  );
 
   const patch = (i: number, p: Partial<FilterCond>) =>
     setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...p } : r)));
