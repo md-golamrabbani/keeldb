@@ -4,17 +4,27 @@ import { useEffect, useState } from "react";
 // Full-screen centered logo shown for ~1s on app open, then fades away. Lives in
 // the root layout, which persists across client-side navigation — so it only
 // appears on a fresh open, not when moving between routes.
+const SEEN_KEY = "keeldb_splash_shown";
+
 export default function Splash() {
-  const [phase, setPhase] = useState<"show" | "leaving" | "gone">("show");
+  // Play only once per app launch. Reading sessionStorage in the initializer
+  // means even if the layout ever remounts (e.g. a route change in the Tauri
+  // webview) the splash won't re-show — it only appears on a fresh open.
+  const [phase, setPhase] = useState<"show" | "leaving" | "gone">(() => {
+    try { if (typeof window !== "undefined" && sessionStorage.getItem(SEEN_KEY)) return "gone"; } catch {}
+    return "show";
+  });
 
   useEffect(() => {
+    if (phase === "gone") return;
+    try { sessionStorage.setItem(SEEN_KEY, "1"); } catch {}
     const t1 = setTimeout(() => setPhase("leaving"), 850);
     const t2 = setTimeout(() => setPhase("gone"), 1200);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (phase === "gone") return null;
 
