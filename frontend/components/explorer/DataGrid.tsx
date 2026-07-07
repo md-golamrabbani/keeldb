@@ -6,7 +6,10 @@ import { PAGE_SIZES } from "@/lib/types";
 import AdvancedFilter from "./AdvancedFilter";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
 import DependentsDialog from "./DependentsDialog";
+import ErrorBanner from "./ErrorBanner";
 import FkPeekDialog, { parseFk } from "./FkPeekDialog";
+import ImportCsvModal from "./ImportCsvModal";
+import Modal from "./Modal";
 import {
   IconChevronLeft, IconChevronRight, IconDownload, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
 } from "@/components/icons";
@@ -33,6 +36,7 @@ export default function DataGrid({
   const [showFilter, setShowFilter] = useState(!!initialFilter);
   const [peek, setPeek] = useState<{ table: string; column: string; value: string } | null>(null);
   const [refRow, setRefRow] = useState<Record<string, Cell> | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [orderBy, setOrderBy] = useState("");
   const [orderDir, setOrderDir] = useState<"asc" | "desc">("asc");
   const [loading, setLoading] = useState(false);
@@ -127,15 +131,6 @@ export default function DataGrid({
     catch (e) { setError(String(e)); }
   };
 
-  const doImport = async (file: File) => {
-    try {
-      const r = await api.importCsv(connId, schema, table, file);
-      flash(`Imported ${r.inserted}/${r.total} rows${r.errors.length ? ` · ${r.errors.length} batch error(s)` : ""}`);
-      if (r.errors.length) setError(r.errors.join("\n"));
-      load();
-    } catch (e) { setError(String(e)); }
-  };
-
   const sortBy = (name: string) => {
     if (orderBy === name) setOrderDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setOrderBy(name); setOrderDir("asc"); }
@@ -182,7 +177,7 @@ export default function DataGrid({
         )}
         <div className="ml-auto flex items-center gap-2">
           <input ref={fileInput} type="file" accept=".csv,text/csv" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.currentTarget.value = ""; }} />
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) setImportFile(f); e.currentTarget.value = ""; }} />
           <button className="btn btn-secondary btn-sm !h-9" onClick={() => fileInput.current?.click()} disabled={readOnly} title={readOnly ? "Connection is read-only" : ""}><IconUpload width={14} height={14} /> Import CSV</button>
           <div className="flex h-9 items-center gap-1 rounded-lg border px-1.5" style={{ borderColor: "var(--border-strong)" }}>
             <IconDownload width={14} height={14} style={{ color: "var(--text-muted)" }} />
@@ -203,24 +198,31 @@ export default function DataGrid({
         </p>
       )}
       {notice && <p className="text-xs" style={{ color: "var(--success)" }}>{notice}</p>}
-      {error && <p className="alert-danger whitespace-pre-wrap">{error}</p>}
+      <ErrorBanner message={error} onClose={() => setError("")} />
 
       {adding && data && (
-        <div className="card card-pad space-y-3">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-            {data.columns.map((col) => (
-              <div key={col.name}>
-                <label className="label">{col.name}{!col.nullable && col.default == null ? " *" : ""}<span className="ml-1 faint normal-case">{col.data_type}</span></label>
-                <input className="input" value={newRow[col.name] ?? ""} placeholder={col.nullable ? "null" : ""}
-                  onChange={(e) => setNewRow((n) => ({ ...n, [col.name]: e.target.value }))} />
-              </div>
-            ))}
+        <Modal title={`Add row to ${table}`} wide onClose={() => setAdding(false)}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {data.columns.map((col) => (
+                <div key={col.name}>
+                  <label className="label flex items-center gap-1.5">
+                    <span className="font-mono normal-case" style={{ color: "var(--text)" }}>{col.name}</span>
+                    {col.is_pk && <span className="badge badge-warning">PK</span>}
+                    {!col.nullable && col.default == null && <span style={{ color: "var(--danger)" }}>*</span>}
+                    <span className="ml-auto faint normal-case">{col.data_type}</span>
+                  </label>
+                  <input className="input" value={newRow[col.name] ?? ""} placeholder={col.nullable ? "null" : "required"}
+                    onChange={(e) => setNewRow((n) => ({ ...n, [col.name]: e.target.value }))} />
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button className="btn btn-ghost" onClick={() => setAdding(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={addRow}><IconPlus width={14} height={14} /> Insert row</button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button className="btn btn-primary btn-sm" onClick={addRow}>Insert</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setAdding(false)}>Cancel</button>
-          </div>
-        </div>
+        </Modal>
       )}
 
       <div className="card overflow-auto" style={{ maxHeight: "calc(100vh - 20rem)", minHeight: 220 }}>
@@ -329,6 +331,12 @@ export default function DataGrid({
         <DependentsDialog connId={connId} schema={schema} table={table} pk={refRow}
           onClose={() => setRefRow(null)}
           onOpenReference={(t, col, val) => { onOpenReference?.(t, col, val); setRefRow(null); }} />
+      )}
+      {importFile && data && (
+        <ImportCsvModal connId={connId} schema={schema} table={table} file={importFile}
+          columns={data.columns.map((c) => c.name)}
+          onClose={() => setImportFile(null)}
+          onDone={(msg) => { setImportFile(null); flash(msg); load(); }} />
       )}
     </div>
   );

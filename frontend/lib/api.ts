@@ -109,6 +109,8 @@ export const api = {
     req<HealthReport>(`/db/${connId}/health`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
   backupTable: (connId: string, schema: string, table: string) =>
     req<{ table: string; rows: number; sql: string }>(`/db/${connId}/backup`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
+  backupDatabase: (connId: string, schema: string) =>
+    req<{ schema: string; tables: number; rows: number; sql: string }>(`/db/${connId}/backup-database`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
   indexAdvice: (connId: string, schema: string) =>
     req<IndexAdvice>(`/db/${connId}/index-advice`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
   activity: (connId: string) => req<ActivityReport>(`/db/${connId}/activity`),

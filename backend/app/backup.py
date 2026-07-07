@@ -11,6 +11,21 @@ import sqlalchemy as sa
 from .connectors.base import Connector
 
 
+def backup_database(connector: Connector, schema: str) -> dict:
+    """Dump every table in the schema (schema + data) into one .sql script."""
+    insp = sa.inspect(connector.engine)
+    tables = sorted(insp.get_table_names(schema=schema or None))
+    parts, total = [], 0
+    for t in tables:
+        b = backup_table(connector, schema, t)
+        parts.append(f"-- ---- {t} ({b['rows']} rows) ----")
+        parts.append(b["sql"])
+        total += b["rows"]
+    header = f"-- KeelDB database backup — {len(tables)} table(s), {total} row(s)\n"
+    return {"schema": schema or "", "tables": len(tables), "rows": total,
+            "sql": header + "\n".join(parts) + ("\n" if parts else "")}
+
+
 def backup_table(connector: Connector, schema: str, table: str) -> dict:
     t = connector._table(schema, table)
     ddl = str(sa.schema.CreateTable(t).compile(connector.engine)).strip()

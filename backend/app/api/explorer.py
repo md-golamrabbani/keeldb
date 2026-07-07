@@ -229,6 +229,18 @@ def backup_table(conn_id: str, req: OrphanRequest):
         c.dispose()
 
 
+@router.post("/{conn_id}/backup-database")
+def backup_database(conn_id: str, req: OrphanRequest):
+    """Dump every table in the schema (schema + data) as one .sql script."""
+    c = _connector(conn_id)
+    try:
+        return backup.backup_database(c, req.schema_name)
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
 @router.post("/{conn_id}/index-advice")
 def index_advice(conn_id: str, req: OrphanRequest):
     """Index hygiene: duplicate/redundant/unused indexes + missing primary keys."""

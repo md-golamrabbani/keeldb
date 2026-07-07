@@ -19,6 +19,15 @@ def test_backup_contains_ddl_and_inserts(make_conn):
     assert "O''Brien" in res["sql"]  # quote correctly escaped
 
 
+def test_backup_database_covers_all_tables(make_conn):
+    c = make_conn(SEED + "; CREATE TABLE dept (id INTEGER PRIMARY KEY, name TEXT); INSERT INTO dept VALUES (1,'Eng')")
+    res = backup.backup_database(c, "main")
+    c.dispose()
+    assert res["tables"] == 2 and res["rows"] == 4  # 3 emp + 1 dept
+    assert "CREATE TABLE" in res["sql"] and res["sql"].count("CREATE TABLE") == 2
+    assert "emp" in res["sql"] and "dept" in res["sql"]
+
+
 def test_backup_is_restorable(make_conn, tmp_path):
     c = make_conn(SEED)
     sql = backup.backup_table(c, "main", "emp")["sql"]

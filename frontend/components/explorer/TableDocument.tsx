@@ -1,15 +1,17 @@
 "use client";
 import { useState } from "react";
 import DataGrid from "./DataGrid";
+import DDLView from "./DDLView";
 import DuplicatesView from "./DuplicatesView";
 import ProfileView from "./ProfileView";
 import StructureEditor from "./StructureEditor";
 import OperationsPanel from "./OperationsPanel";
 
-type Sub = "data" | "structure" | "operations" | "profile" | "duplicates";
+type Sub = "data" | "structure" | "ddl" | "operations" | "profile" | "duplicates";
 const SUBS: { id: Sub; label: string }[] = [
   { id: "data", label: "Data" },
   { id: "structure", label: "Structure" },
+  { id: "ddl", label: "DDL" },
   { id: "operations", label: "Operations" },
   { id: "profile", label: "Profile" },
   { id: "duplicates", label: "Duplicates" },
@@ -61,6 +63,7 @@ export default function TableDocument({
           initialFilter={gridFilter} onOpenReference={onOpenReference} readOnly={readOnly} />
       )}
       {sub === "structure" && <StructureEditor connId={connId} schema={schema} table={table} />}
+      {sub === "ddl" && <DDLView connId={connId} schema={schema} table={table} />}
       {sub === "operations" && (
         <OperationsPanel connId={connId} schema={schema} table={table}
           onChanged={(nt) => (nt ? onRenamed(nt) : onDropped())} />

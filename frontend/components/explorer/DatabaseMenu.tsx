@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import type { ColumnDef } from "@/lib/types";
+import ErrorBanner from "./ErrorBanner";
 import GridTable from "./GridTable";
 import IntegrityModal from "./IntegrityModal";
 import Modal from "./Modal";
@@ -28,9 +29,26 @@ export default function DatabaseMenu({
       onClick={() => { setOpen(false); setError(""); setDialog(d); }}>{label}</button>
   );
 
+  const exportDatabase = async () => {
+    setOpen(false); setError("");
+    try {
+      const res = await api.backupDatabase(connId, schema);
+      const blob = new Blob([res.sql], { type: "application/sql" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${database || schema || "database"}.sql`; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) { setError(String(e)); }
+  };
+
   return (
     <div className="relative">
       <button className="btn btn-secondary btn-sm !h-9" onClick={() => setOpen((o) => !o)}>Database ▾</button>
+      {error && !open && (
+        <div className="absolute right-0 z-30 mt-1 w-72">
+          <ErrorBanner message={error} onClose={() => setError("")} />
+        </div>
+      )}
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
@@ -40,6 +58,9 @@ export default function DatabaseMenu({
             {item("Rename database", "renameDb")}
             {item("Privileges", "privileges")}
             {item("Check integrity (FK orphans)", "integrity")}
+            <div className="my-1 border-t" />
+            <button className="block w-full px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-2)]"
+              onClick={exportDatabase}>Export database (.sql)</button>
             <div className="my-1 border-t" />
             {item("Drop database…", "dropDb", true)}
           </div>
