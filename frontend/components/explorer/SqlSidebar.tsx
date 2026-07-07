@@ -36,15 +36,18 @@ export default function SqlSidebar({
     onConfirm: async () => onDelete(id),
   });
 
-  const saveLabel = saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : "Save";
-
   return (
-    <aside className="card flex w-full shrink-0 flex-col lg:h-[calc(100vh-13rem)] lg:w-60">
+    <aside className="card flex h-full w-full shrink-0 flex-col lg:w-60">
       <div className="flex items-center gap-1.5 border-b p-2" style={{ borderColor: "var(--border)" }}>
         <button className="btn btn-primary btn-sm flex-1" onClick={onNew}><IconPlus width={13} height={13} /> New query</button>
         <button className="btn btn-secondary btn-sm" onClick={onSave} title="Save now">
-          <IconSave width={13} height={13} /> {saveLabel}
+          <IconSave width={13} height={13} /> Save
         </button>
+        {/* silent auto-save: a subtle, fixed-width status that never shifts layout */}
+        <span className="w-4 text-center text-xs transition-opacity" title={saveState === "saving" ? "Saving…" : "Saved"}
+          style={{ color: saveState === "saved" ? "var(--success)" : "var(--text-faint)", opacity: saveState === "idle" ? 0 : 1 }}>
+          {saveState === "saving" ? "•" : "✓"}
+        </span>
       </div>
 
       <div className="flex gap-1 px-2 pt-2 text-xs">

@@ -203,8 +203,8 @@ function Explorer() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="toolbar">
+    <div className="flex flex-col gap-4 lg:h-[calc(100dvh-6.5rem)]">
+      <div className="toolbar shrink-0">
         <div className="flex items-center gap-2">
           <IconDatabase width={16} height={16} className="shrink-0" style={{ color: "var(--text-faint)" }} />
           <Select
@@ -273,9 +273,9 @@ function Explorer() {
       )}
 
       {connId && schema && (
-        <div className="flex gap-5">
+        <div className="flex min-h-0 flex-1 gap-5">
           {/* table list */}
-          <div className="w-56 shrink-0 space-y-2">
+          <div className="flex w-56 shrink-0 flex-col gap-2">
             <div className="relative">
               <IconSearch
                 width={13}
@@ -290,7 +290,7 @@ function Explorer() {
                 onChange={(e) => setFilter(e.target.value)}
               />
             </div>
-            <div className="card max-h-[72vh] overflow-y-auto p-1.5">
+            <div className="card min-h-0 flex-1 overflow-y-auto p-1.5">
               {filtered.map((t) => (
                 <button
                   key={t.name}
@@ -323,10 +323,10 @@ function Explorer() {
           </div>
 
           {/* documents */}
-          <div className="min-w-0 flex-1 space-y-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
             {tabs.length > 0 && (
               <div
-                className="flex items-stretch gap-1 overflow-x-auto border-b"
+                className="flex shrink-0 items-stretch gap-1 overflow-x-auto border-b"
                 style={{ borderColor: "var(--border)" }}
               >
                 {tabs.map((t) => {
@@ -369,10 +369,12 @@ function Explorer() {
               </div>
             )}
 
-            {/* Keep every open document mounted; show only the active one so state
-                (filters, scroll, sub-view, results) survives tab switches. */}
+            {/* Scroll region: the panes scroll here, so the toolbar, tab strip,
+                and table list stay put (no whole-page scroll). Keep every open
+                document mounted; show only the active one so per-tab state survives. */}
+            <div className="min-h-0 flex-1 overflow-y-auto">
             {tabs.map((t) => (
-              <div key={t.id} className={t.id === activeId ? "" : "hidden"}>
+              <div key={t.id} className={t.id === activeId ? "h-full" : "hidden"}>
                 {t.kind === "table" && t.table && (
                   <TableDocument
                     connId={connId}
@@ -423,6 +425,7 @@ function Explorer() {
                 </p>
               </div>
             )}
+            </div>
           </div>
         </div>
       )}

@@ -225,7 +225,7 @@ export default function DataGrid({
         </Modal>
       )}
 
-      <div className="card overflow-auto" style={{ maxHeight: "calc(100vh - 20rem)", minHeight: 220 }}>
+      <div className="card overflow-x-auto" style={{ minHeight: 220 }}>
         <table className="w-full text-xs" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
           <thead>
             <tr className="text-left uppercase tracking-wide muted">
