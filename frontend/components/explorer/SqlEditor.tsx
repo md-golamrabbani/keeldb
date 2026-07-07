@@ -5,7 +5,7 @@ import type { Environment, Flavor, QueryPlan, QueryResult } from "@/lib/types";
 import { analyzeSql, type StmtInfo } from "@/lib/sqlguard";
 import SqlCodeEditor from "./SqlCodeEditor";
 import GuardDialog from "./GuardDialog";
-import QueryLibrary from "./QueryLibrary";
+import SqlSidebar from "./SqlSidebar";
 import ResultChart from "./ResultChart";
 import { IconDownload, IconPlay } from "@/components/icons";
 
@@ -280,7 +280,9 @@ export default function SqlEditor({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-4 lg:flex-row">
+      <SqlSidebar connId={connId} sql={sql} onLoad={setSql} onNew={() => { setSql(""); setResult(null); setPlan(null); }} historyNonce={historyNonce} />
+      <div className="min-w-0 flex-1 space-y-3">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm" aria-hidden>✨</span>
@@ -357,8 +359,6 @@ export default function SqlEditor({
           </div>
         </div>
       </div>
-
-      <QueryLibrary connId={connId} sql={sql} onLoad={setSql} historyNonce={historyNonce} />
 
       {planError && <p className="alert-danger whitespace-pre-wrap">{planError}</p>}
       {plan && (
@@ -490,6 +490,7 @@ export default function SqlEditor({
           onClose={() => setGuard(null)}
         />
       )}
+      </div>
     </div>
   );
 }
