@@ -21,6 +21,7 @@ import ast
 from datetime import datetime
 from typing import Any, Callable
 
+from .masking import MASK_FUNCTIONS
 from .registry import FALSE_WORDS, TRUE_WORDS, _parse_dt
 from .uuidgen import det_uuid
 
@@ -141,6 +142,8 @@ FUNCTIONS: dict[str, Callable[..., Any]] = {
     "substr": _substr,
     "zfill": _zfill,
     "nullif": _nullif,
+    # data masking / anonymization (deterministic — see transform/masking.py)
+    **MASK_FUNCTIONS,
 }
 
 _ALLOWED_NODES = (

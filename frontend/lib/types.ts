@@ -174,6 +174,24 @@ export type RunEvent =
 export const CAST_TYPES = ["", "text", "int", "numeric", "bool", "date", "timestamp", "uuid"];
 export const FLAVORS: Flavor[] = ["mysql", "postgresql", "supabase", "neon"];
 
+// Deterministic data-masking presets for prod→dev migrations. Selecting one
+// writes the expression into the column's transform field; the same input always
+// maps to the same fake output, so foreign keys stay consistent across tables.
+export const MASK_PRESETS: { label: string; expr: string }[] = [
+  { label: "Fake name", expr: "fake_name(value)" },
+  { label: "Fake first name", expr: "fake_first_name(value)" },
+  { label: "Fake last name", expr: "fake_last_name(value)" },
+  { label: "Fake email", expr: "fake_email(value)" },
+  { label: "Fake phone", expr: "fake_phone(value)" },
+  { label: "Fake company", expr: "fake_company(value)" },
+  { label: "Fake city", expr: "fake_city(value)" },
+  { label: "Mask (keep first 2)", expr: "mask(value, 2)" },
+  { label: "Mask (keep last 4)", expr: "mask(value, -4)" },
+  { label: "Mask email", expr: "mask_email(value)" },
+  { label: "Hash (pseudonym)", expr: "hash_hex(value, 12)" },
+  { label: "Redact", expr: "redact(value)" },
+];
+
 // ---- Database Explorer ----
 export interface QueryResult {
   ok: boolean;

@@ -1,7 +1,7 @@
 "use client";
 import { autoMap, useWizard } from "@/lib/store";
 import type { ColumnInfo, ConflictStrategy } from "@/lib/types";
-import { CAST_TYPES } from "@/lib/types";
+import { CAST_TYPES, MASK_PRESETS } from "@/lib/types";
 import { IconBolt } from "./icons";
 
 function ColBadges({ c }: { c: ColumnInfo }) {
@@ -111,9 +111,17 @@ export default function MappingCanvas() {
                       onChange={(e) => patchColumnMap(m.source_col, { cast_format: e.target.value })} />
                   </td>
                   <td className="px-3 py-1.5">
-                    <input className="input !w-64 !py-1.5 font-mono text-xs" placeholder="e.g. split_part(value, ' ', -1)"
-                      value={m.transform_expr} disabled={!m.enabled}
-                      onChange={(e) => patchColumnMap(m.source_col, { transform_expr: e.target.value })} />
+                    <div className="flex items-center gap-1">
+                      <input className="input !w-64 !py-1.5 font-mono text-xs" placeholder="e.g. split_part(value, ' ', -1)"
+                        value={m.transform_expr} disabled={!m.enabled}
+                        onChange={(e) => patchColumnMap(m.source_col, { transform_expr: e.target.value })} />
+                      <select className="select !w-9 !px-1 !py-1.5" value="" disabled={!m.enabled}
+                        title="Insert a data-masking preset (anonymize for prod→dev)"
+                        onChange={(e) => { if (e.target.value) patchColumnMap(m.source_col, { transform_expr: e.target.value }); }}>
+                        <option value="">🎭</option>
+                        {MASK_PRESETS.map((p) => <option key={p.expr} value={p.expr}>{p.label}</option>)}
+                      </select>
+                    </div>
                   </td>
                   <td className="px-3 py-1.5">
                     <input className="input !w-24 !py-1.5" value={m.default_value ?? ""} disabled={!m.enabled}
