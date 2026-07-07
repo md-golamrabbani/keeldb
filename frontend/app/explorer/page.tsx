@@ -13,17 +13,19 @@ import type { ConnectionProfile, TableInfo } from "@/lib/types";
 import TableDocument from "@/components/explorer/TableDocument";
 import SqlEditor from "@/components/explorer/SqlEditor";
 import DesignerView from "@/components/explorer/DesignerView";
+import HealthView from "@/components/explorer/HealthView";
 import DatabaseMenu from "@/components/explorer/DatabaseMenu";
 import GridTable from "@/components/explorer/GridTable";
 import {
   IconColumns,
+  IconDatabase,
   IconSearch,
   IconTable,
   IconTerminal,
   IconBolt,
 } from "@/components/icons";
 
-type TabKind = "table" | "sql" | "designer" | "triggers";
+type TabKind = "table" | "sql" | "designer" | "triggers" | "health";
 interface OpenTab {
   id: string;
   kind: TabKind;
@@ -39,6 +41,7 @@ const KIND_ICON = {
   sql: IconTerminal,
   designer: IconColumns,
   triggers: IconBolt,
+  health: IconDatabase,
 };
 
 function Explorer() {
@@ -255,6 +258,12 @@ function Explorer() {
             >
               <IconBolt width={14} height={14} /> Triggers
             </button>
+            <button
+              className="btn btn-secondary btn-sm !h-9"
+              onClick={() => openTool("health", "Health")}
+            >
+              <IconDatabase width={14} height={14} /> Health
+            </button>
             <DatabaseMenu
               connId={connId}
               schema={schema}
@@ -408,6 +417,9 @@ function Explorer() {
                 )}
                 {t.kind === "designer" && (
                   <DesignerView connId={connId} schema={schema} />
+                )}
+                {t.kind === "health" && (
+                  <HealthView connId={connId} schema={schema} />
                 )}
                 {t.kind === "triggers" && (
                   <GridTable

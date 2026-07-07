@@ -5,7 +5,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from .. import dbops, duplicates, explain, profiler, relational, verify
+from .. import dbops, duplicates, explain, health, profiler, relational, verify
 from ..connectors import connector_for
 from ..models import HistoryEntry
 from ..store import connection_store, history_store
@@ -123,6 +123,18 @@ def query_history(conn_id: str, limit: int = 100):
 @router.delete("/{conn_id}/history")
 def clear_history(conn_id: str):
     return {"cleared": history_store.clear(conn_id)}
+
+
+@router.post("/{conn_id}/health")
+def health_report(conn_id: str, req: OrphanRequest):
+    """Storage & size overview: database totals + top tables by size/rows."""
+    c = _connector(conn_id)
+    try:
+        return health.report(c, req.schema_name)
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
 
 
 @router.post("/{conn_id}/orphans")

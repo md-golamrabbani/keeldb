@@ -7,6 +7,7 @@ import type {
   DependentsResult,
   DuplicateResult,
   ExportResult,
+  HealthReport,
   HistoryEntry,
   IndexList,
   FilterCond,
@@ -96,6 +97,8 @@ export const api = {
     req<{ ok: boolean }>(`/db/${connId}/index/drop`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name }) }),
   listConstraints: (connId: string, schema: string, table: string) =>
     req<ConstraintList>(`/db/${connId}/constraints`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
+  health: (connId: string, schema: string) =>
+    req<HealthReport>(`/db/${connId}/health`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
 
   // query history + saved snippets
   history: (connId: string, limit = 100) => req<HistoryEntry[]>(`/db/${connId}/history?limit=${limit}`),

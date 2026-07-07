@@ -122,6 +122,18 @@ export interface ConstraintList {
   checks: { name: string | null; sqltext: string | null }[];
 }
 
+export interface TableStat {
+  name: string;
+  rows: number;
+  size_bytes: number | null;
+  index_bytes: number | null;
+}
+export interface HealthReport {
+  dialect: string;
+  overview: { table_count: number; total_rows: number; total_size_bytes: number | null };
+  tables: TableStat[];
+}
+
 export interface Snippet {
   id: string;
   name: string;
