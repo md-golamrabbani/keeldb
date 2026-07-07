@@ -2,14 +2,16 @@
 import { useState } from "react";
 import DataGrid from "./DataGrid";
 import DuplicatesView from "./DuplicatesView";
+import ProfileView from "./ProfileView";
 import StructureEditor from "./StructureEditor";
 import OperationsPanel from "./OperationsPanel";
 
-type Sub = "data" | "structure" | "operations" | "duplicates";
+type Sub = "data" | "structure" | "operations" | "profile" | "duplicates";
 const SUBS: { id: Sub; label: string }[] = [
   { id: "data", label: "Data" },
   { id: "structure", label: "Structure" },
   { id: "operations", label: "Operations" },
+  { id: "profile", label: "Profile" },
   { id: "duplicates", label: "Duplicates" },
 ];
 
@@ -63,6 +65,7 @@ export default function TableDocument({
         <OperationsPanel connId={connId} schema={schema} table={table}
           onChanged={(nt) => (nt ? onRenamed(nt) : onDropped())} />
       )}
+      {sub === "profile" && <ProfileView connId={connId} schema={schema} table={table} />}
       {sub === "duplicates" && (
         <DuplicatesView connId={connId} schema={schema} table={table} onViewRows={viewRows} />
       )}

@@ -104,6 +104,27 @@ export interface DependentsResult {
   referencing_tables: number;
 }
 
+export interface ColumnProfile {
+  name: string;
+  type: string;
+  kind: "numeric" | "bool" | "datetime" | "text" | "other";
+  null_count: number;
+  null_pct: number;
+  distinct: number;
+  distinct_pct: number;
+  unique: boolean;
+  min: string | number | boolean | null;
+  max: string | number | boolean | null;
+  avg: number | null;
+  pattern: string | null;
+  pattern_pct: number;
+}
+export interface TableProfile {
+  table: string;
+  total_rows: number;
+  columns: ColumnProfile[];
+}
+
 export interface MigrationProject {
   id: string;
   name: string;

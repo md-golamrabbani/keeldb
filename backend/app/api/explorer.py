@@ -5,7 +5,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from .. import dbops, duplicates, relational, verify
+from .. import dbops, duplicates, profiler, relational, verify
 from ..connectors import connector_for
 from ..store import connection_store
 
@@ -28,6 +28,12 @@ class DependentsRequest(BaseModel):
     schema_name: str = ""
     table: str
     pk: dict[str, Any]
+
+
+class ProfileRequest(BaseModel):
+    schema_name: str = ""
+    table: str
+    columns: Optional[list[str]] = None
 
 
 def _connector(conn_id: str):
@@ -128,6 +134,20 @@ def dependents(conn_id: str, req: DependentsRequest):
     c = _connector(conn_id)
     try:
         return relational.dependents(c, req.schema_name, req.table, req.pk)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.post("/{conn_id}/profile")
+def profile_table(conn_id: str, req: ProfileRequest):
+    """Per-column data profile: nulls, distinct, min/max, patterns."""
+    c = _connector(conn_id)
+    try:
+        return profiler.profile_table(c, req.schema_name, req.table, req.columns)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:

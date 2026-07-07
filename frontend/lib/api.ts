@@ -19,6 +19,7 @@ import type {
   SchemaGraph,
   TableData,
   TableInfo,
+  TableProfile,
   TestResult,
   TransformedPreviewRow,
   WritePreview,
@@ -78,6 +79,8 @@ export const api = {
     req<DuplicateResult>(`/db/${connId}/duplicates`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, columns, limit }) }),
   dependents: (connId: string, schema: string, table: string, pk: Record<string, unknown>) =>
     req<DependentsResult>(`/db/${connId}/dependents`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, pk }) }),
+  profile: (connId: string, schema: string, table: string) =>
+    req<TableProfile>(`/db/${connId}/profile`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
 
   listProjects: () => req<MigrationProject[]>("/projects"),
   saveProject: (p: Partial<MigrationProject> & { name: string; mapping_ids: string[] }) =>
