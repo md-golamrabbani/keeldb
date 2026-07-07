@@ -6,6 +6,7 @@ import { analyzeSql, type StmtInfo } from "@/lib/sqlguard";
 import SqlCodeEditor from "./SqlCodeEditor";
 import GuardDialog from "./GuardDialog";
 import QueryLibrary from "./QueryLibrary";
+import ResultChart from "./ResultChart";
 import { IconDownload, IconPlay } from "@/components/icons";
 
 interface LintError {
@@ -139,6 +140,10 @@ export default function SqlEditor({
   const [planError, setPlanError] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [historyNonce, setHistoryNonce] = useState(0);
+  const [aiQuestion, setAiQuestion] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMsg, setAiMsg] = useState("");
+  const [showChart, setShowChart] = useState(false);
 
   // Fetch columns for tables referenced in the query so autocomplete can suggest them.
   useEffect(() => {
@@ -236,6 +241,20 @@ export default function SqlEditor({
     setGuard(stmts); // open the guard dialog; it confirms, then calls execute()
   };
 
+  const askAi = async () => {
+    if (!aiQuestion.trim()) return;
+    setAiBusy(true); setAiMsg("");
+    try {
+      const res = await api.aiSql(connId, schema, aiQuestion);
+      if (res.available && res.sql) { setSql(res.sql); setAiMsg("Generated — review, then Run."); }
+      else setAiMsg(res.message || "AI assist unavailable.");
+    } catch (e) {
+      setAiMsg(String(e));
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
   const analyze = async () => {
     setAnalyzing(true); setPlanError(""); setPlan(null);
     try {
@@ -262,6 +281,19 @@ export default function SqlEditor({
 
   return (
     <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm" aria-hidden>✨</span>
+          <input className="input !h-9 !w-full !py-0 !pl-8" placeholder="Ask in plain English — e.g. “top 10 customers by total orders”"
+            value={aiQuestion} onChange={(e) => setAiQuestion(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") askAi(); }} />
+        </div>
+        <button className="btn btn-secondary btn-sm !h-9" onClick={askAi} disabled={aiBusy || !aiQuestion.trim()}>
+          {aiBusy ? "Thinking…" : "Ask AI"}
+        </button>
+      </div>
+      {aiMsg && <p className="text-xs muted">{aiMsg}</p>}
+
       <div className="card overflow-hidden">
         <SqlCodeEditor
           value={sql}
@@ -378,14 +410,20 @@ export default function SqlEditor({
               {result.elapsed_ms} ms
             </p>
             {result.is_select && !!result.rows?.length && (
-              <button
-                className="btn btn-secondary btn-sm !h-8"
-                onClick={downloadCsv}
-              >
-                <IconDownload width={13} height={13} /> Download CSV
-              </button>
+              <div className="flex items-center gap-2">
+                <button className="btn btn-secondary btn-sm !h-8" onClick={() => setShowChart((s) => !s)}>
+                  {showChart ? "Hide chart" : "Chart"}
+                </button>
+                <button className="btn btn-secondary btn-sm !h-8" onClick={downloadCsv}>
+                  <IconDownload width={13} height={13} /> Download CSV
+                </button>
+              </div>
             )}
           </div>
+
+          {showChart && result.is_select && result.columns && result.rows && result.rows.length > 0 && (
+            <ResultChart columns={result.columns} rows={result.rows} />
+          )}
           {result.is_select && result.columns && (
             <div
               className="card overflow-auto"
