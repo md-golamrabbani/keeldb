@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import TopNav from "@/components/TopNav";
 import BackendProvider from "@/components/BackendProvider";
+import CommandPalette from "@/components/CommandPalette";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default function RootLayout({
         <main className="mx-auto w-full max-w-[1600px] px-6 pb-7 pt-3">
           <BackendProvider>{children}</BackendProvider>
         </main>
+        <CommandPalette />
       </body>
     </html>
   );
