@@ -3,8 +3,8 @@ import { useRef, useState } from "react";
 import { api, runMigration } from "@/lib/api";
 import { buildMapping } from "@/lib/mapping";
 import { useWizard } from "@/lib/store";
-import type { OutputMode, Report, RowError } from "@/lib/types";
-import { IconCheck, IconDownload, IconFlask, IconPlay } from "./icons";
+import type { OutputMode, Report, RollbackSim, RowError } from "@/lib/types";
+import { IconCheck, IconDownload, IconFlask, IconLock, IconPlay } from "./icons";
 
 interface Progress { rows_read: number; rows_written: number; rows_skipped: number; rows_errored: number }
 
@@ -27,9 +27,23 @@ export default function RunPanel() {
   const [fatal, setFatal] = useState("");
   const [saveMsg, setSaveMsg] = useState("");
   const [exportUrl, setExportUrl] = useState("");
+  const [sim, setSim] = useState<RollbackSim | null>(null);
+  const [simBusy, setSimBusy] = useState(false);
+  const [simError, setSimError] = useState("");
   const errorsRef = useRef<RowError[]>([]);
 
   const isDownload = outputMode !== "push";
+
+  const checkRollback = async () => {
+    setSimBusy(true); setSimError(""); setSim(null);
+    try {
+      setSim(await api.rollbackSimulate(buildMapping(wizard)));
+    } catch (e) {
+      setSimError(String(e));
+    } finally {
+      setSimBusy(false);
+    }
+  };
 
   const start = async (dryRun: boolean) => {
     setRunning(true);
@@ -107,6 +121,12 @@ export default function RunPanel() {
         <button className="btn btn-secondary" onClick={() => start(true)} disabled={running}>
           <IconFlask width={15} height={15} /> Dry run
         </button>
+        {outputMode === "push" && (
+          <button className="btn btn-secondary" onClick={checkRollback} disabled={running || simBusy}
+            title="Pre-flight: can this migration be rolled back, and what could it cost?">
+            <IconLock width={14} height={14} /> {simBusy ? "Checking…" : "Rollback check"}
+          </button>
+        )}
         <button className="btn btn-primary" onClick={() => start(false)} disabled={running}>
           {isDownload ? <IconDownload width={15} height={15} /> : <IconPlay width={13} height={13} />}
           {running ? "Running…" : isDownload ? "Generate export" : "Run migration"}
@@ -118,6 +138,9 @@ export default function RunPanel() {
         </div>
       </div>
       {saveMsg && <p className="text-xs" style={{ color: "var(--success)" }}>{saveMsg}</p>}
+
+      {simError && <p className="alert-danger">{simError}</p>}
+      {sim && <RollbackReport sim={sim} />}
 
       {(running || report) && (
         <div className="card card-pad space-y-4">
@@ -188,6 +211,42 @@ export default function RunPanel() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+const ROLLBACK_TONE: Record<RollbackSim["rollback"], { color: string; soft: string; label: string }> = {
+  clean: { color: "var(--success)", soft: "var(--success-soft)", label: "Cleanly reversible" },
+  partial: { color: "var(--warning)", soft: "var(--warning-soft)", label: "Partially reversible" },
+  lossy: { color: "var(--danger)", soft: "var(--danger-soft)", label: "Not cleanly reversible" },
+};
+
+function Badge({ label, tone }: { label: string; tone: string }) {
+  return <span className="rounded-md px-2 py-0.5 text-xs font-semibold uppercase tracking-wide"
+    style={{ background: `color-mix(in srgb, ${tone} 15%, transparent)`, color: tone }}>{label}</span>;
+}
+
+function RollbackReport({ sim }: { sim: RollbackSim }) {
+  const t = ROLLBACK_TONE[sim.rollback];
+  const lossTone = sim.data_loss_risk === "high" ? "var(--danger)" : sim.data_loss_risk === "low" ? "var(--warning)" : "var(--success)";
+  const lockTone = sim.lock_risk === "high" ? "var(--danger)" : sim.lock_risk === "moderate" ? "var(--warning)" : "var(--success)";
+  return (
+    <div className="card card-pad space-y-3" style={{ borderColor: t.color }}>
+      <div className="flex flex-wrap items-center gap-2">
+        <IconLock width={16} height={16} />
+        <h3 className="font-semibold">Rollback simulation</h3>
+        <span className="rounded-md px-2 py-0.5 text-sm font-semibold" style={{ background: t.soft, color: t.color }}>{t.label}</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Badge label={`Data loss: ${sim.data_loss_risk}`} tone={lossTone} />
+        <Badge label={`Lock risk: ${sim.lock_risk}`} tone={lockTone} />
+        <Badge label={`${sim.source_rows.toLocaleString()} rows in`} tone="var(--accent)" />
+        {sim.max_overwrites > 0 && <Badge label={`≤ ${sim.max_overwrites.toLocaleString()} overwritten`} tone="var(--danger)" />}
+      </div>
+      <ul className="list-disc space-y-1 pl-5 text-sm muted">
+        {sim.plan.map((step, i) => <li key={i}>{step}</li>)}
+      </ul>
+      <p className="text-sm font-medium" style={{ color: t.color }}>{sim.recommendation}</p>
     </div>
   );
 }

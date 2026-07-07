@@ -11,6 +11,7 @@ import type {
   MigrationProject,
   OrphanResult,
   ProjectEvent,
+  RollbackSim,
   QueryResult,
   RunEvent,
   SchemaGraph,
@@ -104,6 +105,9 @@ export const api = {
     source_conn_id: string; source_schema: string; source_table: string;
     target_conn_id: string; target_schema: string; target_table: string; execute: boolean;
   }) => req<{ ddl: string; created: boolean }>("/migrate/generate-target", { method: "POST", body: JSON.stringify(p) }),
+
+  rollbackSimulate: (mapping: MappingProfile) =>
+    req<RollbackSim>("/migrate/rollback-simulate", { method: "POST", body: JSON.stringify({ mapping }) }),
 
   // ---- Database Explorer ----
   runSql: (connId: string, sql: string, schema = "", maxRows = 1000) =>

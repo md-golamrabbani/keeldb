@@ -61,6 +61,21 @@ export interface OrphanResult {
   scanned: number;
 }
 
+export interface RollbackSim {
+  target_exists: boolean;
+  source_rows: number;
+  target_rows_before: number;
+  strategy: ConflictStrategy;
+  conflict_keys: string[];
+  rollback: "clean" | "partial" | "lossy";
+  data_loss_risk: "none" | "low" | "high";
+  max_overwrites: number;
+  lock_risk: "negligible" | "low" | "moderate" | "high";
+  tables_affected: string[];
+  plan: string[];
+  recommendation: string;
+}
+
 export interface MigrationProject {
   id: string;
   name: string;

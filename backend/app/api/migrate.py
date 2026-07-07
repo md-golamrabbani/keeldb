@@ -7,10 +7,10 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from .. import schemagen, verify
+from .. import rollback, schemagen, verify
 from ..connectors import connector_for
 from ..dbops import clean_error
-from ..models import MigrateRequest
+from ..models import MappingProfile, MigrateRequest
 from ..runner import EXPORT_DIR, run_migration
 from ..sinks import EXPORT_EXT, EXPORT_MEDIA
 from ..store import connection_store
@@ -36,6 +36,28 @@ class ReconcileRequest(BaseModel):
     target_schema: str = ""
     target_table: str
     where: str = ""
+
+
+class RollbackSimRequest(BaseModel):
+    mapping: MappingProfile
+
+
+@router.post("/rollback-simulate")
+def rollback_simulate(req: RollbackSimRequest):
+    """Pre-flight: can this migration be rolled back, and what could it cost?"""
+    src = connection_store.get(req.mapping.source_conn_id)
+    tgt = connection_store.get(req.mapping.target_conn_id)
+    if not src or not tgt:
+        raise HTTPException(404, "source or target connection not found")
+    sc = connector_for(src)
+    tc = connector_for(tgt)
+    try:
+        return rollback.simulate_rollback(req.mapping, sc, tc)
+    except Exception as exc:
+        raise HTTPException(502, clean_error(exc))
+    finally:
+        sc.dispose()
+        tc.dispose()
 
 
 @router.post("/reconcile")
