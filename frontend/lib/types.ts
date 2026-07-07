@@ -104,6 +104,21 @@ export interface DependentsResult {
   referencing_tables: number;
 }
 
+export interface PlanHint {
+  level: "warn" | "info";
+  message: string;
+  table: string | null;
+}
+export interface QueryPlan {
+  dialect: string;
+  sql: string;
+  plan: { detail: string }[];
+  plan_text: string;
+  hints: PlanHint[];
+  scans: string[];
+  total_cost?: number;
+}
+
 export interface ColumnProfile {
   name: string;
   type: string;

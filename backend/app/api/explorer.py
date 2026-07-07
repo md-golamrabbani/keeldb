@@ -5,7 +5,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from .. import dbops, duplicates, profiler, relational, verify
+from .. import dbops, duplicates, explain, profiler, relational, verify
 from ..connectors import connector_for
 from ..store import connection_store
 
@@ -134,6 +134,20 @@ def dependents(conn_id: str, req: DependentsRequest):
     c = _connector(conn_id)
     try:
         return relational.dependents(c, req.schema_name, req.table, req.pk)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.post("/{conn_id}/explain")
+def explain_query(conn_id: str, req: QueryRequest):
+    """Run EXPLAIN and translate the plan into performance hints."""
+    c = _connector(conn_id)
+    try:
+        return explain.analyze_query(c, req.sql, req.schema_name)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:

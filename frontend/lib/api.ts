@@ -13,6 +13,7 @@ import type {
   MigrationProject,
   OrphanResult,
   ProjectEvent,
+  QueryPlan,
   RollbackSim,
   QueryResult,
   RunEvent,
@@ -81,6 +82,8 @@ export const api = {
     req<DependentsResult>(`/db/${connId}/dependents`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, pk }) }),
   profile: (connId: string, schema: string, table: string) =>
     req<TableProfile>(`/db/${connId}/profile`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
+  explainQuery: (connId: string, sql: string, schema = "") =>
+    req<QueryPlan>(`/db/${connId}/explain`, { method: "POST", body: JSON.stringify({ sql, schema_name: schema }) }),
 
   listProjects: () => req<MigrationProject[]>("/projects"),
   saveProject: (p: Partial<MigrationProject> & { name: string; mapping_ids: string[] }) =>

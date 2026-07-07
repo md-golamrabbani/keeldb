@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { Environment, Flavor, QueryResult } from "@/lib/types";
+import type { Environment, Flavor, QueryPlan, QueryResult } from "@/lib/types";
 import { analyzeSql, type StmtInfo } from "@/lib/sqlguard";
 import SqlCodeEditor from "./SqlCodeEditor";
 import GuardDialog from "./GuardDialog";
@@ -134,6 +134,9 @@ export default function SqlEditor({
   const [usedLimit, setUsedLimit] = useState(1000);
   const [colCache, setColCache] = useState<Record<string, string[]>>({});
   const [guard, setGuard] = useState<StmtInfo[] | null>(null); // pending write awaiting confirmation
+  const [plan, setPlan] = useState<QueryPlan | null>(null);
+  const [planError, setPlanError] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
 
   // Fetch columns for tables referenced in the query so autocomplete can suggest them.
   useEffect(() => {
@@ -230,6 +233,17 @@ export default function SqlEditor({
     setGuard(stmts); // open the guard dialog; it confirms, then calls execute()
   };
 
+  const analyze = async () => {
+    setAnalyzing(true); setPlanError(""); setPlan(null);
+    try {
+      setPlan(await api.explainQuery(connId, sql, schema));
+    } catch (e) {
+      setPlanError(String(e));
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const downloadCsv = () => {
     if (!result?.columns || !result.rows) return;
     const blob = new Blob([toCsv(result.columns, result.rows)], {
@@ -291,6 +305,14 @@ export default function SqlEditor({
               </select>
             </label>
             <button
+              className="btn btn-secondary btn-sm py-2"
+              onClick={analyze}
+              disabled={analyzing || running}
+              title="Run EXPLAIN and get performance hints (read-only)"
+            >
+              {analyzing ? "Analyzing…" : "Analyze"}
+            </button>
+            <button
               className="btn btn-primary btn-sm py-2"
               onClick={run}
               disabled={running}
@@ -300,6 +322,29 @@ export default function SqlEditor({
           </div>
         </div>
       </div>
+
+      {planError && <p className="alert-danger whitespace-pre-wrap">{planError}</p>}
+      {plan && (
+        <div className="card card-pad space-y-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">Query plan</h3>
+            <span className="badge">{plan.dialect}</span>
+            {plan.total_cost != null && <span className="text-xs muted">cost ≈ {plan.total_cost.toLocaleString()}</span>}
+            <button className="btn btn-ghost btn-sm !h-7 ml-auto" onClick={() => setPlan(null)}>Dismiss</button>
+          </div>
+          <div className="space-y-1.5">
+            {plan.hints.map((h, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                <span aria-hidden style={{ color: h.level === "warn" ? "var(--warning)" : "var(--success)" }}>
+                  {h.level === "warn" ? "⚠" : "✓"}
+                </span>
+                <span style={h.level === "warn" ? { color: "var(--text)" } : { color: "var(--text-muted)" }}>{h.message}</span>
+              </div>
+            ))}
+          </div>
+          <pre className="overflow-x-auto rounded-lg p-3 text-xs" style={{ background: "var(--surface-2)" }}>{plan.plan_text}</pre>
+        </div>
+      )}
 
       {result && !result.ok && (
         <p className="alert-danger whitespace-pre-wrap">{result.error}</p>
