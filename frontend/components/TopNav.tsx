@@ -14,7 +14,7 @@ const LINKS = [
 export default function TopNav() {
   const pathname = usePathname();
   return (
-    <header className="sticky top-0 z-30 border-b backdrop-blur"
+    <header className="z-30 shrink-0 border-b backdrop-blur"
       style={{ background: "color-mix(in srgb, var(--surface) 88%, transparent)", borderColor: "var(--border)" }}>
       <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-5 px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5 shrink-0" aria-label="KeelDB home">

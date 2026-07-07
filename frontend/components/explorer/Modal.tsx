@@ -1,24 +1,36 @@
 "use client";
-import { useEffect } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { IconClose } from "@/components/icons";
 
-export default function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
-
+// shadcn-style dialog (Radix): centered, capped at 85vh with the *body*
+// scrolling internally (the page never scrolls), focus-trapped, Esc/overlay to
+// close. Same API as before — every modal in the app inherits this.
+export default function Modal({ title, onClose, children, wide }: {
+  title: string; onClose: () => void; children: React.ReactNode; wide?: boolean;
+}) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
-      style={{ background: "rgba(0,0,0,.45)" }} onClick={onClose}>
-      <div className={`card mt-16 w-full ${wide ? "max-w-3xl" : "max-w-lg"} p-0 shadow-xl`} onClick={(e) => e.stopPropagation()}
-        style={{ boxShadow: "var(--shadow-lg)" }}>
-        <div className="flex items-center justify-between border-b px-5 py-3">
-          <h3 className="font-semibold">{title}</h3>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-        <div className="p-5">{children}</div>
-      </div>
-    </div>
+    <Dialog.Root open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50" style={{ background: "rgba(3, 7, 18, 0.55)", backdropFilter: "blur(2px)" }} />
+        <Dialog.Content
+          aria-describedby={undefined}
+          className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border"
+          style={{
+            maxWidth: wide ? "48rem" : "32rem",
+            background: "var(--surface)",
+            borderColor: "var(--border-strong)",
+            boxShadow: "var(--shadow-lg)",
+          }}
+        >
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b px-5 py-3">
+            <Dialog.Title className="text-base font-semibold">{title}</Dialog.Title>
+            <Dialog.Close className="rounded-md p-1 transition-colors hover:bg-[var(--surface-2)]" aria-label="Close">
+              <IconClose width={16} height={16} style={{ color: "var(--text-muted)" }} />
+            </Dialog.Close>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

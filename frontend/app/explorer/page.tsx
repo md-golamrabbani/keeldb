@@ -15,6 +15,7 @@ import SqlEditor from "@/components/explorer/SqlEditor";
 import DesignerView from "@/components/explorer/DesignerView";
 import HealthView from "@/components/explorer/HealthView";
 import DatabaseMenu from "@/components/explorer/DatabaseMenu";
+import Select from "@/components/ui/Select";
 import GridTable from "@/components/explorer/GridTable";
 import {
   IconColumns,
@@ -206,30 +207,26 @@ function Explorer() {
       <div className="toolbar">
         <div className="flex items-center gap-2">
           <IconDatabase width={16} height={16} className="shrink-0" style={{ color: "var(--text-faint)" }} />
-          <select
-            className="select !h-9 !w-auto !py-0 min-w-[13rem]"
+          <Select
+            className="min-w-[13rem]"
+            ariaLabel="Connection"
+            placeholder="Select a connection…"
             value={connId}
-            onChange={(e) => setConnId(e.target.value)}
-            aria-label="Connection"
-          >
-            <option value="">Select a connection…</option>
-            {connections.map((c) => (
-              <option key={c.id} value={c.id}>{c.name} ({c.flavor})</option>
-            ))}
-          </select>
+            onValueChange={setConnId}
+            options={connections.map((c) => ({ value: c.id, label: `${c.name} (${c.flavor})` }))}
+          />
         </div>
         {schemas.length > 0 && (
           <>
             <span className="text-xs faint">/</span>
-            <select
-              className="select !h-9 !w-auto !py-0 min-w-[9rem]"
+            <Select
+              className="min-w-[9rem]"
+              ariaLabel="Schema"
+              placeholder="Select schema…"
               value={schema}
-              onChange={(e) => setSchema(e.target.value)}
-              aria-label="Schema"
-            >
-              <option value="">Select schema…</option>
-              {schemas.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+              onValueChange={setSchema}
+              options={schemas.map((s) => ({ value: s, label: s }))}
+            />
           </>
         )}
 

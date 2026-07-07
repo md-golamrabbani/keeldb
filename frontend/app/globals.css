@@ -145,6 +145,15 @@ code, pre, .font-mono { font-family: var(--font-mono); }
     border: 1px solid var(--border-strong);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
+  /* native <select>: hide the OS chevron and draw a consistent one (shadcn look) */
+  select.select {
+    -webkit-appearance: none;
+    appearance: none;
+    padding-right: 2rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa4b6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.55rem center;
+  }
   .input::placeholder { color: var(--text-faint); }
   .input:focus,
   .select:focus {

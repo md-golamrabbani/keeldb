@@ -24,10 +24,12 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body>
+      <body className="flex h-screen flex-col overflow-hidden">
         <TopNav />
-        <main className="mx-auto w-full max-w-[1600px] px-6 pb-7 pt-3">
-          <BackendProvider>{children}</BackendProvider>
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-[1600px] px-4 pb-8 pt-4 sm:px-6">
+            <BackendProvider>{children}</BackendProvider>
+          </div>
         </main>
         <CommandPalette />
       </body>
