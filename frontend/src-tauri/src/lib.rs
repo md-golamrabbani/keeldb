@@ -39,8 +39,8 @@ pub fn run() {
 
             let sidecar = app
                 .shell()
-                .sidecar("migration-backend")
-                .expect("sidecar binary 'migration-backend' not found")
+                .sidecar("keeldb-backend")
+                .expect("sidecar binary 'keeldb-backend' not found")
                 .args([port.to_string()])
                 .env("DBMS_DATA_DIR", data_dir.to_string_lossy().to_string());
 

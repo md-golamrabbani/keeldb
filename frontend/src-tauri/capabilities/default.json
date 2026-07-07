@@ -8,7 +8,7 @@
     {
       "identifier": "shell:allow-execute",
       "allow": [
-        { "name": "binaries/migration-backend", "sidecar": true, "args": true }
+        { "name": "binaries/keeldb-backend", "sidecar": true, "args": true }
       ]
     }
   ]

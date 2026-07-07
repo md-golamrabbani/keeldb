@@ -47,10 +47,10 @@ jobs:
           TRIPLE=$(rustc -Vv | grep '^host:' | cut -d' ' -f2)
           mkdir -p frontend/src-tauri/binaries
           if [ "${{ runner.os }}" = "Windows" ]; then
-            cp backend/dist/migration-backend.exe "frontend/src-tauri/binaries/migration-backend-${TRIPLE}.exe"
+            cp backend/dist/keeldb-backend.exe "frontend/src-tauri/binaries/keeldb-backend-${TRIPLE}.exe"
           else
-            cp backend/dist/migration-backend "frontend/src-tauri/binaries/migration-backend-${TRIPLE}"
-            chmod +x "frontend/src-tauri/binaries/migration-backend-${TRIPLE}"
+            cp backend/dist/keeldb-backend "frontend/src-tauri/binaries/keeldb-backend-${TRIPLE}"
+            chmod +x "frontend/src-tauri/binaries/keeldb-backend-${TRIPLE}"
           fi
 
       - name: Install frontend deps
@@ -71,7 +71,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: migration-studio-${{ matrix.os }}
+          name: keeldb-${{ matrix.os }}
           path: |
             frontend/src-tauri/target/release/bundle/**/*.dmg
             frontend/src-tauri/target/release/bundle/**/*.AppImage

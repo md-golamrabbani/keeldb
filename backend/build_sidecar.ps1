@@ -1,4 +1,4 @@
-# Build the PyInstaller sidecar binary on Windows. Produces dist\migration-backend.exe
+# Build the PyInstaller sidecar binary on Windows. Produces dist\keeldb-backend.exe
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
@@ -7,4 +7,4 @@ python -m venv .build-venv
 python -m pip install --quiet --upgrade pip
 python -m pip install --quiet -r requirements.txt pyinstaller
 pyinstaller --noconfirm --clean migration-backend.spec
-Write-Host "Built: $PSScriptRoot\dist\migration-backend.exe"
+Write-Host "Built: $PSScriptRoot\dist\keeldb-backend.exe"

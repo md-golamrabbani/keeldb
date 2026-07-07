@@ -1,11 +1,11 @@
 [package]
-name = "migration-studio"
+name = "keeldb"
 version = "0.1.0"
-description = "DB Migration Studio desktop"
+description = "KeelDB desktop"
 edition = "2021"
 
 [lib]
-name = "migration_studio_lib"
+name = "keeldb_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
