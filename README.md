@@ -1,6 +1,10 @@
-# Universal DB Migration Studio
+# KeelDB
 
-GUI-driven database migration tool — MySQL Workbench "import wizard" style, but for **both ends at once**.
+**A production-safe database workbench** — migrate, explore, guard, and monitor
+**MySQL / PostgreSQL / Supabase / Neon** (or an imported **`.sql` dump**) from one clean app,
+on the web and as a native desktop app (Windows / macOS / Linux).
+
+GUI-driven database migration — MySQL Workbench "import wizard" style, but for **both ends at once**.
 Move data between **MySQL / PostgreSQL / Supabase / Neon** (or from an imported **`.sql` dump**) with a
 visual column-mapping canvas, safe per-column transforms, dry-runs, batched idempotent writes, and reusable
 connection + mapping profiles.

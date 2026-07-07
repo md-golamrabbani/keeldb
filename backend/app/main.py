@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api import admin, alerts, connections, explorer, introspect, mappings, migrate, portable, preview, projects, snippets
 
-app = FastAPI(title="Universal DB Migration Studio", version="0.1.0")
+app = FastAPI(title="KeelDB", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

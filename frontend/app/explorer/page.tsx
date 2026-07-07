@@ -203,67 +203,53 @@ function Explorer() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[15rem]">
-            <label className="label">Connection</label>
-            <select
-              className="select"
-              value={connId}
-              onChange={(e) => setConnId(e.target.value)}
-            >
-              <option value="">— select a connection —</option>
-              {connections.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.flavor})
-                </option>
-              ))}
-            </select>
-          </div>
-          {schemas.length > 0 && (
-            <div className="min-w-[11rem]">
-              <label className="label">Schema</label>
-              <select
-                className="select"
-                value={schema}
-                onChange={(e) => setSchema(e.target.value)}
-              >
-                <option value="">— select —</option>
-                {schemas.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+      <div className="toolbar">
+        <div className="flex items-center gap-2">
+          <IconDatabase width={16} height={16} className="shrink-0" style={{ color: "var(--text-faint)" }} />
+          <select
+            className="select !h-9 !w-auto !py-0 min-w-[13rem]"
+            value={connId}
+            onChange={(e) => setConnId(e.target.value)}
+            aria-label="Connection"
+          >
+            <option value="">Select a connection…</option>
+            {connections.map((c) => (
+              <option key={c.id} value={c.id}>{c.name} ({c.flavor})</option>
+            ))}
+          </select>
         </div>
+        {schemas.length > 0 && (
+          <>
+            <span className="text-xs faint">/</span>
+            <select
+              className="select !h-9 !w-auto !py-0 min-w-[9rem]"
+              value={schema}
+              onChange={(e) => setSchema(e.target.value)}
+              aria-label="Schema"
+            >
+              <option value="">Select schema…</option>
+              {schemas.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </>
+        )}
+
         {connId && schema && (
-          <div className="flex items-center gap-2">
-            <button
-              className="btn btn-secondary btn-sm !h-9"
-              onClick={() => openTool("sql", "SQL")}
-            >
-              <IconTerminal width={14} height={14} /> SQL
-            </button>
-            <button
-              className="btn btn-secondary btn-sm !h-9"
-              onClick={() => openTool("designer", "Designer")}
-            >
-              <IconColumns width={14} height={14} /> Designer
-            </button>
-            <button
-              className="btn btn-secondary btn-sm !h-9"
-              onClick={() => openTool("triggers", "Triggers")}
-            >
-              <IconBolt width={14} height={14} /> Triggers
-            </button>
-            <button
-              className="btn btn-secondary btn-sm !h-9"
-              onClick={() => openTool("health", "Health")}
-            >
-              <IconDatabase width={14} height={14} /> Health
-            </button>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center overflow-hidden rounded-lg border" style={{ borderColor: "var(--border-strong)" }}>
+              {[
+                { kind: "sql" as const, label: "SQL", Icon: IconTerminal },
+                { kind: "designer" as const, label: "Designer", Icon: IconColumns },
+                { kind: "triggers" as const, label: "Triggers", Icon: IconBolt },
+                { kind: "health" as const, label: "Health", Icon: IconDatabase },
+              ].map(({ kind, label, Icon }, i) => (
+                <button key={kind}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-[var(--surface-2)]"
+                  style={i > 0 ? { borderLeft: "1px solid var(--border)", color: "var(--text-muted)" } : { color: "var(--text-muted)" }}
+                  onClick={() => openTool(kind, label)}>
+                  <Icon width={14} height={14} /> <span className="hidden lg:inline">{label}</span>
+                </button>
+              ))}
+            </div>
             <DatabaseMenu
               connId={connId}
               schema={schema}

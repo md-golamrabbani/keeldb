@@ -5,9 +5,10 @@ import CommandPalette from "@/components/CommandPalette";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DB Migration Studio",
+  title: "KeelDB — production-safe database workbench",
   description:
-    "GUI-driven database migration & explorer: MySQL / PostgreSQL / Supabase / Neon / .sql",
+    "Migrate, explore, guard, and monitor MySQL / PostgreSQL / Supabase / Neon databases from one clean workbench.",
+  icons: { icon: "/logo.png" },
 };
 
 // Set the theme before first paint to avoid a flash.
