@@ -5,11 +5,16 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from .. import dbops
+from .. import dbops, verify
 from ..connectors import connector_for
 from ..store import connection_store
 
 router = APIRouter(prefix="/db", tags=["explorer"])
+
+
+class OrphanRequest(BaseModel):
+    schema_name: str = ""
+    table: str = ""  # empty = scan whole schema
 
 
 def _connector(conn_id: str):
@@ -74,6 +79,18 @@ def run_query(conn_id: str, req: QueryRequest):
     c = _connector(conn_id)
     try:
         return dbops.run_sql(c, req.sql, req.max_rows, req.schema_name)
+    finally:
+        c.dispose()
+
+
+@router.post("/{conn_id}/orphans")
+def orphan_scan(conn_id: str, req: OrphanRequest):
+    """Post-migration integrity: find rows whose FK has no matching parent."""
+    c = _connector(conn_id)
+    try:
+        return verify.orphan_scan(c, req.schema_name, req.table or None)
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
     finally:
         c.dispose()
 

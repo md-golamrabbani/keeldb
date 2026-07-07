@@ -9,6 +9,7 @@ import type {
   ImportResult,
   MappingProfile,
   MigrationProject,
+  OrphanResult,
   ProjectEvent,
   QueryResult,
   RunEvent,
@@ -67,6 +68,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ mapping, limit }),
     }),
+
+  orphanScan: (connId: string, schema: string, table = "") =>
+    req<OrphanResult>(`/db/${connId}/orphans`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
 
   listProjects: () => req<MigrationProject[]>("/projects"),
   saveProject: (p: Partial<MigrationProject> & { name: string; mapping_ids: string[] }) =>

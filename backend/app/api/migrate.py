@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from .. import schemagen
+from .. import schemagen, verify
 from ..connectors import connector_for
 from ..dbops import clean_error
 from ..models import MigrateRequest
@@ -26,6 +26,35 @@ class GenerateTargetRequest(BaseModel):
     target_schema: str = ""
     target_table: str
     execute: bool = False
+
+
+class ReconcileRequest(BaseModel):
+    source_conn_id: str
+    source_schema: str = ""
+    source_table: str
+    target_conn_id: str
+    target_schema: str = ""
+    target_table: str
+    where: str = ""
+
+
+@router.post("/reconcile")
+def reconcile(req: ReconcileRequest):
+    """Compare source vs target row counts after a migration."""
+    src = connection_store.get(req.source_conn_id)
+    tgt = connection_store.get(req.target_conn_id)
+    if not src or not tgt:
+        raise HTTPException(404, "source or target connection not found")
+    sc = connector_for(src)
+    tc = connector_for(tgt)
+    try:
+        return verify.reconcile_counts(sc, req.source_schema, req.source_table,
+                                       tc, req.target_schema, req.target_table, req.where)
+    except Exception as exc:
+        raise HTTPException(502, clean_error(exc))
+    finally:
+        sc.dispose()
+        tc.dispose()
 
 
 @router.post("/generate-target")

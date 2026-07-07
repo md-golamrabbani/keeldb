@@ -48,6 +48,19 @@ export interface ConnectionProfile {
   read_only: boolean;
 }
 
+export interface OrphanCheck {
+  columns: string[];
+  ref_table: string;
+  ref_columns: string[];
+  orphans?: number;
+  error?: string;
+}
+export interface OrphanResult {
+  tables: { table: string; checks: OrphanCheck[] }[];
+  total_orphans: number;
+  scanned: number;
+}
+
 export interface MigrationProject {
   id: string;
   name: string;

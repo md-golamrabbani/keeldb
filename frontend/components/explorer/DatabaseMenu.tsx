@@ -3,11 +3,12 @@ import { useState } from "react";
 import { api } from "@/lib/api";
 import type { ColumnDef } from "@/lib/types";
 import GridTable from "./GridTable";
+import IntegrityModal from "./IntegrityModal";
 import Modal from "./Modal";
 import TypeSelect from "./TypeSelect";
 import { IconPlus, IconTrash } from "@/components/icons";
 
-type Dialog = null | "createTable" | "createDb" | "renameDb" | "dropDb" | "privileges";
+type Dialog = null | "createTable" | "createDb" | "renameDb" | "dropDb" | "privileges" | "integrity";
 
 export default function DatabaseMenu({
   connId, schema, database, onTableCreated,
@@ -38,6 +39,7 @@ export default function DatabaseMenu({
             {item("Create database", "createDb")}
             {item("Rename database", "renameDb")}
             {item("Privileges", "privileges")}
+            {item("Check integrity (FK orphans)", "integrity")}
             <div className="my-1 border-t" />
             {item("Drop database…", "dropDb", true)}
           </div>
@@ -71,6 +73,9 @@ export default function DatabaseMenu({
         <Modal title="Privileges" wide onClose={() => setDialog(null)}>
           <GridTable load={() => api.listPrivileges(connId, schema)} empty="No privilege rows." />
         </Modal>
+      )}
+      {dialog === "integrity" && (
+        <IntegrityModal connId={connId} schema={schema} onClose={() => setDialog(null)} />
       )}
     </div>
   );
