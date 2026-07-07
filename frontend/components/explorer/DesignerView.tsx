@@ -35,14 +35,11 @@ export default function DesignerView({ connId, schema }: { connId: string; schem
   const [positions, setPositions] = useState<Record<string, Pos>>({});
   const [scale, setScale] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
-  const [ddlTable, setDdlTable] = useState("");
-  const [ddl, setDdl] = useState("");
 
   const svgRef = useRef<SVGSVGElement>(null);
   const scaleRef = useRef(1);
   scaleRef.current = scale;
   const dragRef = useRef<{ name: string; sx: number; sy: number; ox: number; oy: number } | null>(null);
-  const movedRef = useRef(false);
 
   const reload = () => {
     setError(""); setGraph(null);
@@ -55,7 +52,6 @@ export default function DesignerView({ connId, schema }: { connId: string; schem
     const move = (e: MouseEvent) => {
       const d = dragRef.current;
       if (!d) return;
-      movedRef.current = true;
       const dx = (e.clientX - d.sx) / scaleRef.current;
       const dy = (e.clientY - d.sy) / scaleRef.current;
       setPositions((p) => (p[d.name] ? { ...p, [d.name]: { ...p[d.name], x: Math.max(8, d.ox + dx), y: Math.max(8, d.oy + dy) } } : p));
@@ -72,14 +68,8 @@ export default function DesignerView({ connId, schema }: { connId: string; schem
     return { w, h };
   }, [positions]);
 
-  const showDdl = async (t: string) => {
-    setDdlTable(t); setDdl("Loading…");
-    try { setDdl((await api.tableDdl(connId, schema, t)).ddl); } catch (e) { setDdl(String(e)); }
-  };
-
   const onBoxDown = (e: React.MouseEvent, name: string) => {
     const p = positions[name]; if (!p) return;
-    movedRef.current = false;
     dragRef.current = { name, sx: e.clientX, sy: e.clientY, ox: p.x, oy: p.y };
   };
 
@@ -160,9 +150,8 @@ export default function DesignerView({ connId, schema }: { connId: string; schem
           const p = positions[t.name]; if (!p) return null;
           return (
             <g key={t.name} transform={`translate(${p.x},${p.y})`} style={{ cursor: "grab" }}
-              onMouseDown={(e) => onBoxDown(e, t.name)}
-              onClick={() => { if (!movedRef.current) showDdl(t.name); }}>
-              <rect width={p.w} height={p.h} rx={8} fill="var(--surface)" stroke={ddlTable === t.name ? "var(--accent)" : "var(--border-strong)"} strokeWidth={ddlTable === t.name ? 2 : 1} />
+              onMouseDown={(e) => onBoxDown(e, t.name)}>
+              <rect width={p.w} height={p.h} rx={8} fill="var(--surface)" stroke="var(--border-strong)" strokeWidth={1} />
               <rect width={p.w} height={HEADER_H} rx={8} fill="var(--accent-soft)" />
               <rect y={HEADER_H - 8} width={p.w} height={8} fill="var(--accent-soft)" />
               <text x={12} y={20} fontSize={13} fontWeight={600} fill="var(--accent)">{t.name}</text>
@@ -197,17 +186,6 @@ export default function DesignerView({ connId, schema }: { connId: string; schem
     <div className="space-y-4">
       {toolbar}
       {diagram}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold">Table DDL</h3>
-          <select className="select !h-8 !w-auto !py-0" value={ddlTable} onChange={(e) => e.target.value && showDdl(e.target.value)}>
-            <option value="">— pick a table —</option>
-            {graph.tables.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
-          </select>
-          <span className="text-xs faint">(or click a table in the diagram)</span>
-        </div>
-        {ddl && <pre className="card overflow-x-auto p-4 font-mono text-xs" style={{ color: "var(--text)" }}>{ddl}</pre>}
-      </div>
     </div>
   );
 }
