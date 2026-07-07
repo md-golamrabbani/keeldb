@@ -3,6 +3,7 @@ import type {
   ColumnInfo,
   ConnectionProfile,
   ConnectionProfileIn,
+  DependentsResult,
   DuplicateResult,
   ExportResult,
   FilterCond,
@@ -75,6 +76,8 @@ export const api = {
     req<OrphanResult>(`/db/${connId}/orphans`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
   findDuplicates: (connId: string, schema: string, table: string, columns: string[], limit = 100) =>
     req<DuplicateResult>(`/db/${connId}/duplicates`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, columns, limit }) }),
+  dependents: (connId: string, schema: string, table: string, pk: Record<string, unknown>) =>
+    req<DependentsResult>(`/db/${connId}/dependents`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, pk }) }),
 
   listProjects: () => req<MigrationProject[]>("/projects"),
   saveProject: (p: Partial<MigrationProject> & { name: string; mapping_ids: string[] }) =>

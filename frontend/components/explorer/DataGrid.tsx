@@ -5,6 +5,7 @@ import type { FilterCond, TableData } from "@/lib/types";
 import { PAGE_SIZES } from "@/lib/types";
 import AdvancedFilter from "./AdvancedFilter";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
+import DependentsDialog from "./DependentsDialog";
 import FkPeekDialog, { parseFk } from "./FkPeekDialog";
 import {
   IconChevronLeft, IconChevronRight, IconDownload, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
@@ -31,6 +32,7 @@ export default function DataGrid({
   );
   const [showFilter, setShowFilter] = useState(!!initialFilter);
   const [peek, setPeek] = useState<{ table: string; column: string; value: string } | null>(null);
+  const [refRow, setRefRow] = useState<Record<string, Cell> | null>(null);
   const [orderBy, setOrderBy] = useState("");
   const [orderDir, setOrderDir] = useState<"asc" | "desc">("asc");
   const [loading, setLoading] = useState(false);
@@ -66,7 +68,8 @@ export default function DataGrid({
   useEffect(() => { load(); }, [load]);
 
   const flash = (msg: string) => { setNotice(msg); setTimeout(() => setNotice(""), 2500); };
-  const editable = (data?.pk_cols.length ?? 0) > 0 && !readOnly;
+  const hasPk = (data?.pk_cols.length ?? 0) > 0;
+  const editable = hasPk && !readOnly;
   const colnames = useMemo(() => data?.colnames ?? [], [data]);
 
   const pkFor = (row: Cell[]): Record<string, Cell> => {
@@ -144,9 +147,13 @@ export default function DataGrid({
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / pageSize)) : 1;
 
-  // sticky column geometry (checkbox + delete + first data column stay left)
-  const CHECK_W = 30, DEL_W = 32;
-  const firstLeft = editable ? CHECK_W + DEL_W : 0;
+  // sticky column geometry (checkbox + row-actions + first data column stay left).
+  // The action column shows whenever the table has a PK (reverse-FK works read-only);
+  // it also holds Delete when the table is editable.
+  const CHECK_W = 30;
+  const ACT_W = editable ? 56 : 30;
+  const actLeft = editable ? CHECK_W : 0;
+  const firstLeft = (editable ? CHECK_W : 0) + (hasPk ? ACT_W : 0);
   const headBg = "var(--surface-2)";
   const stHead = (left?: number): CSSProperties =>
     ({ position: "sticky", top: 0, zIndex: left != null ? 3 : 2, background: headBg, ...(left != null ? { left } : {}) });
@@ -225,7 +232,7 @@ export default function DataGrid({
                   <input type="checkbox" checked={!!data && selected.size === data.rows.length && data.rows.length > 0} onChange={toggleAll} />
                 </th>
               )}
-              {editable && <th style={{ ...stHead(CHECK_W), width: DEL_W, minWidth: DEL_W }} className="px-0 py-1.5"></th>}
+              {hasPk && <th style={{ ...stHead(actLeft), width: ACT_W, minWidth: ACT_W }} className="px-0 py-1.5"></th>}
               {(data?.columns ?? []).map((col, ci) => (
                 <th key={col.name} style={ci === 0 ? stHead(firstLeft) : stHead()}
                   className="cursor-pointer select-none whitespace-nowrap border-b px-2.5 py-1.5 font-mono normal-case"
@@ -250,9 +257,12 @@ export default function DataGrid({
                       <input type="checkbox" checked={selected.has(r)} onChange={() => toggleRow(r)} />
                     </td>
                   )}
-                  {editable && (
-                    <td style={{ ...stCell(CHECK_W, rowBg), width: DEL_W, minWidth: DEL_W }} className="border-b px-0 py-1 text-center">
-                      <button className="btn btn-ghost !p-1" onClick={() => removeRow(r)} aria-label="Delete row"><IconTrash width={13} height={13} /></button>
+                  {hasPk && (
+                    <td style={{ ...stCell(actLeft, rowBg), width: ACT_W, minWidth: ACT_W }} className="border-b px-0 py-1">
+                      <div className="flex items-center justify-center gap-0.5">
+                        <button className="btn btn-ghost !p-1" onClick={() => setRefRow(pkFor(row))} title="Rows that reference this row"><IconLink width={13} height={13} /></button>
+                        {editable && <button className="btn btn-ghost !p-1" onClick={() => removeRow(r)} aria-label="Delete row"><IconTrash width={13} height={13} /></button>}
+                      </div>
                     </td>
                   )}
                   {row.map((cell, c) => {
@@ -314,6 +324,11 @@ export default function DataGrid({
         <FkPeekDialog connId={connId} schema={schema} targetTable={peek.table} targetColumn={peek.column} value={peek.value}
           onClose={() => setPeek(null)}
           onOpen={() => { onOpenReference?.(peek.table, peek.column, peek.value); setPeek(null); }} />
+      )}
+      {refRow && (
+        <DependentsDialog connId={connId} schema={schema} table={table} pk={refRow}
+          onClose={() => setRefRow(null)}
+          onOpenReference={(t, col, val) => { onOpenReference?.(t, col, val); setRefRow(null); }} />
       )}
     </div>
   );

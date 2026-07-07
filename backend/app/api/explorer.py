@@ -5,7 +5,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from .. import dbops, duplicates, verify
+from .. import dbops, duplicates, relational, verify
 from ..connectors import connector_for
 from ..store import connection_store
 
@@ -22,6 +22,12 @@ class DuplicatesRequest(BaseModel):
     table: str
     columns: list[str]
     limit: int = 100
+
+
+class DependentsRequest(BaseModel):
+    schema_name: str = ""
+    table: str
+    pk: dict[str, Any]
 
 
 def _connector(conn_id: str):
@@ -108,6 +114,20 @@ def find_duplicates(conn_id: str, req: DuplicatesRequest):
     c = _connector(conn_id)
     try:
         return duplicates.find_duplicates(c, req.schema_name, req.table, req.columns, req.limit)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.post("/{conn_id}/dependents")
+def dependents(conn_id: str, req: DependentsRequest):
+    """Reverse-FK: find every row that references the given row."""
+    c = _connector(conn_id)
+    try:
+        return relational.dependents(c, req.schema_name, req.table, req.pk)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:

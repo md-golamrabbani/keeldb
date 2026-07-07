@@ -88,6 +88,22 @@ export interface DuplicateResult {
   truncated: boolean;
 }
 
+export interface DependentGroup {
+  table: string;
+  columns: string[];
+  ref_columns: string[];
+  on_delete: string | null;
+  count: number;
+  sample: Record<string, string | number | boolean | null>[];
+}
+export interface DependentsResult {
+  found: boolean;
+  pk: Record<string, string | number | boolean | null>;
+  dependents: DependentGroup[];
+  total_dependents: number;
+  referencing_tables: number;
+}
+
 export interface MigrationProject {
   id: string;
   name: string;
