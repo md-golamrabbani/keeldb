@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import TopNav from "@/components/TopNav";
 import BackendProvider from "@/components/BackendProvider";
 import CommandPalette from "@/components/CommandPalette";
+import AuthGate from "@/components/AuthGate";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,7 +29,7 @@ export default function RootLayout({
         <TopNav />
         <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1600px] px-4 pb-8 pt-4 sm:px-6">
-            <BackendProvider>{children}</BackendProvider>
+            <BackendProvider><AuthGate>{children}</AuthGate></BackendProvider>
           </div>
         </main>
         <CommandPalette />

@@ -40,11 +40,29 @@ import type {
 
 import { apiBaseSync, resolveApiBase } from "./backend";
 
+// ---- single shared-password auth (no-op unless the backend requires it) ----
+const TOKEN_KEY = "keeldb_token";
+let onUnauthorized: () => void = () => {};
+export function setOnUnauthorized(fn: () => void) { onUnauthorized = fn; }
+export function getToken(): string { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } }
+export function setToken(t: string) { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch {} }
+export function clearToken() { setToken(""); }
+/** Auth header for raw fetches (import, streaming). */
+export function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const t = getToken();
+  return t ? { ...extra, Authorization: `Bearer ${t}` } : extra;
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${await resolveApiBase()}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: authHeaders({ "Content-Type": "application/json", ...(init?.headers as Record<string, string> | undefined) }),
   });
+  if (res.status === 401) {
+    clearToken();
+    onUnauthorized();
+    throw new Error("Please log in.");
+  }
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -57,6 +75,16 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  authStatus: () => req<{ enabled: boolean }>("/auth/status"),
+  login: async (password: string): Promise<{ token: string; enabled: boolean }> => {
+    const res = await fetch(`${await resolveApiBase()}/auth/login`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }),
+    });
+    if (res.status === 401) throw new Error("Invalid password");
+    if (!res.ok) throw new Error(res.statusText);
+    return res.json();
+  },
+
   listConnections: () => req<ConnectionProfile[]>("/connections"),
   createConnection: (p: ConnectionProfileIn) =>
     req<ConnectionProfile>("/connections", { method: "POST", body: JSON.stringify(p) }),
@@ -157,7 +185,7 @@ export const api = {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("name", name);
-    const res = await fetch(`${await resolveApiBase()}/connections/upload-sql`, { method: "POST", body: fd });
+    const res = await fetch(`${await resolveApiBase()}/connections/upload-sql`, { method: "POST", body: fd, headers: authHeaders() });
     if (!res.ok) {
       let detail = res.statusText;
       try {
@@ -209,7 +237,7 @@ export const api = {
     fd.append("file", file);
     fd.append("schema_name", schema);
     fd.append("table", table);
-    const res = await fetch(`${await resolveApiBase()}/db/${connId}/import-csv`, { method: "POST", body: fd });
+    const res = await fetch(`${await resolveApiBase()}/db/${connId}/import-csv`, { method: "POST", body: fd, headers: authHeaders() });
     if (!res.ok) {
       let detail = res.statusText;
       try { detail = (await res.json()).detail ?? detail; } catch {}
@@ -259,7 +287,7 @@ export async function runMigration(
 ): Promise<void> {
   const res = await fetch(`${await resolveApiBase()}/migrate/run`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ mapping, dry_run: dryRun }),
   });
   if (!res.ok || !res.body) {
@@ -293,7 +321,7 @@ export async function runProject(
 ): Promise<void> {
   const res = await fetch(`${await resolveApiBase()}/projects/${projectId}/run`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ dry_run: dryRun }),
   });
   if (!res.ok || !res.body) {
