@@ -222,6 +222,12 @@ export default function SqlEditor({
     if (activeIdRef.current === id) { setActiveId(null); firstRun.current = true; setSql(""); setSaveState("idle"); }
   };
 
+  const renameSnippet = async (id: string, name: string) => {
+    const snap = snippetsRef.current.find((s) => s.id === id);
+    const up = await api.updateSnippet(id, name, snap?.sql ?? "");
+    setSnippets((l) => l.map((s) => (s.id === id ? up : s)));
+  };
+
   const saveNow = () => { if (saveTimer.current) clearTimeout(saveTimer.current); persist(sql); };
 
   // Fetch columns for tables referenced in the query so autocomplete can suggest them.
@@ -362,7 +368,7 @@ export default function SqlEditor({
     <div className="flex flex-col gap-4 lg:flex-row">
       <SqlSidebar connId={connId} snippets={snippets} activeId={activeId} saveState={saveState}
         onNew={newQuery} onSelect={selectSnippet} onSave={saveNow} onDelete={deleteSnippet}
-        onLoadHistory={setSql} historyNonce={historyNonce} />
+        onRename={renameSnippet} onLoadHistory={setSql} historyNonce={historyNonce} />
       <div className="min-w-0 flex-1 space-y-3">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -374,7 +380,8 @@ export default function SqlEditor({
         <button className="btn btn-secondary btn-sm !h-9" onClick={askAi} disabled={aiBusy || !aiQuestion.trim()}>
           {aiBusy ? "Thinking…" : "Ask AI"}
         </button>
-        <button className="btn btn-ghost btn-sm !h-9" onClick={() => setAiSettingsOpen(true)} title="AI settings (provider & API key)" aria-label="AI settings">
+        <button className="btn btn-sm !h-9 !w-9 !px-0 transition-opacity hover:opacity-75" onClick={() => setAiSettingsOpen(true)} title="AI settings (provider & API key)" aria-label="AI settings"
+          style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
           <IconSettings width={15} height={15} />
         </button>
       </div>

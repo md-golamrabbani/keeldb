@@ -3,14 +3,14 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { HistoryEntry, Snippet } from "@/lib/types";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
-import { IconBookmark, IconPlus, IconSave, IconTrash } from "@/components/icons";
+import { IconBookmark, IconEdit, IconPlus, IconSave, IconTrash } from "@/components/icons";
 
 export type SaveState = "idle" | "saving" | "saved";
 
 // Supabase-style left rail: your saved queries + history. Snippet state lives in
 // the editor (it owns auto-save); this component renders it and raises actions.
 export default function SqlSidebar({
-  connId, snippets, activeId, saveState, onNew, onSelect, onSave, onDelete, onLoadHistory, historyNonce,
+  connId, snippets, activeId, saveState, onNew, onSelect, onSave, onDelete, onRename, onLoadHistory, historyNonce,
 }: {
   connId: string;
   snippets: Snippet[];
@@ -20,12 +20,15 @@ export default function SqlSidebar({
   onSelect: (s: Snippet) => void;
   onSave: () => void;
   onDelete: (id: string) => void;
+  onRename: (id: string, name: string) => void;
   onLoadHistory: (sql: string) => void;
   historyNonce: number;
 }) {
   const [tab, setTab] = useState<"saved" | "history">("saved");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   const loadHistory = useCallback(() => { api.history(connId).then(setHistory).catch(() => {}); }, [connId]);
   useEffect(() => { loadHistory(); }, [loadHistory]);
@@ -35,6 +38,14 @@ export default function SqlSidebar({
     title: "Delete query", message: "Delete this saved query?", confirmLabel: "Delete", danger: true,
     onConfirm: async () => onDelete(id),
   });
+
+  const startEdit = (s: Snippet) => { setEditingId(s.id); setEditValue(s.name); };
+  const commitEdit = () => {
+    const id = editingId;
+    const name = editValue.trim();
+    setEditingId(null);
+    if (id && name) onRename(id, name);
+  };
 
   return (
     <aside className="card flex w-full shrink-0 flex-col lg:sticky lg:top-0 lg:w-60 lg:max-h-[calc(100vh-9rem)]">
@@ -64,16 +75,36 @@ export default function SqlSidebar({
             <ul className="space-y-0.5">
               {snippets.map((s) => {
                 const active = s.id === activeId;
+                const editing = s.id === editingId;
                 return (
                   <li key={s.id} className="group flex items-center gap-1 rounded-md px-2 py-1.5"
                     style={active ? { background: "var(--accent-soft)" } : undefined}>
-                    <button className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => onSelect(s)} title={s.sql}>
-                      <IconBookmark width={12} height={12} style={{ color: active ? "var(--accent)" : "var(--text-faint)", flexShrink: 0 }} />
-                      <span className="truncate text-sm" style={active ? { color: "var(--accent)" } : undefined}>{s.name}</span>
-                    </button>
-                    <button className="opacity-0 transition-opacity group-hover:opacity-100" onClick={() => del(s.id)} aria-label="Delete">
-                      <IconTrash width={12} height={12} style={{ color: "var(--text-faint)" }} />
-                    </button>
+                    {editing ? (
+                      <input
+                        autoFocus
+                        className="input !h-7 min-w-0 flex-1 !py-0 text-sm"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={commitEdit}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitEdit();
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                      />
+                    ) : (
+                      <>
+                        <button className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => onSelect(s)} title={s.sql}>
+                          <IconBookmark width={12} height={12} style={{ color: active ? "var(--accent)" : "var(--text-faint)", flexShrink: 0 }} />
+                          <span className="truncate text-sm" style={active ? { color: "var(--accent)" } : undefined}>{s.name}</span>
+                        </button>
+                        <button className="opacity-0 transition-opacity group-hover:opacity-100" onClick={() => startEdit(s)} aria-label="Rename">
+                          <IconEdit width={12} height={12} style={{ color: "var(--text-faint)" }} />
+                        </button>
+                        <button className="opacity-0 transition-opacity group-hover:opacity-100" onClick={() => del(s.id)} aria-label="Delete">
+                          <IconTrash width={12} height={12} style={{ color: "var(--text-faint)" }} />
+                        </button>
+                      </>
+                    )}
                   </li>
                 );
               })}
