@@ -4,6 +4,8 @@ import { api } from "@/lib/api";
 import type { ConnectionProfile, ConnectionProfileIn, Flavor } from "@/lib/types";
 import StatusPill, { type PillState } from "./StatusPill";
 import { IconFile, IconLock, IconUpload } from "./icons";
+import Select from "@/components/ui/Select";
+import Checkbox from "@/components/ui/Checkbox";
 
 const DB_FLAVORS: Flavor[] = ["mysql", "postgresql", "supabase", "neon"];
 const DEFAULT_PORT: Record<string, number> = { mysql: 3306, postgresql: 5432, supabase: 5432, neon: 5432 };
@@ -114,166 +116,170 @@ export default function ConnectionForm({
         </div>
       )}
 
-      <div>
-        <label className="label">Connection name</label>
-        <input className="input" value={form.name} placeholder="e.g. Legacy HRIS (MySQL)"
-          onChange={(e) => set({ name: e.target.value })} />
-      </div>
-
-      {mode === "db" && (
-        <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <label className="label">Environment</label>
-            <select className="select !w-40" value={form.environment}
-              onChange={(e) => set({ environment: e.target.value as ConnectionProfileIn["environment"] })}>
-              <option value="dev">Development</option>
-              <option value="staging">Staging</option>
-              <option value="prod">Production</option>
-            </select>
-          </div>
-          <label className="flex items-center gap-2 pb-2.5 text-sm">
-            <input type="checkbox" checked={form.read_only} onChange={(e) => set({ read_only: e.target.checked })} />
-            Read-only (block all writes)
-          </label>
-          {form.environment === "prod" && (
-            <span className="badge badge-danger pb-0.5">production — extra guards on</span>
-          )}
-        </div>
-      )}
-
       {mode === "sqlfile" ? (
-        <div>
-          <label className="label">SQL dump file</label>
-          <input ref={fileInput} type="file" accept=".sql,text/plain" className="hidden"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          <button
-            className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed py-8 text-sm transition-colors"
-            style={{ borderColor: "var(--border-strong)", color: "var(--text-muted)" }}
-            onClick={() => fileInput.current?.click()}
-          >
-            <IconUpload width={22} height={22} />
-            {file ? <span className="font-medium" style={{ color: "var(--text)" }}>{file.name}</span> : "Click to choose a .sql dump"}
-            <span className="text-xs faint">mysqldump / pg_dump — parsed into a local read-only source</span>
-          </button>
+        <div className="space-y-5">
+          <div>
+            <label className="label">Connection name</label>
+            <input className="input" value={form.name} placeholder="e.g. Legacy HRIS (MySQL)"
+              onChange={(e) => set({ name: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">SQL dump file</label>
+            <input ref={fileInput} type="file" accept=".sql,text/plain" className="hidden"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+            <button
+              className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed py-8 text-sm transition-colors"
+              style={{ borderColor: "var(--border-strong)", color: "var(--text-muted)" }}
+              onClick={() => fileInput.current?.click()}
+            >
+              <IconUpload width={22} height={22} />
+              {file ? <span className="font-medium" style={{ color: "var(--text)" }}>{file.name}</span> : "Click to choose a .sql dump"}
+              <span className="text-xs faint">mysqldump / pg_dump — parsed into a local read-only source</span>
+            </button>
+          </div>
         </div>
       ) : (
-        <>
-          <div>
-            <label className="label">Database type</label>
-            <div className="grid grid-cols-4 gap-2">
-              {DB_FLAVORS.map((f) => (
-                <button key={f} onClick={() => set({ flavor: f, port: DEFAULT_PORT[f], ssl: f === "supabase" || f === "neon" })}
-                  className="rounded-lg border py-2 text-sm font-medium capitalize transition-colors"
-                  style={form.flavor === f
-                    ? { borderColor: "var(--accent)", background: "var(--accent-soft)", color: "var(--accent)" }
-                    : { borderColor: "var(--border-strong)", color: "var(--text-muted)" }}>
-                  {f}
-                </button>
-              ))}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Column 1 — identity, environment, database type */}
+          <div className="space-y-4">
+            <div>
+              <label className="label">Connection name</label>
+              <input className="input" value={form.name} placeholder="e.g. Legacy HRIS (MySQL)"
+                onChange={(e) => set({ name: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Environment</label>
+              <Select className="w-full" value={form.environment}
+                onValueChange={(v) => set({ environment: v as ConnectionProfileIn["environment"] })}
+                options={[{ value: "dev", label: "Development" }, { value: "staging", label: "Staging" }, { value: "prod", label: "Production" }]} />
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={form.read_only} onCheckedChange={(v) => set({ read_only: v })} />
+              Read-only (block all writes)
+            </label>
+            {form.environment === "prod" && (
+              <span className="badge badge-danger">production — extra guards on</span>
+            )}
+            <div>
+              <label className="label">Database type</label>
+              <div className="grid grid-cols-2 gap-2">
+                {DB_FLAVORS.map((f) => (
+                  <button key={f} onClick={() => set({ flavor: f, port: DEFAULT_PORT[f], ssl: f === "supabase" || f === "neon" })}
+                    className="rounded-lg border py-2 text-sm font-medium capitalize transition-colors"
+                    style={form.flavor === f
+                      ? { borderColor: "var(--accent)", background: "var(--accent-soft)", color: "var(--accent)" }
+                      : { borderColor: "var(--border-strong)", color: "var(--text-muted)" }}>
+                    {f}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {isPreset ? (
-            <>
-              <div>
-                <label className="label">Connection string</label>
-                <input className="input font-mono text-xs" value={form.connection_string}
-                  placeholder={initial?.has_connection_string ? "•••••• (unchanged — paste to replace)" : "postgresql://user:pass@host:5432/postgres"}
-                  onChange={(e) => set({ connection_string: e.target.value })} />
-                <p className="mt-1.5 text-xs faint">
-                  {form.flavor === "supabase"
-                    ? "Supabase → Project Settings → Database. sslmode=require is added automatically."
-                    : "Neon → Dashboard → Connection Details. sslmode=require is added automatically."}
-                </p>
-              </div>
-              {form.flavor === "supabase" && (
+          {/* Column 2 — connection details + SSH tunnel */}
+          <div className="space-y-4">
+            {isPreset ? (
+              <>
                 <div>
-                  <label className="label">Service-role key (optional)</label>
-                  <input className="input font-mono text-xs" type="password" value={form.service_role_key}
-                    onChange={(e) => set({ service_role_key: e.target.value })} />
+                  <label className="label">Connection string</label>
+                  <input className="input font-mono text-xs" value={form.connection_string}
+                    placeholder={initial?.has_connection_string ? "•••••• (unchanged — paste to replace)" : "postgresql://user:pass@host:5432/postgres"}
+                    onChange={(e) => set({ connection_string: e.target.value })} />
+                  <p className="mt-1.5 text-xs faint">
+                    {form.flavor === "supabase"
+                      ? "Supabase → Project Settings → Database. sslmode=require is added automatically."
+                      : "Neon → Dashboard → Connection Details. sslmode=require is added automatically."}
+                  </p>
                 </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <label className="label">Host</label>
-                  <input className="input" value={form.host} placeholder="localhost"
-                    onChange={(e) => set({ host: e.target.value })} />
+                {form.flavor === "supabase" && (
+                  <div>
+                    <label className="label">Service-role key (optional)</label>
+                    <input className="input font-mono text-xs" type="password" value={form.service_role_key}
+                      onChange={(e) => set({ service_role_key: e.target.value })} />
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <label className="label">Host</label>
+                    <input className="input" value={form.host} placeholder="localhost"
+                      onChange={(e) => set({ host: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Port</label>
+                    <input className="input" type="number" value={form.port ?? ""}
+                      onChange={(e) => set({ port: e.target.value ? Number(e.target.value) : null })} />
+                  </div>
                 </div>
-                <div>
-                  <label className="label">Port</label>
-                  <input className="input" type="number" value={form.port ?? ""}
-                    onChange={(e) => set({ port: e.target.value ? Number(e.target.value) : null })} />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="label">Database</label>
                   <input className="input" value={form.database} onChange={(e) => set({ database: e.target.value })} />
                 </div>
-                <div>
-                  <label className="label">User</label>
-                  <input className="input" value={form.user} onChange={(e) => set({ user: e.target.value })} />
-                </div>
-                <div>
-                  <label className="label">Password</label>
-                  <input className="input" type="password" value={form.password}
-                    placeholder={initial?.has_password ? "•••••• (unchanged)" : ""}
-                    onChange={(e) => set({ password: e.target.value })} />
-                </div>
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={form.ssl} onChange={(e) => set({ ssl: e.target.checked })} />
-                Use SSL
-              </label>
-            </>
-          )}
-
-          {/* SSH tunnel */}
-          <div className="rounded-xl border p-4" style={{ borderColor: "var(--border)" }}>
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" checked={form.ssh_enabled} onChange={(e) => set({ ssh_enabled: e.target.checked })} />
-              <IconLock width={14} height={14} /> Connect through an SSH tunnel (bastion host)
-            </label>
-            {form.ssh_enabled && (
-              <div className="mt-4 space-y-3">
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <label className="label">SSH host</label>
-                    <input className="input" value={form.ssh_host} placeholder="bastion.example.com"
-                      onChange={(e) => set({ ssh_host: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="label">SSH port</label>
-                    <input className="input" type="number" value={form.ssh_port}
-                      onChange={(e) => set({ ssh_port: Number(e.target.value) || 22 })} />
-                  </div>
-                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="label">SSH user</label>
-                    <input className="input" value={form.ssh_user} onChange={(e) => set({ ssh_user: e.target.value })} />
+                    <label className="label">User</label>
+                    <input className="input" value={form.user} onChange={(e) => set({ user: e.target.value })} />
                   </div>
                   <div>
-                    <label className="label">SSH password / key passphrase</label>
-                    <input className="input" type="password" value={form.ssh_password}
-                      placeholder={initial?.ssh_enabled ? "•••••• (unchanged)" : ""}
-                      onChange={(e) => set({ ssh_password: e.target.value })} />
+                    <label className="label">Password</label>
+                    <input className="input" type="password" value={form.password}
+                      placeholder={initial?.has_password ? "•••••• (unchanged)" : ""}
+                      onChange={(e) => set({ password: e.target.value })} />
                   </div>
                 </div>
-                <div>
-                  <label className="label">Private key (optional — paste PEM)</label>
-                  <textarea className="input font-mono text-xs" rows={3}
-                    placeholder={initial?.has_ssh_key ? "•••••• (unchanged)" : "-----BEGIN OPENSSH PRIVATE KEY-----"}
-                    value={form.ssh_private_key} onChange={(e) => set({ ssh_private_key: e.target.value })} />
-                </div>
-                <p className="text-xs faint">The DB host/port above are reached <em>through</em> the tunnel.</p>
-              </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={form.ssl} onCheckedChange={(v) => set({ ssl: v })} />
+                  Use SSL
+                </label>
+              </>
             )}
+
+            {/* SSH tunnel */}
+            <div className="rounded-xl border p-4" style={{ borderColor: "var(--border)" }}>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <Checkbox checked={form.ssh_enabled} onCheckedChange={(v) => set({ ssh_enabled: v })} />
+                <IconLock width={14} height={14} /> SSH tunnel (bastion host)
+              </label>
+              {form.ssh_enabled && (
+                <div className="mt-4 space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2">
+                      <label className="label">SSH host</label>
+                      <input className="input" value={form.ssh_host} placeholder="bastion.example.com"
+                        onChange={(e) => set({ ssh_host: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="label">SSH port</label>
+                      <input className="input" type="number" value={form.ssh_port}
+                        onChange={(e) => set({ ssh_port: Number(e.target.value) || 22 })} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">SSH user</label>
+                      <input className="input" value={form.ssh_user} onChange={(e) => set({ ssh_user: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="label">SSH password / passphrase</label>
+                      <input className="input" type="password" value={form.ssh_password}
+                        placeholder={initial?.ssh_enabled ? "•••••• (unchanged)" : ""}
+                        onChange={(e) => set({ ssh_password: e.target.value })} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Private key (optional — paste PEM)</label>
+                    <textarea className="input font-mono text-xs" rows={3}
+                      placeholder={initial?.has_ssh_key ? "•••••• (unchanged)" : "-----BEGIN OPENSSH PRIVATE KEY-----"}
+                      value={form.ssh_private_key} onChange={(e) => set({ ssh_private_key: e.target.value })} />
+                  </div>
+                  <p className="text-xs faint">The DB host/port above are reached <em>through</em> the tunnel.</p>
+                </div>
+              )}
+            </div>
           </div>
-        </>
+        </div>
       )}
 
       {error && <p className="alert-danger">{error}</p>}
