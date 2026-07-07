@@ -134,6 +134,8 @@ export const api = {
   listSnippets: () => req<Snippet[]>("/snippets"),
   createSnippet: (name: string, sql: string) =>
     req<Snippet>("/snippets", { method: "POST", body: JSON.stringify({ name, sql }) }),
+  updateSnippet: (id: string, name: string, sql: string) =>
+    req<Snippet>(`/snippets/${id}`, { method: "PUT", body: JSON.stringify({ name, sql }) }),
   deleteSnippet: (id: string) => req<{ deleted: string }>(`/snippets/${id}`, { method: "DELETE" }),
 
   listProjects: () => req<MigrationProject[]>("/projects"),

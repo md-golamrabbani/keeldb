@@ -3,52 +3,49 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { HistoryEntry, Snippet } from "@/lib/types";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
-import { IconBookmark, IconPlus, IconTrash } from "@/components/icons";
+import { IconBookmark, IconPlus, IconSave, IconTrash } from "@/components/icons";
 
-// Supabase-style left rail for the SQL editor: your saved queries + recent
-// history. Click to load, ＋ for a blank query, save the current one by name.
-export default function SqlSidebar({ connId, sql, onLoad, onNew, historyNonce }: {
-  connId: string; sql: string; onLoad: (sql: string) => void; onNew: () => void; historyNonce: number;
+export type SaveState = "idle" | "saving" | "saved";
+
+// Supabase-style left rail: your saved queries + history. Snippet state lives in
+// the editor (it owns auto-save); this component renders it and raises actions.
+export default function SqlSidebar({
+  connId, snippets, activeId, saveState, onNew, onSelect, onSave, onDelete, onLoadHistory, historyNonce,
+}: {
+  connId: string;
+  snippets: Snippet[];
+  activeId: string | null;
+  saveState: SaveState;
+  onNew: () => void;
+  onSelect: (s: Snippet) => void;
+  onSave: () => void;
+  onDelete: (id: string) => void;
+  onLoadHistory: (sql: string) => void;
+  historyNonce: number;
 }) {
   const [tab, setTab] = useState<"saved" | "history">("saved");
-  const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [naming, setNaming] = useState(false);
-  const [name, setName] = useState("");
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
 
-  const loadSnippets = useCallback(() => { api.listSnippets().then(setSnippets).catch(() => {}); }, []);
   const loadHistory = useCallback(() => { api.history(connId).then(setHistory).catch(() => {}); }, [connId]);
-
-  useEffect(() => { loadSnippets(); loadHistory(); }, [loadSnippets, loadHistory]);
+  useEffect(() => { loadHistory(); }, [loadHistory]);
   useEffect(() => { if (historyNonce) loadHistory(); }, [historyNonce, loadHistory]);
 
-  const save = async () => {
-    try { await api.createSnippet(name.trim() || "Untitled", sql); setNaming(false); setName(""); setTab("saved"); loadSnippets(); }
-    catch { /* surfaced elsewhere */ }
-  };
   const del = (id: string) => setConfirm({
-    title: "Delete snippet", message: "Delete this saved query?", confirmLabel: "Delete", danger: true,
-    onConfirm: async () => { await api.deleteSnippet(id); loadSnippets(); },
+    title: "Delete query", message: "Delete this saved query?", confirmLabel: "Delete", danger: true,
+    onConfirm: async () => onDelete(id),
   });
+
+  const saveLabel = saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : "Save";
 
   return (
     <aside className="card flex w-full shrink-0 flex-col lg:h-[calc(100vh-13rem)] lg:w-60">
       <div className="flex items-center gap-1.5 border-b p-2" style={{ borderColor: "var(--border)" }}>
         <button className="btn btn-primary btn-sm flex-1" onClick={onNew}><IconPlus width={13} height={13} /> New query</button>
-        <button className="btn btn-secondary btn-sm" onClick={() => { setNaming(true); setName(""); }} disabled={!sql.trim()} title="Save current query">
-          <IconBookmark width={13} height={13} />
+        <button className="btn btn-secondary btn-sm" onClick={onSave} title="Save now">
+          <IconSave width={13} height={13} /> {saveLabel}
         </button>
       </div>
-
-      {naming && (
-        <div className="flex items-center gap-1.5 border-b p-2" style={{ borderColor: "var(--border)" }}>
-          <input autoFocus className="input !h-8 !py-0 text-xs" placeholder="Query name" value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setNaming(false); }} />
-          <button className="btn btn-primary btn-sm !h-8" onClick={save}>Save</button>
-        </div>
-      )}
 
       <div className="flex gap-1 px-2 pt-2 text-xs">
         {(["saved", "history"] as const).map((t) => (
@@ -62,17 +59,21 @@ export default function SqlSidebar({ connId, sql, onLoad, onNew, historyNonce }:
         {tab === "saved" ? (
           snippets.length === 0 ? <p className="p-3 text-center text-xs muted">No saved queries yet.</p> : (
             <ul className="space-y-0.5">
-              {snippets.map((s) => (
-                <li key={s.id} className="group flex items-center gap-1 rounded-md px-2 py-1.5 hover:bg-[var(--surface-2)]">
-                  <button className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => onLoad(s.sql)} title={s.sql}>
-                    <IconBookmark width={12} height={12} style={{ color: "var(--accent)", flexShrink: 0 }} />
-                    <span className="truncate text-sm">{s.name}</span>
-                  </button>
-                  <button className="opacity-0 transition-opacity group-hover:opacity-100" onClick={() => del(s.id)} aria-label="Delete">
-                    <IconTrash width={12} height={12} style={{ color: "var(--text-faint)" }} />
-                  </button>
-                </li>
-              ))}
+              {snippets.map((s) => {
+                const active = s.id === activeId;
+                return (
+                  <li key={s.id} className="group flex items-center gap-1 rounded-md px-2 py-1.5"
+                    style={active ? { background: "var(--accent-soft)" } : undefined}>
+                    <button className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => onSelect(s)} title={s.sql}>
+                      <IconBookmark width={12} height={12} style={{ color: active ? "var(--accent)" : "var(--text-faint)", flexShrink: 0 }} />
+                      <span className="truncate text-sm" style={active ? { color: "var(--accent)" } : undefined}>{s.name}</span>
+                    </button>
+                    <button className="opacity-0 transition-opacity group-hover:opacity-100" onClick={() => del(s.id)} aria-label="Delete">
+                      <IconTrash width={12} height={12} style={{ color: "var(--text-faint)" }} />
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )
         ) : (
@@ -80,7 +81,7 @@ export default function SqlSidebar({ connId, sql, onLoad, onNew, historyNonce }:
             <ul className="space-y-0.5">
               {history.map((h) => (
                 <li key={h.id}>
-                  <button className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-[var(--surface-2)]" onClick={() => onLoad(h.sql)} title={h.sql}>
+                  <button className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-[var(--surface-2)]" onClick={() => onLoadHistory(h.sql)} title={h.sql}>
                     <span aria-hidden style={{ color: h.ok ? "var(--success)" : "var(--danger)", flexShrink: 0 }}>{h.ok ? "✓" : "✗"}</span>
                     <span className="truncate font-mono text-xs">{h.sql}</span>
                   </button>

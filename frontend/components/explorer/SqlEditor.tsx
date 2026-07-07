@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import type { Environment, Flavor, QueryPlan, QueryResult } from "@/lib/types";
+import type { Environment, Flavor, QueryPlan, QueryResult, Snippet } from "@/lib/types";
 import { analyzeSql, type StmtInfo } from "@/lib/sqlguard";
 import SqlCodeEditor from "./SqlCodeEditor";
 import GuardDialog from "./GuardDialog";
-import SqlSidebar from "./SqlSidebar";
+import SqlSidebar, { type SaveState } from "./SqlSidebar";
 import ResultChart from "./ResultChart";
 import { IconDownload, IconPlay } from "@/components/icons";
 
@@ -145,6 +145,83 @@ export default function SqlEditor({
   const [aiMsg, setAiMsg] = useState("");
   const [showChart, setShowChart] = useState(false);
 
+  // ---- saved queries: each auto-saves; New query mints a unique Untitled ----
+  const [snippets, setSnippets] = useState<Snippet[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const activeIdRef = useRef<string | null>(null); activeIdRef.current = activeId;
+  const snippetsRef = useRef<Snippet[]>([]); snippetsRef.current = snippets;
+  const creatingRef = useRef(false);
+  const firstRun = useRef(true);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { api.listSnippets().then(setSnippets).catch(() => {}); }, []);
+
+  const nextUntitled = () => {
+    const used = new Set(snippetsRef.current.map((s) => s.name));
+    let n = 1;
+    while (used.has(`Untitled query ${n}`)) n++;
+    return `Untitled query ${n}`;
+  };
+
+  const persist = useCallback(async (text: string) => {
+    const aid = activeIdRef.current;
+    if (aid) {
+      const snap = snippetsRef.current.find((s) => s.id === aid);
+      if (snap && snap.sql === text) { setSaveState("saved"); return; }
+      setSaveState("saving");
+      try {
+        const up = await api.updateSnippet(aid, snap?.name ?? "Untitled query", text);
+        setSnippets((l) => l.map((s) => (s.id === aid ? up : s)));
+        setSaveState("saved");
+      } catch { setSaveState("idle"); }
+    } else if (text.trim()) {
+      if (creatingRef.current) return;
+      creatingRef.current = true;
+      setSaveState("saving");
+      try {
+        const created = await api.createSnippet(nextUntitled(), text);
+        setSnippets((l) => [created, ...l]);
+        setActiveId(created.id);
+        setSaveState("saved");
+      } catch { setSaveState("idle"); } finally { creatingRef.current = false; }
+    }
+  }, []);
+
+  // Debounced auto-save on every edit (skips the initial template on mount).
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => persist(sql), 700);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [sql, persist]);
+
+  const newQuery = async () => {
+    setResult(null); setPlan(null);
+    try {
+      const created = await api.createSnippet(nextUntitled(), "");
+      setSnippets((l) => [created, ...l]);
+      setActiveId(created.id);
+      firstRun.current = true;   // the setSql("") below shouldn't re-trigger a save
+      setSql("");
+      setSaveState("saved");
+    } catch { /* surfaced via query errors */ }
+  };
+
+  const selectSnippet = (s: Snippet) => {
+    setResult(null); setPlan(null);
+    setActiveId(s.id);
+    setSql(s.sql);   // auto-save effect no-ops: stored sql === loaded sql
+  };
+
+  const deleteSnippet = async (id: string) => {
+    await api.deleteSnippet(id);
+    setSnippets((l) => l.filter((s) => s.id !== id));
+    if (activeIdRef.current === id) { setActiveId(null); firstRun.current = true; setSql(""); setSaveState("idle"); }
+  };
+
+  const saveNow = () => { if (saveTimer.current) clearTimeout(saveTimer.current); persist(sql); };
+
   // Fetch columns for tables referenced in the query so autocomplete can suggest them.
   useEffect(() => {
     const present = tableNames.filter((n) =>
@@ -281,7 +358,9 @@ export default function SqlEditor({
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row">
-      <SqlSidebar connId={connId} sql={sql} onLoad={setSql} onNew={() => { setSql(""); setResult(null); setPlan(null); }} historyNonce={historyNonce} />
+      <SqlSidebar connId={connId} snippets={snippets} activeId={activeId} saveState={saveState}
+        onNew={newQuery} onSelect={selectSnippet} onSave={saveNow} onDelete={deleteSnippet}
+        onLoadHistory={setSql} historyNonce={historyNonce} />
       <div className="min-w-0 flex-1 space-y-3">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">

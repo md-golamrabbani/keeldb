@@ -30,4 +30,5 @@ export {
   ArrowUpRight as IconArrowUpRight,
   Link2 as IconLink,
   X as IconClose,
+  Save as IconSave,
 } from "lucide-react";

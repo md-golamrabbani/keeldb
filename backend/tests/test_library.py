@@ -16,6 +16,18 @@ def test_snippet_save_list_delete(tmp_path, monkeypatch):
     assert s.delete("nope") is False
 
 
+def test_snippet_update_preserves_id_and_created_at(tmp_path, monkeypatch):
+    import app.store.store as store
+    monkeypatch.setattr(store, "DATA_DIR", tmp_path)
+    s = SnippetStore()
+    created = s.save(Snippet(name="Untitled query 1", sql=""))
+    # auto-save: same id, new sql, created_at unchanged
+    created.sql = "SELECT 1"
+    updated = s.save(created)
+    assert updated.id == created.id and updated.created_at == created.created_at
+    assert s.get(created.id).sql == "SELECT 1"
+
+
 def test_snippets_newest_first(tmp_path, monkeypatch):
     import app.store.store as store
     monkeypatch.setattr(store, "DATA_DIR", tmp_path)

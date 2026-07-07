@@ -191,6 +191,10 @@ class SnippetStore(_JsonStore):
         items = sorted(self._load().values(), key=lambda r: r.get("created_at", ""), reverse=True)
         return [Snippet(**r) for r in items]
 
+    def get(self, snippet_id: str) -> Optional[Snippet]:
+        r = self._load().get(snippet_id)
+        return Snippet(**r) if r else None
+
     def save(self, snippet: Snippet) -> Snippet:
         if not snippet.id:
             snippet.id = str(uuid.uuid4())
