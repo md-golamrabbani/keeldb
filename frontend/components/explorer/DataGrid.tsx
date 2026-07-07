@@ -13,7 +13,7 @@ import Modal from "./Modal";
 import Checkbox from "@/components/ui/Checkbox";
 import Select from "@/components/ui/Select";
 import {
-  IconChevronLeft, IconChevronRight, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
+  IconChevronDown, IconChevronLeft, IconChevronRight, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
 } from "@/components/icons";
 
 type Cell = string | number | boolean | null;
@@ -43,6 +43,8 @@ export default function DataGrid({
   const [peek, setPeek] = useState<{ table: string; column: string; value: string } | null>(null);
   const [refRow, setRefRow] = useState<Record<string, Cell> | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [importFormat, setImportFormat] = useState<"csv" | "json" | "sql">("csv");
+  const [importMenu, setImportMenu] = useState(false);
   const [orderBy, setOrderBy] = useState("");
   const [orderDir, setOrderDir] = useState<"asc" | "desc">("asc");
   const [loading, setLoading] = useState(false);
@@ -132,6 +134,16 @@ export default function DataGrid({
     } catch (e) { setError(String(e)); }
   };
 
+  const runSqlFile = async (f: File) => {
+    setError("");
+    try {
+      const text = await f.text();
+      const r = await api.runSql(connId, text, schema, 0);
+      if (!r.ok) setError(r.error || "SQL import failed");
+      else { flash(`Ran ${r.executed ?? ""} statement(s) from ${f.name}`); load(); }
+    } catch (e) { setError(String(e)); }
+  };
+
   const doExport = async (fmt: string) => {
     try { const r = await api.exportTable(connId, schema, table, fmt); window.open(api.exportUrl(r.export_id, r.mode), "_blank"); }
     catch (e) { setError(String(e)); }
@@ -182,9 +194,28 @@ export default function DataGrid({
           <button className="btn btn-danger btn-sm !h-9" onClick={bulkDelete}><IconTrash width={14} height={14} /> Delete {selected.size} selected</button>
         )}
         <div className="ml-auto flex items-center gap-2">
-          <input ref={fileInput} type="file" accept=".csv,text/csv" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) setImportFile(f); e.currentTarget.value = ""; }} />
-          <button className="btn btn-secondary btn-sm !h-9" onClick={() => fileInput.current?.click()} disabled={readOnly} title={readOnly ? "Connection is read-only" : ""}><IconUpload width={14} height={14} /> Import CSV</button>
+          <input ref={fileInput} type="file" className="hidden"
+            accept={importFormat === "json" ? ".json,application/json" : importFormat === "sql" ? ".sql,text/plain" : ".csv,text/csv"}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) { if (importFormat === "sql") runSqlFile(f); else setImportFile(f); } e.currentTarget.value = ""; }} />
+          <div className="relative">
+            <button className="btn btn-secondary btn-sm !h-9" onClick={() => setImportMenu((o) => !o)} disabled={readOnly}
+              title={readOnly ? "Connection is read-only" : ""}>
+              <IconUpload width={14} height={14} /> Import <IconChevronDown width={13} height={13} style={{ color: "var(--text-faint)" }} />
+            </button>
+            {importMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setImportMenu(false)} />
+                <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-lg border py-1 shadow-lg" style={{ background: "var(--surface)", boxShadow: "var(--shadow-lg)" }}>
+                  {(["csv", "json", "sql"] as const).map((f) => (
+                    <button key={f} className="block w-full px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-2)]"
+                      onClick={() => { setImportFormat(f); setImportMenu(false); setTimeout(() => fileInput.current?.click(), 0); }}>
+                      {f === "sql" ? "Run .sql script" : `${f.toUpperCase()} file`}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
           {["csv", "json", "sql"].map((f) => (
             <button key={f} className="btn btn-secondary btn-sm !h-9 uppercase" onClick={() => doExport(f)}>
               <IconDownload width={14} height={14} /> {f}
@@ -346,7 +377,7 @@ export default function DataGrid({
       )}
       {importFile && data && (
         <ImportCsvModal connId={connId} schema={schema} table={table} file={importFile}
-          columns={data.columns.map((c) => c.name)}
+          columns={data.columns.map((c) => c.name)} format={importFormat === "json" ? "json" : "csv"}
           onClose={() => setImportFile(null)}
           onDone={(msg) => { setImportFile(null); flash(msg); load(); }} />
       )}
