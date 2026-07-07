@@ -3,6 +3,7 @@ import TopNav from "@/components/TopNav";
 import BackendProvider from "@/components/BackendProvider";
 import CommandPalette from "@/components/CommandPalette";
 import AuthGate from "@/components/AuthGate";
+import Splash from "@/components/Splash";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -26,6 +27,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="flex h-screen flex-col overflow-hidden">
+        <Splash />
         {/* AuthGate hides the whole shell (nav + content) until the app is
             unlocked; when unlocked it renders the normal chrome. */}
         <AuthGate>

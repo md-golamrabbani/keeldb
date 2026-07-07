@@ -100,6 +100,21 @@ h2, h3 { letter-spacing: -0.01em; }
 
 code, pre, .font-mono { font-family: var(--font-mono); }
 
+/* startup splash */
+@keyframes splash-in {
+  0%   { opacity: 0; transform: scale(0.86); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes splash-glow {
+  0%, 100% { filter: drop-shadow(0 0 0 transparent); }
+  50%      { filter: drop-shadow(0 6px 22px color-mix(in srgb, var(--accent) 40%, transparent)); }
+}
+@keyframes splash-rise {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
   html { scroll-behavior: auto; }

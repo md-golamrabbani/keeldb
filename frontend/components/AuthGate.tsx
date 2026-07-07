@@ -17,6 +17,23 @@ const PRESET_QUESTIONS = [
 ];
 const CUSTOM = "__custom__";
 
+// Module-level so it keeps a stable identity across AuthGate re-renders —
+// otherwise every keystroke remounts the form and steals focus.
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-1 items-center justify-center p-6" style={{ background: "var(--bg)" }}>
+      <div className="card card-pad w-full max-w-sm space-y-4">
+        <div className="flex items-center gap-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="" width={28} height={28} />
+          <h1 className="text-lg font-semibold tracking-tight">Keel<span style={{ color: "var(--accent)" }}>DB</span></h1>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // Full-screen unlock/setup (the app shell is hidden until unlocked). First launch
 // sets a password + security question; forgotten passwords recover via the answer,
 // with a permanent block after 3 wrong answers. Backend-unreachable never blocks.
@@ -107,19 +124,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (phase === "loading") return <div className="flex flex-1 items-center justify-center text-sm muted">Loading…</div>;
   if (phase === "ready") return <>{children}</>;
-
-  const Shell = ({ children: c }: { children: React.ReactNode }) => (
-    <div className="flex flex-1 items-center justify-center p-6" style={{ background: "var(--bg)" }}>
-      <div className="card card-pad w-full max-w-sm space-y-4">
-        <div className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="" width={28} height={28} />
-          <h1 className="text-lg font-semibold tracking-tight">Keel<span style={{ color: "var(--accent)" }}>DB</span></h1>
-        </div>
-        {c}
-      </div>
-    </div>
-  );
 
   if (phase === "blocked") {
     return (
