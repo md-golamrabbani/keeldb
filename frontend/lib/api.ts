@@ -75,13 +75,25 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  authStatus: () => req<{ enabled: boolean }>("/auth/status"),
-  login: async (password: string): Promise<{ token: string; enabled: boolean }> => {
+  authStatus: () => req<{ enabled: boolean; configured: boolean; needs_setup: boolean }>("/auth/status"),
+  authSetup: async (password: string): Promise<{ token: string }> => {
+    const res = await fetch(`${await resolveApiBase()}/auth/setup`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Could not set the password");
+    return res.json();
+  },
+  login: async (password: string): Promise<{ token: string }> => {
     const res = await fetch(`${await resolveApiBase()}/auth/login`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }),
     });
     if (res.status === 401) throw new Error("Invalid password");
     if (!res.ok) throw new Error(res.statusText);
+    return res.json();
+  },
+  authRefresh: async (): Promise<{ token: string }> => {
+    const res = await fetch(`${await resolveApiBase()}/auth/refresh`, { method: "POST", headers: authHeaders() });
+    if (!res.ok) throw new Error("session expired");
     return res.json();
   },
 

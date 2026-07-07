@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { api } from "@/lib/api";
 import type { ConnectionProfile, ConnectionProfileIn, Flavor } from "@/lib/types";
 import StatusPill, { type PillState } from "./StatusPill";
-import { IconFile, IconLock, IconUpload } from "./icons";
+import { IconChevronLeft, IconFile, IconLock, IconUpload } from "./icons";
 import Select from "@/components/ui/Select";
 import Checkbox from "@/components/ui/Checkbox";
 
@@ -96,7 +96,12 @@ export default function ConnectionForm({
   return (
     <div className="card card-pad space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold">{initial ? `Edit connection` : "New connection"}</h3>
+        <div className="flex items-center gap-2">
+          <button className="btn btn-ghost btn-sm !px-1.5" onClick={onCancel} aria-label="Back to connections" title="Back to connections">
+            <IconChevronLeft width={16} height={16} />
+          </button>
+          <h3 className="text-base font-semibold">{initial ? `Edit connection` : "New connection"}</h3>
+        </div>
         <StatusPill state={pill} />
       </div>
 
