@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { ColumnInfo, DuplicateResult } from "@/lib/types";
 import { IconSearch } from "@/components/icons";
+import Checkbox from "@/components/ui/Checkbox";
 
 // Find rows sharing the same value(s) in a chosen set of columns. "View rows"
 // drills into the Data grid filtered on the group's first column.
@@ -44,7 +45,7 @@ export default function DuplicatesView({ connId, schema, table, onViewRows }: {
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           {columns.map((c) => (
             <label key={c.name} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={picked.includes(c.name)} onChange={() => toggle(c.name)} />
+              <Checkbox checked={picked.includes(c.name)} onCheckedChange={() => toggle(c.name)} />
               <span className="font-mono">{c.name}</span>
               <span className="text-xs faint">{c.data_type}</span>
             </label>

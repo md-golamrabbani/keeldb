@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { ColumnInfo, ConstraintList, IndexList } from "@/lib/types";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
+import Checkbox from "@/components/ui/Checkbox";
 import { IconPlus, IconTrash } from "@/components/icons";
 
 // Index CRUD (create/drop) + a read-only view of the table's constraints.
@@ -54,14 +55,14 @@ export default function IndexManager({ connId, schema, table, columns }: {
         <div className="card card-pad space-y-3">
           <div className="flex flex-wrap items-end gap-3">
             <div><label className="label">Index name</label><input className="input !w-52" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="ix_table_col" /></div>
-            <label className="flex items-center gap-2 pb-2.5 text-sm"><input type="checkbox" checked={form.unique} onChange={(e) => setForm({ ...form, unique: e.target.checked })} /> Unique</label>
+            <label className="flex items-center gap-2 pb-2.5 text-sm"><Checkbox checked={form.unique} onCheckedChange={(v) => setForm({ ...form, unique: v })} /> Unique</label>
           </div>
           <div>
             <label className="label">Columns</label>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               {columns.map((c) => (
                 <label key={c.name} className="flex items-center gap-1.5 text-sm">
-                  <input type="checkbox" checked={form.columns.includes(c.name)} onChange={() => toggleCol(c.name)} />
+                  <Checkbox checked={form.columns.includes(c.name)} onCheckedChange={() => toggleCol(c.name)} />
                   <span className="font-mono">{c.name}</span>
                 </label>
               ))}

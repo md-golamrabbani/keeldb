@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import type { ColumnDef } from "@/lib/types";
+import Checkbox from "@/components/ui/Checkbox";
 import ErrorBanner from "./ErrorBanner";
 import GridTable from "./GridTable";
 import IntegrityModal from "./IntegrityModal";
@@ -161,8 +162,8 @@ function CreateTableModal({ connId, schema, onClose, onCreated }: {
             <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto_auto] items-center gap-2">
               <input className="input !h-9 !py-0" value={c.name} onChange={(e) => patch(i, { name: e.target.value })} placeholder="column" />
               <TypeSelect className="!h-9 !py-0" value={c.type} onChange={(v) => patch(i, { type: v })} />
-              <input type="checkbox" checked={c.nullable} onChange={(e) => patch(i, { nullable: e.target.checked })} />
-              <input type="checkbox" checked={c.pk} onChange={(e) => patch(i, { pk: e.target.checked })} />
+              <Checkbox checked={c.nullable} onCheckedChange={(v) => patch(i, { nullable: v })} ariaLabel="Nullable" />
+              <Checkbox checked={c.pk} onCheckedChange={(v) => patch(i, { pk: v })} ariaLabel="Primary key" />
               <button className="btn btn-ghost btn-sm" onClick={() => remove(i)} aria-label="Remove"><IconTrash width={13} height={13} /></button>
             </div>
           ))}

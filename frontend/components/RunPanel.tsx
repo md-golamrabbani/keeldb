@@ -5,6 +5,7 @@ import { buildMapping } from "@/lib/mapping";
 import { useWizard } from "@/lib/store";
 import type { OutputMode, Report, RollbackSim, RowError } from "@/lib/types";
 import { IconCheck, IconDownload, IconFlask, IconLock, IconPlay } from "./icons";
+import Checkbox from "@/components/ui/Checkbox";
 
 interface Progress { rows_read: number; rows_written: number; rows_skipped: number; rows_errored: number }
 
@@ -111,7 +112,7 @@ export default function RunPanel() {
         </div>
         {outputMode === "sql" && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={includeDdl} onChange={(e) => setGlobals({ includeDdl: e.target.checked })} />
+            <Checkbox checked={includeDdl} onCheckedChange={(v) => setGlobals({ includeDdl: v })} />
             Include <code>CREATE TABLE</code> from the target schema
           </label>
         )}

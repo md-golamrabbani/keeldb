@@ -2,6 +2,7 @@
 import { autoMap, useWizard } from "@/lib/store";
 import type { ColumnInfo, ConflictStrategy } from "@/lib/types";
 import { CAST_TYPES, MASK_PRESETS } from "@/lib/types";
+import Checkbox from "@/components/ui/Checkbox";
 import { IconBolt } from "./icons";
 
 function ColBadges({ c }: { c: ColumnInfo }) {
@@ -79,7 +80,7 @@ export default function MappingCanvas() {
               return (
                 <tr key={m.source_col} className="border-t" style={{ opacity: m.enabled ? 1 : 0.45 }}>
                   <td className="px-3 py-1.5">
-                    <input type="checkbox" checked={m.enabled} onChange={(e) => patchColumnMap(m.source_col, { enabled: e.target.checked })} />
+                    <Checkbox checked={m.enabled} onCheckedChange={(v) => patchColumnMap(m.source_col, { enabled: v })} ariaLabel="Include column" />
                   </td>
                   <td className="whitespace-nowrap px-3 py-1.5">
                     <span className="font-mono font-medium">{m.source_col}</span>
@@ -128,9 +129,9 @@ export default function MappingCanvas() {
                       onChange={(e) => patchColumnMap(m.source_col, { default_value: e.target.value || null })} />
                   </td>
                   <td className="px-3 py-1.5 text-center">
-                    <input type="checkbox" checked={m.is_conflict_key} disabled={!m.enabled}
+                    <Checkbox checked={m.is_conflict_key} disabled={!m.enabled}
                       title="Conflict key (used for upsert / skip-duplicates)"
-                      onChange={(e) => patchColumnMap(m.source_col, { is_conflict_key: e.target.checked })} />
+                      onCheckedChange={(v) => patchColumnMap(m.source_col, { is_conflict_key: v })} />
                   </td>
                 </tr>
               );
@@ -160,7 +161,7 @@ export default function MappingCanvas() {
             value={whereFilter} onChange={(e) => setGlobals({ whereFilter: e.target.value })} />
         </div>
         <label className="flex items-center gap-2 pb-2.5 text-sm">
-          <input type="checkbox" checked={stopOnError} onChange={(e) => setGlobals({ stopOnError: e.target.checked })} />
+          <Checkbox checked={stopOnError} onCheckedChange={(v) => setGlobals({ stopOnError: v })} />
           Stop on error
         </label>
       </div>

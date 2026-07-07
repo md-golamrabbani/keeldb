@@ -6,6 +6,7 @@ import { useWizard } from "@/lib/store";
 import type { MappingProfile, MigrationProject } from "@/lib/types";
 import ProjectRunPanel from "@/components/ProjectRunPanel";
 import PortabilityBar from "@/components/PortabilityBar";
+import Checkbox from "@/components/ui/Checkbox";
 import { IconBookmark, IconLayers, IconPlay, IconPlus, IconTrash } from "@/components/icons";
 
 const OUTPUT_LABEL: Record<string, string> = { push: "push", sql: ".sql", csv: ".csv", json: ".json" };
@@ -87,7 +88,7 @@ export default function ProfilesPage() {
               <div className="card max-h-56 overflow-y-auto p-1.5">
                 {mappings.map((m) => (
                   <label key={m.id} className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm hover:bg-[var(--surface-2)]">
-                    <input type="checkbox" checked={selected.includes(m.id)} onChange={() => toggleSel(m.id)} />
+                    <Checkbox checked={selected.includes(m.id)} onCheckedChange={() => toggleSel(m.id)} />
                     <span className="flex-1">{m.name}</span>
                     <span className="font-mono text-xs faint">→ {m.target_schema && `${m.target_schema}.`}{m.target_table}</span>
                   </label>

@@ -10,6 +10,7 @@ import ErrorBanner from "./ErrorBanner";
 import FkPeekDialog, { parseFk } from "./FkPeekDialog";
 import ImportCsvModal from "./ImportCsvModal";
 import Modal from "./Modal";
+import Checkbox from "@/components/ui/Checkbox";
 import {
   IconChevronLeft, IconChevronRight, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
 } from "@/components/icons";
@@ -242,7 +243,7 @@ export default function DataGrid({
             <tr className="text-left uppercase tracking-wide muted">
               {editable && (
                 <th style={{ ...stHead(0), width: CHECK_W, minWidth: CHECK_W }} className="px-0 py-1.5 text-center">
-                  <input type="checkbox" checked={!!data && selected.size === data.rows.length && data.rows.length > 0} onChange={toggleAll} />
+                  <Checkbox checked={!!data && selected.size === data.rows.length && data.rows.length > 0} onCheckedChange={toggleAll} ariaLabel="Select all rows" />
                 </th>
               )}
               {hasPk && <th style={{ ...stHead(actLeft), width: ACT_W, minWidth: ACT_W }} className="px-0 py-1.5"></th>}
@@ -267,7 +268,7 @@ export default function DataGrid({
                 <tr key={r}>
                   {editable && (
                     <td style={{ ...stCell(0, rowBg), width: CHECK_W, minWidth: CHECK_W }} className="border-b px-0 py-1 text-center">
-                      <input type="checkbox" checked={selected.has(r)} onChange={() => toggleRow(r)} />
+                      <Checkbox checked={selected.has(r)} onCheckedChange={() => toggleRow(r)} ariaLabel="Select row" />
                     </td>
                   )}
                   {hasPk && (

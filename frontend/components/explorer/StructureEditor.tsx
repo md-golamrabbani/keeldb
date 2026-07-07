@@ -5,6 +5,7 @@ import type { ColumnInfo } from "@/lib/types";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
 import IndexManager from "./IndexManager";
 import TypeSelect from "./TypeSelect";
+import Checkbox from "@/components/ui/Checkbox";
 import { IconEdit, IconPlus, IconTrash } from "@/components/icons";
 
 export default function StructureEditor({ connId, schema, table }: { connId: string; schema: string; table: string }) {
@@ -67,7 +68,7 @@ export default function StructureEditor({ connId, schema, table }: { connId: str
           <div><label className="label">Name</label><input className="input !w-40" value={newCol.name} onChange={(e) => setNewCol({ ...newCol, name: e.target.value })} /></div>
           <div><label className="label">Type</label><TypeSelect className="!w-40" value={newCol.type} onChange={(v) => setNewCol({ ...newCol, type: v })} /></div>
           <div><label className="label">Default</label><input className="input !w-32" value={newCol.default} onChange={(e) => setNewCol({ ...newCol, default: e.target.value })} /></div>
-          <label className="flex items-center gap-2 pb-2.5 text-sm"><input type="checkbox" checked={newCol.nullable} onChange={(e) => setNewCol({ ...newCol, nullable: e.target.checked })} /> Nullable</label>
+          <label className="flex items-center gap-2 pb-2.5 text-sm"><Checkbox checked={newCol.nullable} onCheckedChange={(v) => setNewCol({ ...newCol, nullable: v })} /> Nullable</label>
           <button className="btn btn-primary btn-sm" onClick={addColumn} disabled={!newCol.name}>Add</button>
           <button className="btn btn-ghost btn-sm" onClick={() => setAdding(false)}>Cancel</button>
         </div>
@@ -86,7 +87,7 @@ export default function StructureEditor({ connId, schema, table }: { connId: str
               <tr key={c.name} className="border-t" style={{ background: "var(--surface-2)" }}>
                 <td className="px-3 py-2"><input className="input !h-8 !py-0 !w-36" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></td>
                 <td className="px-3 py-2"><TypeSelect className="!h-8 !py-0 !w-36" value={form.type} onChange={(v) => setForm({ ...form, type: v })} /></td>
-                <td className="px-3 py-2"><input type="checkbox" checked={form.nullable} onChange={(e) => setForm({ ...form, nullable: e.target.checked })} /></td>
+                <td className="px-3 py-2"><Checkbox checked={form.nullable} onCheckedChange={(v) => setForm({ ...form, nullable: v })} /></td>
                 <td className="px-3 py-2"></td><td className="px-3 py-2"></td>
                 <td className="px-3 py-2 text-right">
                   <button className="btn btn-primary btn-sm mr-1" onClick={() => saveEdit(c)}>Save</button>

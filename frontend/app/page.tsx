@@ -69,6 +69,7 @@ export default function ConnectionsPage() {
           onCancel={() => setShowForm(false)} />
       )}
 
+      {!showForm && (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {connections.map((c) => (
           <div key={c.id} className="card card-pad flex flex-col gap-3">
@@ -122,6 +123,7 @@ export default function ConnectionsPage() {
           </div>
         ))}
       </div>
+      )}
 
       {connections.length === 0 && !showForm && !error && (
         <div className="card card-pad flex flex-col items-center gap-2 py-16 text-center">
