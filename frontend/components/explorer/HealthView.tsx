@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { HealthReport } from "@/lib/types";
+import type { HealthReport, IndexAdvice } from "@/lib/types";
 import { IconRefresh } from "@/components/icons";
 
 function fmtBytes(n: number | null): string {
@@ -15,12 +15,14 @@ function fmtBytes(n: number | null): string {
 // Database health: storage & size overview, top tables by size (or rows).
 export default function HealthView({ connId, schema }: { connId: string; schema: string }) {
   const [rep, setRep] = useState<HealthReport | null>(null);
+  const [advice, setAdvice] = useState<IndexAdvice | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(() => {
     setLoading(true); setError("");
     api.health(connId, schema).then(setRep).catch((e) => setError(String(e))).finally(() => setLoading(false));
+    api.indexAdvice(connId, schema).then(setAdvice).catch(() => setAdvice(null));
   }, [connId, schema]);
   useEffect(load, [load]);
 
@@ -84,6 +86,33 @@ export default function HealthView({ connId, schema }: { connId: string; schema:
               </tbody>
             </table>
           </div>
+
+          {advice && (
+            <div className="space-y-2">
+              <h3 className="font-semibold">Index advisor</h3>
+              {advice.findings.length === 0 ? (
+                <div className="rounded-lg px-3 py-2 text-sm font-semibold" style={{ background: "var(--success-soft)", color: "var(--success)" }}>
+                  ✅ No index or primary-key issues found.
+                </div>
+              ) : (
+                <div className="card divide-y" style={{ borderColor: "var(--border)" }}>
+                  {advice.findings.map((f, i) => (
+                    <div key={i} className="flex items-start gap-2 px-3 py-2 text-sm">
+                      <span aria-hidden style={{ color: f.level === "warn" ? "var(--warning)" : "var(--text-muted)" }}>
+                        {f.level === "warn" ? "⚠" : "•"}
+                      </span>
+                      <span className="badge">{f.kind.replace(/_/g, " ")}</span>
+                      <span className="font-mono text-xs muted">{f.table}</span>
+                      <span className="flex-1">{f.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!advice.usage_available && (
+                <p className="text-xs faint">Unused-index detection needs query statistics — available on PostgreSQL and MySQL.</p>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>

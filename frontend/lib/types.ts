@@ -134,6 +134,20 @@ export interface HealthReport {
   tables: TableStat[];
 }
 
+export interface IndexFinding {
+  level: "warn" | "info";
+  kind: "no_primary_key" | "duplicate_index" | "redundant_index" | "unused_index";
+  table: string;
+  message: string;
+  index: string | null;
+  covered_by: string | null;
+}
+export interface IndexAdvice {
+  dialect: string;
+  usage_available: boolean;
+  findings: IndexFinding[];
+}
+
 export interface Snippet {
   id: string;
   name: string;

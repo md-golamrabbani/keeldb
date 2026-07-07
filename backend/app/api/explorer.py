@@ -5,7 +5,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from .. import dbops, duplicates, explain, health, profiler, relational, verify
+from .. import advisor, dbops, duplicates, explain, health, profiler, relational, verify
 from ..connectors import connector_for
 from ..models import HistoryEntry
 from ..store import connection_store, history_store
@@ -131,6 +131,18 @@ def health_report(conn_id: str, req: OrphanRequest):
     c = _connector(conn_id)
     try:
         return health.report(c, req.schema_name)
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.post("/{conn_id}/index-advice")
+def index_advice(conn_id: str, req: OrphanRequest):
+    """Index hygiene: duplicate/redundant/unused indexes + missing primary keys."""
+    c = _connector(conn_id)
+    try:
+        return advisor.index_advice(c, req.schema_name)
     except Exception as exc:
         raise HTTPException(502, dbops.clean_error(exc))
     finally:

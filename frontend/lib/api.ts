@@ -9,6 +9,7 @@ import type {
   ExportResult,
   HealthReport,
   HistoryEntry,
+  IndexAdvice,
   IndexList,
   FilterCond,
   GridResult,
@@ -99,6 +100,8 @@ export const api = {
     req<ConstraintList>(`/db/${connId}/constraints`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
   health: (connId: string, schema: string) =>
     req<HealthReport>(`/db/${connId}/health`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
+  indexAdvice: (connId: string, schema: string) =>
+    req<IndexAdvice>(`/db/${connId}/index-advice`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
 
   // query history + saved snippets
   history: (connId: string, limit = 100) => req<HistoryEntry[]>(`/db/${connId}/history?limit=${limit}`),
