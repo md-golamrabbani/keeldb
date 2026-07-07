@@ -144,6 +144,16 @@ class Snippet(BaseModel):
     created_at: str = ""
 
 
+AiProvider = Literal["anthropic", "openai", "groq"]
+
+
+class AiSettings(BaseModel):
+    """Which LLM powers Ask-AI. api_key is stored Fernet-encrypted, never returned."""
+    provider: AiProvider = "anthropic"
+    model: str = ""          # empty → provider default
+    api_key: str = ""
+
+
 AlertCondition = Literal["rows_gt_zero", "value_gt", "value_lt"]
 
 

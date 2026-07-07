@@ -13,6 +13,7 @@ from typing import Optional
 from cryptography.fernet import Fernet
 
 from ..models import (
+    AiSettings,
     AlertRule,
     ConnectionProfileIn,
     HistoryEntry,
@@ -284,9 +285,37 @@ class AlertStore(_JsonStore):
         return True
 
 
+class AiSettingsStore(_JsonStore):
+    """Single-record store for the Ask-AI provider config; api_key encrypted."""
+    filename = "ai_settings.json"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._fernet = _fernet()
+
+    def get(self) -> AiSettings:
+        d = self._load()
+        if not d:
+            return AiSettings()
+        key = d.get("api_key", "")
+        if key:
+            try:
+                key = self._fernet.decrypt(key.encode()).decode()
+            except Exception:
+                key = ""
+        return AiSettings(provider=d.get("provider", "anthropic"), model=d.get("model", ""), api_key=key)
+
+    def save(self, s: AiSettings) -> AiSettings:
+        d = {"provider": s.provider, "model": s.model,
+             "api_key": self._fernet.encrypt(s.api_key.encode()).decode() if s.api_key else ""}
+        self._save(d)
+        return s
+
+
 connection_store = ConnectionStore()
 mapping_store = MappingStore()
 project_store = ProjectStore()
 snippet_store = SnippetStore()
 history_store = HistoryStore()
 alert_store = AlertStore()
+ai_settings_store = AiSettingsStore()

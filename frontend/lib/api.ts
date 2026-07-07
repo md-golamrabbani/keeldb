@@ -1,5 +1,6 @@
 import type {
   ActivityReport,
+  AiSettingsPublic,
   AlertCondition,
   AlertResult,
   AlertRule,
@@ -97,6 +98,9 @@ export const api = {
     req<QueryPlan>(`/db/${connId}/explain`, { method: "POST", body: JSON.stringify({ sql, schema_name: schema }) }),
   aiSql: (connId: string, schema: string, question: string) =>
     req<{ available: boolean; sql: string; message?: string; model?: string }>(`/db/${connId}/ai/sql`, { method: "POST", body: JSON.stringify({ schema_name: schema, question }) }),
+  aiSettings: () => req<AiSettingsPublic>("/ai/settings"),
+  saveAiSettings: (p: { provider: string; model: string; api_key: string }) =>
+    req<AiSettingsPublic>("/ai/settings", { method: "PUT", body: JSON.stringify(p) }),
   listIndexes: (connId: string, schema: string, table: string) =>
     req<IndexList>(`/db/${connId}/indexes`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
   createIndex: (connId: string, schema: string, table: string, name: string, columns: string[], unique: boolean) =>

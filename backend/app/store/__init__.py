@@ -1,10 +1,12 @@
 from .store import (  # noqa: F401
+    AiSettingsStore,
     AlertStore,
     ConnectionStore,
     HistoryStore,
     MappingStore,
     ProjectStore,
     SnippetStore,
+    ai_settings_store,
     alert_store,
     connection_store,
     history_store,

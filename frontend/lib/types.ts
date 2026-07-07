@@ -194,6 +194,14 @@ export interface IndexAdvice {
   findings: IndexFinding[];
 }
 
+export interface AiSettingsPublic {
+  provider: string;
+  model: string;
+  effective_model: string;
+  has_key: boolean;
+  providers: { value: string; label: string; default_model: string }[];
+}
+
 export interface Snippet {
   id: string;
   name: string;

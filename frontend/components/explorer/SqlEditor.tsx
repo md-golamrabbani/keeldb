@@ -7,7 +7,8 @@ import SqlCodeEditor from "./SqlCodeEditor";
 import GuardDialog from "./GuardDialog";
 import SqlSidebar, { type SaveState } from "./SqlSidebar";
 import ResultChart from "./ResultChart";
-import { IconDownload, IconPlay } from "@/components/icons";
+import AiSettingsModal from "./AiSettingsModal";
+import { IconDownload, IconPlay, IconSettings } from "@/components/icons";
 
 interface LintError {
   line?: number;
@@ -143,6 +144,7 @@ export default function SqlEditor({
   const [aiQuestion, setAiQuestion] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState("");
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [showChart, setShowChart] = useState(false);
 
   // ---- saved queries: each auto-saves; New query mints a unique Untitled ----
@@ -372,8 +374,12 @@ export default function SqlEditor({
         <button className="btn btn-secondary btn-sm !h-9" onClick={askAi} disabled={aiBusy || !aiQuestion.trim()}>
           {aiBusy ? "Thinking…" : "Ask AI"}
         </button>
+        <button className="btn btn-ghost btn-sm !h-9" onClick={() => setAiSettingsOpen(true)} title="AI settings (provider & API key)" aria-label="AI settings">
+          <IconSettings width={15} height={15} />
+        </button>
       </div>
       {aiMsg && <p className="text-xs muted">{aiMsg}</p>}
+      {aiSettingsOpen && <AiSettingsModal onClose={() => setAiSettingsOpen(false)} onSaved={() => setAiMsg("AI settings saved.")} />}
 
       <div className="card overflow-hidden">
         <SqlCodeEditor

@@ -31,4 +31,5 @@ export {
   Link2 as IconLink,
   X as IconClose,
   Save as IconSave,
+  Settings as IconSettings,
 } from "lucide-react";
