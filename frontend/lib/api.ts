@@ -75,10 +75,10 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  authStatus: () => req<{ enabled: boolean; configured: boolean; needs_setup: boolean }>("/auth/status"),
-  authSetup: async (password: string): Promise<{ token: string }> => {
+  authStatus: () => req<{ enabled: boolean; configured: boolean; needs_setup: boolean; blocked: boolean; question: string }>("/auth/status"),
+  authSetup: async (password: string, question: string, answer: string): Promise<{ token: string }> => {
     const res = await fetch(`${await resolveApiBase()}/auth/setup`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, question, answer }),
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Could not set the password");
     return res.json();
@@ -87,8 +87,17 @@ export const api = {
     const res = await fetch(`${await resolveApiBase()}/auth/login`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }),
     });
+    if (res.status === 403) throw new Error("This app is permanently locked.");
     if (res.status === 401) throw new Error("Invalid password");
     if (!res.ok) throw new Error(res.statusText);
+    return res.json();
+  },
+  authRecover: async (answer: string, newPassword: string): Promise<{ ok: boolean; token?: string; blocked?: boolean; attempts_left?: number }> => {
+    const res = await fetch(`${await resolveApiBase()}/auth/recover`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ answer, new_password: newPassword }),
+    });
+    if (res.status === 403) return { ok: false, blocked: true, attempts_left: 0 };
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Recovery failed");
     return res.json();
   },
   authRefresh: async (): Promise<{ token: string }> => {

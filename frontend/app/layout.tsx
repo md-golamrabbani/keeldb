@@ -26,13 +26,17 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="flex h-screen flex-col overflow-hidden">
-        <TopNav />
-        <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1600px] px-4 pb-8 pt-4 sm:px-6">
-            <BackendProvider><AuthGate>{children}</AuthGate></BackendProvider>
-          </div>
-        </main>
-        <CommandPalette />
+        {/* AuthGate hides the whole shell (nav + content) until the app is
+            unlocked; when unlocked it renders the normal chrome. */}
+        <AuthGate>
+          <TopNav />
+          <main className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-[1600px] px-4 pb-8 pt-4 sm:px-6">
+              <BackendProvider>{children}</BackendProvider>
+            </div>
+          </main>
+          <CommandPalette />
+        </AuthGate>
       </body>
     </html>
   );

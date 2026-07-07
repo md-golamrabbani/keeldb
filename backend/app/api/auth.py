@@ -8,21 +8,38 @@ from .. import auth
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+class SetupIn(BaseModel):
+    password: str = ""
+    question: str = ""
+    answer: str = ""
+
+
 class PasswordIn(BaseModel):
     password: str = ""
 
 
+class RecoverIn(BaseModel):
+    answer: str = ""
+    new_password: str = ""
+
+
 @router.get("/status")
 def status():
-    return {"enabled": auth.enabled(), "configured": auth.is_configured(), "needs_setup": auth.needs_setup()}
+    return {
+        "enabled": auth.enabled(),
+        "configured": auth.is_configured(),
+        "needs_setup": auth.needs_setup(),
+        "blocked": auth.is_blocked(),
+        "question": auth.security_question(),
+    }
 
 
 @router.post("/setup")
-def setup(req: PasswordIn):
+def setup(req: SetupIn):
     if not auth.enabled():
         return {"token": ""}
     try:
-        auth.setup(req.password)
+        auth.setup(req.password, req.question, req.answer)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     return {"token": auth.issue_token()}
@@ -32,14 +49,30 @@ def setup(req: PasswordIn):
 def login(req: PasswordIn):
     if not auth.enabled():
         return {"token": ""}
+    if auth.is_blocked():
+        raise HTTPException(403, "app is permanently locked")
     if not auth.check_password(req.password):
         raise HTTPException(401, "invalid password")
     return {"token": auth.issue_token()}
 
 
+@router.post("/recover")
+def recover(req: RecoverIn):
+    if not auth.enabled():
+        return {"ok": True, "token": ""}
+    if auth.is_blocked():
+        raise HTTPException(403, "app is permanently locked")
+    try:
+        res = auth.recover(req.answer, req.new_password)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    if res["ok"]:
+        return {"ok": True, "token": auth.issue_token()}
+    return res  # {ok: false, blocked, attempts_left}
+
+
 @router.post("/refresh")
 def refresh(request: Request):
-    # /auth/* is exempt from the global gate, so verify the token here.
     if not auth.enabled():
         return {"token": ""}
     token = auth.token_from_header(request.headers.get("authorization", ""))
