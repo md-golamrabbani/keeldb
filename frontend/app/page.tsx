@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import type { ConnectionProfile } from "@/lib/types";
 import ConnectionForm from "@/components/ConnectionForm";
@@ -15,12 +16,21 @@ const FLAVOR_BADGE: Record<string, string> = {
   sqlfile: "badge",
 };
 
-export default function ConnectionsPage() {
+function ConnectionsPage() {
+  const router = useRouter();
+  const params = useSearchParams();
   const [connections, setConnections] = useState<ConnectionProfile[]>([]);
-  const [editing, setEditing] = useState<ConnectionProfile | null>(null);
-  const [showForm, setShowForm] = useState(false);
   const [pills, setPills] = useState<Record<string, PillState>>({});
   const [error, setError] = useState("");
+
+  // Form visibility lives in the URL (?form=new | ?form=<id>), so clicking the
+  // "Connections" nav link (href="/") always returns to the list.
+  const form = params.get("form");
+  const showForm = form != null;
+  const editing = form && form !== "new" ? connections.find((c) => c.id === form) ?? null : null;
+  const closeForm = () => router.push("/");
+  const openNew = () => router.push("/?form=new");
+  const openEdit = (c: ConnectionProfile) => router.push(`/?form=${c.id}`);
 
   const refresh = () => api.listConnections().then(setConnections).catch((e) => setError(String(e)));
   useEffect(() => {
@@ -51,7 +61,7 @@ export default function ConnectionsPage() {
           <p className="mt-1 text-sm muted">Reusable source &amp; target profiles — live databases or imported .sql dumps.</p>
         </div>
         {!showForm && (
-          <button className="btn btn-primary" onClick={() => { setEditing(null); setShowForm(true); }}>
+          <button className="btn btn-primary" onClick={openNew}>
             <IconPlus /> New connection
           </button>
         )}
@@ -65,8 +75,8 @@ export default function ConnectionsPage() {
 
       {showForm && (
         <ConnectionForm initial={editing ?? undefined}
-          onSaved={() => { setShowForm(false); refresh(); }}
-          onCancel={() => setShowForm(false)} />
+          onSaved={() => { closeForm(); refresh(); }}
+          onCancel={closeForm} />
       )}
 
       {!showForm && (
@@ -105,7 +115,7 @@ export default function ConnectionsPage() {
                 <Link className="btn btn-primary btn-sm" href={`/explorer?conn=${c.id}`}><IconTable width={13} height={13} /> Explore</Link>
                 <button className="btn btn-secondary btn-sm" onClick={() => test(c.id)}>Test</button>
                 {c.flavor !== "sqlfile" && (
-                  <button className="btn btn-ghost btn-sm" onClick={() => { setEditing(c); setShowForm(true); }} aria-label="Edit"><IconEdit width={14} height={14} /></button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => openEdit(c)} aria-label="Edit"><IconEdit width={14} height={14} /></button>
                 )}
                 <button className="btn btn-ghost btn-sm" onClick={() => remove(c)} aria-label="Delete"><IconTrash width={14} height={14} /></button>
               </div>
@@ -133,5 +143,13 @@ export default function ConnectionsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ConnectionsPageWrapper() {
+  return (
+    <Suspense fallback={<p className="muted">Loading…</p>}>
+      <ConnectionsPage />
+    </Suspense>
   );
 }

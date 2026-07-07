@@ -7,16 +7,15 @@ import { useEffect, useState } from "react";
 const SEEN_KEY = "keeldb_splash_shown";
 
 export default function Splash() {
-  // Play only once per app launch. Reading sessionStorage in the initializer
-  // means even if the layout ever remounts (e.g. a route change in the Tauri
-  // webview) the splash won't re-show — it only appears on a fresh open.
-  const [phase, setPhase] = useState<"show" | "leaving" | "gone">(() => {
-    try { if (typeof window !== "undefined" && sessionStorage.getItem(SEEN_KEY)) return "gone"; } catch {}
-    return "show";
-  });
+  // Initial state is the same on server and first client render (hydration-safe);
+  // the effect decides whether to play. Guarded by sessionStorage so it shows
+  // only once per app launch, never on a route change / remount.
+  const [phase, setPhase] = useState<"show" | "leaving" | "gone">("show");
 
   useEffect(() => {
-    if (phase === "gone") return;
+    let seen = false;
+    try { seen = !!sessionStorage.getItem(SEEN_KEY); } catch {}
+    if (seen) { setPhase("gone"); return; }
     try { sessionStorage.setItem(SEEN_KEY, "1"); } catch {}
     const t1 = setTimeout(() => setPhase("leaving"), 850);
     const t2 = setTimeout(() => setPhase("gone"), 1200);
@@ -24,7 +23,7 @@ export default function Splash() {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   if (phase === "gone") return null;
 
