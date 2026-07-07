@@ -3,6 +3,11 @@ import { autoMap, useWizard } from "@/lib/store";
 import type { ColumnInfo, ConflictStrategy } from "@/lib/types";
 import { CAST_TYPES, MASK_PRESETS } from "@/lib/types";
 import Checkbox from "@/components/ui/Checkbox";
+import Select from "@/components/ui/Select";
+
+// Radix Select can't use "" as an item value, so map the "empty" choices to sentinels.
+const SKIP = "__skip__";      // target column: — skip —
+const NOCAST = "__none__";    // cast type: — (no cast)
 import { IconBolt } from "./icons";
 
 function ColBadges({ c }: { c: ColumnInfo }) {
@@ -88,22 +93,16 @@ export default function MappingCanvas() {
                     {sc && <ColBadges c={sc} />}
                   </td>
                   <td className="px-3 py-1.5">
-                    <select className="select !w-44 !py-1.5" style={mismatch ? { borderColor: "var(--warning)" } : undefined}
-                      title={mismatch ? `Type mismatch: ${sc?.data_type} → ${tc?.data_type}. Add a cast or transform.` : ""}
-                      value={m.target_col} disabled={!m.enabled}
-                      onChange={(e) => patchColumnMap(m.source_col, { target_col: e.target.value })}>
-                      <option value="">— skip —</option>
-                      {targetColumns.map((c) => (
-                        <option key={c.name} value={c.name}>{c.name} ({c.data_type}){!c.nullable ? " *" : ""}</option>
-                      ))}
-                    </select>
-                    {mismatch && <span className="ml-1" style={{ color: "var(--warning)" }} title="type mismatch">⚠</span>}
+                    <Select className="w-44" value={m.target_col || SKIP} disabled={!m.enabled}
+                      onValueChange={(v) => patchColumnMap(m.source_col, { target_col: v === SKIP ? "" : v })}
+                      options={[{ value: SKIP, label: "— skip —" },
+                        ...targetColumns.map((c) => ({ value: c.name, label: `${c.name} (${c.data_type})${!c.nullable ? " *" : ""}` }))]} />
+                    {mismatch && <span className="ml-1" style={{ color: "var(--warning)" }} title={`Type mismatch: ${sc?.data_type} → ${tc?.data_type}. Add a cast or transform.`}>⚠</span>}
                   </td>
                   <td className="px-3 py-1.5">
-                    <select className="select !w-24 !py-1.5" value={m.cast_type} disabled={!m.enabled}
-                      onChange={(e) => patchColumnMap(m.source_col, { cast_type: e.target.value })}>
-                      {CAST_TYPES.map((t) => <option key={t} value={t}>{t || "—"}</option>)}
-                    </select>
+                    <Select className="w-24" value={m.cast_type || NOCAST} disabled={!m.enabled}
+                      onValueChange={(v) => patchColumnMap(m.source_col, { cast_type: v === NOCAST ? "" : v })}
+                      options={CAST_TYPES.map((t) => ({ value: t || NOCAST, label: t || "—" }))} />
                   </td>
                   <td className="px-3 py-1.5">
                     <input className="input !w-28 !py-1.5 font-mono text-xs"
@@ -116,12 +115,10 @@ export default function MappingCanvas() {
                       <input className="input !w-64 !py-1.5 font-mono text-xs" placeholder="e.g. split_part(value, ' ', -1)"
                         value={m.transform_expr} disabled={!m.enabled}
                         onChange={(e) => patchColumnMap(m.source_col, { transform_expr: e.target.value })} />
-                      <select className="select !w-9 !px-1 !py-1.5" value="" disabled={!m.enabled}
-                        title="Insert a data-masking preset (anonymize for prod→dev)"
-                        onChange={(e) => { if (e.target.value) patchColumnMap(m.source_col, { transform_expr: e.target.value }); }}>
-                        <option value="">🎭</option>
-                        {MASK_PRESETS.map((p) => <option key={p.expr} value={p.expr}>{p.label}</option>)}
-                      </select>
+                      <Select className="w-auto" value="" placeholder="🎭" disabled={!m.enabled}
+                        ariaLabel="Insert a data-masking preset"
+                        onValueChange={(v) => { if (v) patchColumnMap(m.source_col, { transform_expr: v }); }}
+                        options={MASK_PRESETS.map((p) => ({ value: p.expr, label: p.label }))} />
                     </div>
                   </td>
                   <td className="px-3 py-1.5">
@@ -143,12 +140,9 @@ export default function MappingCanvas() {
       <div className="card card-pad flex flex-wrap items-end gap-5">
         <div>
           <label className="label">Conflict strategy</label>
-          <select className="select !w-44" value={conflictStrategy}
-            onChange={(e) => setGlobals({ conflictStrategy: e.target.value as ConflictStrategy })}>
-            <option value="insert">insert</option>
-            <option value="upsert">upsert</option>
-            <option value="skip">skip duplicates</option>
-          </select>
+          <Select className="w-44" value={conflictStrategy}
+            onValueChange={(v) => setGlobals({ conflictStrategy: v as ConflictStrategy })}
+            options={[{ value: "insert", label: "insert" }, { value: "upsert", label: "upsert" }, { value: "skip", label: "skip duplicates" }]} />
         </div>
         <div>
           <label className="label">Batch size</label>

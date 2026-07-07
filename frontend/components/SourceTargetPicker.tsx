@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { useWizard, type EndpointSel } from "@/lib/store";
 import type { TableInfo } from "@/lib/types";
 import { IconArrows, IconDatabase, IconFile, IconPlus } from "./icons";
+import Select from "@/components/ui/Select";
 
 function EndpointPanel({
   title,
@@ -81,31 +82,21 @@ function EndpointPanel({
       </div>
       <div>
         <label className="label">Connection</label>
-        <select className="select" value={sel.connId}
-          onChange={(e) => onChange({ connId: e.target.value, schema: "", table: "" })}>
-          <option value="">— select —</option>
-          {connections.map((c) => (<option key={c.id} value={c.id}>{c.name} ({c.flavor})</option>))}
-        </select>
+        <Select className="w-full" value={sel.connId} placeholder="— select —"
+          onValueChange={(v) => onChange({ connId: v, schema: "", table: "" })}
+          options={connections.map((c) => ({ value: c.id, label: `${c.name} (${c.flavor})` }))} />
       </div>
       <div>
         <label className="label">Schema</label>
-        <select className="select" value={sel.schema} disabled={!schemas.length}
-          onChange={(e) => onChange({ schema: e.target.value, table: "" })}>
-          <option value="">— select —</option>
-          {schemas.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <Select className="w-full" value={sel.schema} placeholder="— select —" disabled={!schemas.length}
+          onValueChange={(v) => onChange({ schema: v, table: "" })}
+          options={schemas.map((s) => ({ value: s, label: s }))} />
       </div>
       <div>
         <label className="label">Table</label>
-        <select className="select" value={sel.table} disabled={!tables.length}
-          onChange={(e) => onChange({ table: e.target.value })}>
-          <option value="">— select —</option>
-          {tables.map((t) => (
-            <option key={t.name} value={t.name}>
-              {t.name}{t.row_estimate != null ? ` (~${t.row_estimate.toLocaleString()} rows)` : ""}
-            </option>
-          ))}
-        </select>
+        <Select className="w-full" value={sel.table} placeholder="— select —" disabled={!tables.length}
+          onValueChange={(v) => onChange({ table: v })}
+          options={tables.map((t) => ({ value: t.name, label: `${t.name}${t.row_estimate != null ? ` (~${t.row_estimate.toLocaleString()} rows)` : ""}` }))} />
       </div>
       {sel.table && rowEstimate != null && (
         <p className="text-xs muted">Estimated rows: ~{rowEstimate.toLocaleString()}</p>

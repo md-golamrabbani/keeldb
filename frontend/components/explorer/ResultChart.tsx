@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import Select from "@/components/ui/Select";
 
 type Cell = string | number | boolean | null;
 
@@ -79,9 +80,7 @@ function Sel({ label, value, onChange, options }: { label: string; value: string
   return (
     <label className="flex items-center gap-1.5 text-xs muted">
       {label}
-      <select className="select !h-8 !w-auto !py-0" value={value} onChange={(e) => onChange(e.target.value)}>
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
+      <Select value={value} onValueChange={onChange} options={options.map((o) => ({ value: o, label: o }))} />
     </label>
   );
 }

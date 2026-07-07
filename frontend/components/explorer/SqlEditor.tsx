@@ -7,6 +7,7 @@ import SqlCodeEditor from "./SqlCodeEditor";
 import GuardDialog from "./GuardDialog";
 import SqlSidebar, { type SaveState } from "./SqlSidebar";
 import ResultChart from "./ResultChart";
+import Select from "@/components/ui/Select";
 import AiSettingsModal from "./AiSettingsModal";
 import { IconDownload, IconPlay, IconSettings, IconSparkles } from "@/components/icons";
 
@@ -419,19 +420,12 @@ export default function SqlEditor({
           <div className="flex shrink-0 items-center gap-2">
             <label className="flex items-center gap-1.5 text-xs muted">
               Limit
-              <select
-                className="select !h-8 !w-auto !py-0"
-                value={rowLimit}
-                onChange={(e) => setRowLimit(Number(e.target.value))}
-                title="Max rows to fetch (like Workbench)"
-              >
-                {LIMIT_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n.toLocaleString()}
-                  </option>
-                ))}
-                <option value={0}>All</option>
-              </select>
+              <Select
+                ariaLabel="Row limit"
+                value={String(rowLimit)}
+                onValueChange={(v) => setRowLimit(Number(v))}
+                options={[...LIMIT_OPTIONS.map((n) => ({ value: String(n), label: n.toLocaleString() })), { value: "0", label: "All" }]}
+              />
             </label>
             <button
               className="btn btn-secondary btn-sm py-2"

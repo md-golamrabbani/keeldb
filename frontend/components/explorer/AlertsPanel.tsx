@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import type { AlertCondition, AlertResult, AlertRule } from "@/lib/types";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
 import { IconPlus, IconTrash } from "@/components/icons";
+import Select from "@/components/ui/Select";
 
 const CONDITIONS: { value: AlertCondition; label: string }[] = [
   { value: "rows_gt_zero", label: "returns any rows" },
@@ -64,9 +65,8 @@ export default function AlertsPanel({ connId, schema }: { connId: string; schema
             <div><label className="label">Name</label><input className="input !w-52" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Failed orders" /></div>
             <div>
               <label className="label">Fires when the query</label>
-              <select className="select !w-48" value={form.condition} onChange={(e) => setForm({ ...form, condition: e.target.value as AlertCondition })}>
-                {CONDITIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </select>
+              <Select className="w-48" value={form.condition} onValueChange={(v) => setForm({ ...form, condition: v as AlertCondition })}
+                options={CONDITIONS.map((c) => ({ value: c.value, label: c.label }))} />
             </div>
             {form.condition !== "rows_gt_zero" && (
               <div><label className="label">Threshold</label><input type="number" className="input !w-28" value={form.threshold} onChange={(e) => setForm({ ...form, threshold: Number(e.target.value) })} /></div>

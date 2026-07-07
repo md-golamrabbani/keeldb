@@ -1,5 +1,6 @@
 "use client";
 import { COLUMN_TYPES } from "@/lib/types";
+import Select from "@/components/ui/Select";
 
 const CUSTOM = "__custom__";
 
@@ -17,14 +18,12 @@ export default function TypeSelect({
 
   return (
     <div className="flex items-center gap-1.5">
-      <select
-        className={`select ${className}`}
+      <Select
+        className={className}
         value={isCustom ? CUSTOM : value}
-        onChange={(e) => onChange(e.target.value === CUSTOM ? "" : e.target.value)}
-      >
-        {COLUMN_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        <option value={CUSTOM}>Custom…</option>
-      </select>
+        onValueChange={(v) => onChange(v === CUSTOM ? "" : v)}
+        options={[...COLUMN_TYPES.map((t) => ({ value: t, label: t })), { value: CUSTOM, label: "Custom…" }]}
+      />
       {isCustom && (
         <input
           className={`input font-mono ${className}`}

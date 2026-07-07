@@ -11,6 +11,7 @@ import FkPeekDialog, { parseFk } from "./FkPeekDialog";
 import ImportCsvModal from "./ImportCsvModal";
 import Modal from "./Modal";
 import Checkbox from "@/components/ui/Checkbox";
+import Select from "@/components/ui/Select";
 import {
   IconChevronLeft, IconChevronRight, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
 } from "@/components/icons";
@@ -319,9 +320,8 @@ export default function DataGrid({
             <span className="faint">·</span>
             <label className="flex items-center gap-1.5">
               Show
-              <select className="select !h-8 !w-auto !py-0" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}>
-                {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
+              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(0); }}
+                options={PAGE_SIZES.map((n) => ({ value: String(n), label: String(n) }))} />
               rows
             </label>
           </div>

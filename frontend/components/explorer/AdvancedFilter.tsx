@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { ColumnInfo, FilterCond } from "@/lib/types";
 import { FILTER_OPS } from "@/lib/types";
 import { IconPlus, IconTrash } from "@/components/icons";
+import Select from "@/components/ui/Select";
 
 const noValue = (op: string) => FILTER_OPS.find((o) => o.value === op)?.noValue ?? false;
 
@@ -34,12 +35,10 @@ export default function AdvancedFilter({
       <div className="space-y-2">
         {rows.map((r, i) => (
           <div key={i} className="flex flex-wrap items-center gap-2">
-            <select className="select !h-9 !w-44 !py-0" value={r.column} onChange={(e) => patch(i, { column: e.target.value })}>
-              {columns.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-            </select>
-            <select className="select !h-9 !w-36 !py-0" value={r.op} onChange={(e) => patch(i, { op: e.target.value })}>
-              {FILTER_OPS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <Select className="w-44" value={r.column} onValueChange={(v) => patch(i, { column: v })}
+              options={columns.map((c) => ({ value: c.name, label: c.name }))} />
+            <Select className="w-36" value={r.op} onValueChange={(v) => patch(i, { op: v })}
+              options={FILTER_OPS.map((o) => ({ value: o.value, label: o.label }))} />
             {!noValue(r.op) && (
               <input className="input !h-9 !w-56 !py-0" placeholder="value" value={r.value}
                 onChange={(e) => patch(i, { value: e.target.value })}
