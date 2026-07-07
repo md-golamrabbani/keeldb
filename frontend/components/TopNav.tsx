@@ -19,7 +19,7 @@ export default function TopNav() {
       <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-5 px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5 shrink-0" aria-label="KeelDB home">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="" width={28} height={28} className="rounded-md" />
+          <img src="/logo.svg" alt="" width={28} height={28} />
           <span className="hidden text-[15px] font-semibold tracking-tight sm:inline">Keel<span style={{ color: "var(--accent)" }}>DB</span></span>
         </Link>
 

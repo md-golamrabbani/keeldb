@@ -39,10 +39,11 @@ export default function OperationsPanel({
   };
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="space-y-4">
       {notice && <p className="text-xs" style={{ color: "var(--success)" }}>{notice}</p>}
       {error && <p className="alert-danger whitespace-pre-wrap">{error}</p>}
 
+      <div className="grid items-start gap-4 sm:grid-cols-2">
       <div className="card card-pad space-y-2">
         <h3 className="font-semibold">Backup table</h3>
         <p className="text-sm muted">Download the table's schema and data as a <code>.sql</code> script you can restore by running it.</p>
@@ -75,6 +76,7 @@ export default function OperationsPanel({
           confirmLabel: "Drop table", danger: true,
           onConfirm: async () => { await api.dropTable(connId, schema, table); flash("Dropped"); onChanged(undefined); },
         })}>Drop {table}</button>
+      </div>
       </div>
 
       <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />

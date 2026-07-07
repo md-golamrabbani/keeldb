@@ -39,4 +39,6 @@ export {
   Rows3 as IconRows,
   TriangleAlert as IconWarning,
   Sparkles as IconSparkles,
+  ListFilter as IconFilter,
+  ChevronDown as IconChevronDown,
 } from "lucide-react";

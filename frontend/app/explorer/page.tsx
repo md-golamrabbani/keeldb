@@ -416,8 +416,8 @@ function Explorer() {
             ))}
 
             {tabs.length === 0 && (
-              <div className="card card-pad py-16 text-center">
-                <IconTable width={26} height={26} className="mx-auto mb-2" />
+              <div className="card flex h-full flex-col items-center justify-center py-16 text-center">
+                <IconTable width={26} height={26} className="mb-2" />
                 <p className="font-medium">No open tabs</p>
                 <p className="text-sm muted">
                   Click a table on the left to open it in a tab — open as many

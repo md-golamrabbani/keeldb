@@ -7,7 +7,7 @@ import GridTable from "./GridTable";
 import IntegrityModal from "./IntegrityModal";
 import Modal from "./Modal";
 import TypeSelect from "./TypeSelect";
-import { IconPlus, IconTrash } from "@/components/icons";
+import { IconChevronDown, IconPlus, IconTrash } from "@/components/icons";
 
 type Dialog = null | "createTable" | "createDb" | "renameDb" | "dropDb" | "privileges" | "integrity";
 
@@ -43,7 +43,9 @@ export default function DatabaseMenu({
 
   return (
     <div className="relative">
-      <button className="btn btn-secondary btn-sm !h-9" onClick={() => setOpen((o) => !o)}>Database ▾</button>
+      <button className="btn btn-secondary btn-sm !h-9" onClick={() => setOpen((o) => !o)}>
+        Database <IconChevronDown width={14} height={14} style={{ color: "var(--text-faint)" }} />
+      </button>
       {error && !open && (
         <div className="absolute right-0 z-30 mt-1 w-72">
           <ErrorBanner message={error} onClose={() => setError("")} />

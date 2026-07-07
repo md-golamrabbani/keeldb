@@ -11,7 +11,7 @@ import FkPeekDialog, { parseFk } from "./FkPeekDialog";
 import ImportCsvModal from "./ImportCsvModal";
 import Modal from "./Modal";
 import {
-  IconChevronLeft, IconChevronRight, IconDownload, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
+  IconChevronLeft, IconChevronRight, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
 } from "@/components/icons";
 
 type Cell = string | number | boolean | null;
@@ -169,7 +169,7 @@ export default function DataGrid({
             onKeyDown={(e) => { if (e.key === "Enter") { setSearch((e.target as HTMLInputElement).value); setPage(0); } }} />
         </div>
         <button className="btn btn-secondary btn-sm !h-9" onClick={() => setShowFilter((s) => !s)}>
-          Filter{filters.length ? ` · ${filters.length}` : ""}
+          <IconFilter width={14} height={14} /> Filter{filters.length ? ` · ${filters.length}` : ""}
         </button>
         <button className="btn btn-secondary btn-sm !h-9" onClick={load} disabled={loading}><IconRefresh width={14} height={14} /> Refresh</button>
         <button className="btn btn-secondary btn-sm !h-9" onClick={() => { setAdding((a) => !a); setNewRow({}); }} disabled={!editable}
@@ -183,12 +183,11 @@ export default function DataGrid({
           <input ref={fileInput} type="file" accept=".csv,text/csv" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) setImportFile(f); e.currentTarget.value = ""; }} />
           <button className="btn btn-secondary btn-sm !h-9" onClick={() => fileInput.current?.click()} disabled={readOnly} title={readOnly ? "Connection is read-only" : ""}><IconUpload width={14} height={14} /> Import CSV</button>
-          <div className="flex h-9 items-center gap-1 rounded-lg border px-1.5" style={{ borderColor: "var(--border-strong)" }}>
-            <IconDownload width={14} height={14} style={{ color: "var(--text-muted)" }} />
-            {["csv", "json", "sql"].map((f) => (
-              <button key={f} className="btn btn-ghost btn-sm !h-7 !px-1.5 uppercase" onClick={() => doExport(f)}>{f}</button>
-            ))}
-          </div>
+          {["csv", "json", "sql"].map((f) => (
+            <button key={f} className="btn btn-secondary btn-sm !h-9 uppercase" onClick={() => doExport(f)}>
+              <IconDownload width={14} height={14} /> {f}
+            </button>
+          ))}
         </div>
       </div>
 
