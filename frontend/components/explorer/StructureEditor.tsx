@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { ColumnInfo } from "@/lib/types";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
+import IndexManager from "./IndexManager";
 import TypeSelect from "./TypeSelect";
 import { IconEdit, IconPlus, IconTrash } from "@/components/icons";
 
@@ -109,6 +110,13 @@ export default function StructureEditor({ connId, schema, table }: { connId: str
         </table>
       </div>
       <p className="text-xs faint">Note: changing a column's type is supported on MySQL and PostgreSQL. SQLite (imported .sql) supports add / rename / drop only.</p>
+
+      {cols.length > 0 && (
+        <div className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
+          <IndexManager connId={connId} schema={schema} table={table} columns={cols} />
+        </div>
+      )}
+
       <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
     </div>
   );

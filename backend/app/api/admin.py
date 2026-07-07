@@ -90,6 +90,44 @@ class ModifyColumnReq(BaseModel):
     nullable: Optional[bool] = None
 
 
+class CreateIndexReq(BaseModel):
+    schema_name: str = ""
+    table: str
+    name: str
+    columns: list[str]
+    unique: bool = False
+
+
+class DropIndexReq(BaseModel):
+    schema_name: str = ""
+    table: str
+    name: str
+
+
+class AddFkReq(BaseModel):
+    schema_name: str = ""
+    table: str
+    name: str
+    columns: list[str]
+    ref_table: str
+    ref_columns: list[str]
+    on_delete: str = ""
+
+
+class AddUniqueReq(BaseModel):
+    schema_name: str = ""
+    table: str
+    name: str
+    columns: list[str]
+
+
+class DropConstraintReq(BaseModel):
+    schema_name: str = ""
+    table: str
+    name: str
+    kind: str = ""  # required for MySQL: foreign_key / unique / primary_key
+
+
 class DbNameReq(BaseModel):
     name: str
 
@@ -166,6 +204,43 @@ def drop_database(conn_id: str, req: DbNameReq):
 @router.post("/{conn_id}/database/rename")
 def rename_database(conn_id: str, req: DbRenameReq):
     return _run(conn_id, admin.rename_database, req.name, req.new_name)
+
+
+# -- indexes & constraints -------------------------------------------------
+@router.post("/{conn_id}/indexes")
+def list_indexes(conn_id: str, req: SchemaTable):
+    return _run(conn_id, admin.list_indexes, req.schema_name, req.table)
+
+
+@router.post("/{conn_id}/index/create")
+def create_index(conn_id: str, req: CreateIndexReq):
+    return _run(conn_id, admin.create_index, req.schema_name, req.table, req.name, req.columns, req.unique)
+
+
+@router.post("/{conn_id}/index/drop")
+def drop_index(conn_id: str, req: DropIndexReq):
+    return _run(conn_id, admin.drop_index, req.schema_name, req.table, req.name)
+
+
+@router.post("/{conn_id}/constraints")
+def list_constraints(conn_id: str, req: SchemaTable):
+    return _run(conn_id, admin.list_constraints, req.schema_name, req.table)
+
+
+@router.post("/{conn_id}/constraint/add-fk")
+def add_fk(conn_id: str, req: AddFkReq):
+    return _run(conn_id, admin.add_foreign_key, req.schema_name, req.table, req.name,
+                req.columns, req.ref_table, req.ref_columns, req.on_delete)
+
+
+@router.post("/{conn_id}/constraint/add-unique")
+def add_unique(conn_id: str, req: AddUniqueReq):
+    return _run(conn_id, admin.add_unique, req.schema_name, req.table, req.name, req.columns)
+
+
+@router.post("/{conn_id}/constraint/drop")
+def drop_constraint(conn_id: str, req: DropConstraintReq):
+    return _run(conn_id, admin.drop_constraint, req.schema_name, req.table, req.name, req.kind)
 
 
 # -- inspection ------------------------------------------------------------

@@ -263,3 +263,153 @@ def list_privileges(connector: Connector, schema: str) -> dict[str, Any]:
 
 def _j(v: Any) -> Any:
     return v if v is None or isinstance(v, (str, int, float, bool)) else str(v)
+
+
+# -- indexes ---------------------------------------------------------------
+_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
+_ON_DELETE = {"CASCADE", "SET NULL", "RESTRICT", "NO ACTION", "SET DEFAULT"}
+
+
+def _validate_ident(name: str, what: str = "name") -> str:
+    name = (name or "").strip()
+    if not _IDENT_RE.match(name):
+        raise ValueError(f"invalid {what}: {name!r}")
+    return name
+
+
+def _table_columns(connector: Connector, schema: str, table: str) -> set[str]:
+    return {c["name"] for c in sa.inspect(connector.engine).get_columns(table, schema=schema or None)}
+
+
+def _check_columns(connector: Connector, schema: str, table: str, columns: list[str]) -> None:
+    if not columns:
+        raise ValueError("no columns given")
+    known = _table_columns(connector, schema, table)
+    missing = [c for c in columns if c not in known]
+    if missing:
+        raise ValueError(f"unknown column(s): {', '.join(missing)}")
+
+
+def list_indexes(connector: Connector, schema: str, table: str) -> dict[str, Any]:
+    insp = sa.inspect(connector.engine)
+    sch = schema or None
+    pk = insp.get_pk_constraint(table, schema=sch) or {}
+    pk_cols = pk.get("constrained_columns") or []
+    out = []
+    if pk_cols:
+        out.append({"name": pk.get("name") or "(primary key)", "columns": pk_cols,
+                    "unique": True, "primary": True})
+    for ix in insp.get_indexes(table, schema=sch):
+        out.append({"name": ix.get("name"), "columns": ix.get("column_names") or [],
+                    "unique": bool(ix.get("unique")), "primary": False})
+    return {"table": table, "indexes": out}
+
+
+def create_index(connector: Connector, schema: str, table: str, name: str,
+                 columns: list[str], unique: bool = False) -> dict[str, Any]:
+    _validate_ident(name, "index name")
+    _check_columns(connector, schema, table, columns)
+    cols = ", ".join(_q(connector, c) for c in columns)
+    uniq = "UNIQUE " if unique else ""
+    _exec(connector, f"CREATE {uniq}INDEX {_q(connector, name)} ON "
+                     f"{_qualified(connector, schema, table)} ({cols})")
+    return {"ok": True, "created": name}
+
+
+def drop_index(connector: Connector, schema: str, table: str, name: str) -> dict[str, Any]:
+    _validate_ident(name, "index name")
+    if _dialect(connector) == "mysql":
+        sql = f"DROP INDEX {_q(connector, name)} ON {_qualified(connector, schema, table)}"
+    else:  # postgres index lives in the table's schema; sqlite ignores schema
+        sql = f"DROP INDEX {_qualified(connector, schema, name)}"
+    _exec(connector, sql)
+    return {"ok": True, "dropped": name}
+
+
+# -- constraints -----------------------------------------------------------
+def list_constraints(connector: Connector, schema: str, table: str) -> dict[str, Any]:
+    insp = sa.inspect(connector.engine)
+    sch = schema or None
+    pk = insp.get_pk_constraint(table, schema=sch) or {}
+    try:
+        checks = [{"name": c.get("name"), "sqltext": c.get("sqltext")}
+                  for c in insp.get_check_constraints(table, schema=sch)]
+    except Exception:  # some dialects/versions don't implement check reflection
+        checks = []
+    fks = [{
+        "name": fk.get("name"),
+        "columns": fk.get("constrained_columns") or [],
+        "ref_table": fk.get("referred_table"),
+        "ref_columns": fk.get("referred_columns") or [],
+        "on_delete": (fk.get("options") or {}).get("ondelete"),
+    } for fk in insp.get_foreign_keys(table, schema=sch)]
+    uniques = [{"name": u.get("name"), "columns": u.get("column_names") or []}
+               for u in insp.get_unique_constraints(table, schema=sch)]
+    return {
+        "table": table,
+        "primary_key": {"name": pk.get("name"), "columns": pk.get("constrained_columns") or []},
+        "foreign_keys": fks,
+        "unique": uniques,
+        "checks": checks,
+    }
+
+
+def _no_sqlite_alter(connector: Connector) -> None:
+    if _dialect(connector) == "sqlite":
+        raise ValueError("SQLite cannot add or drop constraints on an existing table — "
+                         "recreate the table with the constraint instead.")
+
+
+def add_foreign_key(connector: Connector, schema: str, table: str, name: str,
+                    columns: list[str], ref_table: str, ref_columns: list[str],
+                    on_delete: str = "") -> dict[str, Any]:
+    _no_sqlite_alter(connector)
+    _validate_ident(name, "constraint name")
+    _validate_ident(ref_table, "referenced table")
+    _check_columns(connector, schema, table, columns)
+    if not ref_columns or len(ref_columns) != len(columns):
+        raise ValueError("referenced columns must match the number of local columns")
+    on = ""
+    if on_delete:
+        od = on_delete.strip().upper()
+        if od not in _ON_DELETE:
+            raise ValueError(f"invalid ON DELETE action: {on_delete!r}")
+        on = f" ON DELETE {od}"
+    cols = ", ".join(_q(connector, c) for c in columns)
+    rcols = ", ".join(_q(connector, c) for c in ref_columns)
+    _exec(connector, f"ALTER TABLE {_qualified(connector, schema, table)} "
+                     f"ADD CONSTRAINT {_q(connector, name)} FOREIGN KEY ({cols}) "
+                     f"REFERENCES {_qualified(connector, schema, ref_table)} ({rcols}){on}")
+    return {"ok": True, "created": name}
+
+
+def add_unique(connector: Connector, schema: str, table: str, name: str,
+               columns: list[str]) -> dict[str, Any]:
+    _no_sqlite_alter(connector)
+    _validate_ident(name, "constraint name")
+    _check_columns(connector, schema, table, columns)
+    cols = ", ".join(_q(connector, c) for c in columns)
+    _exec(connector, f"ALTER TABLE {_qualified(connector, schema, table)} "
+                     f"ADD CONSTRAINT {_q(connector, name)} UNIQUE ({cols})")
+    return {"ok": True, "created": name}
+
+
+def drop_constraint(connector: Connector, schema: str, table: str, name: str,
+                    kind: str = "") -> dict[str, Any]:
+    _no_sqlite_alter(connector)
+    _validate_ident(name, "constraint name")
+    tgt = _qualified(connector, schema, table)
+    if _dialect(connector) == "mysql":
+        k = (kind or "").lower()
+        if k == "foreign_key":
+            sql = f"ALTER TABLE {tgt} DROP FOREIGN KEY {_q(connector, name)}"
+        elif k in ("unique", "index"):
+            sql = f"ALTER TABLE {tgt} DROP INDEX {_q(connector, name)}"
+        elif k == "primary_key":
+            sql = f"ALTER TABLE {tgt} DROP PRIMARY KEY"
+        else:
+            raise ValueError("MySQL requires the constraint kind (foreign_key/unique/primary_key)")
+    else:  # postgresql
+        sql = f"ALTER TABLE {tgt} DROP CONSTRAINT {_q(connector, name)}"
+    _exec(connector, sql)
+    return {"ok": True, "dropped": name}

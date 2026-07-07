@@ -104,6 +104,24 @@ export interface DependentsResult {
   referencing_tables: number;
 }
 
+export interface TableIndex {
+  name: string;
+  columns: string[];
+  unique: boolean;
+  primary: boolean;
+}
+export interface IndexList {
+  table: string;
+  indexes: TableIndex[];
+}
+export interface ConstraintList {
+  table: string;
+  primary_key: { name: string | null; columns: string[] };
+  foreign_keys: { name: string | null; columns: string[]; ref_table: string; ref_columns: string[]; on_delete: string | null }[];
+  unique: { name: string | null; columns: string[] }[];
+  checks: { name: string | null; sqltext: string | null }[];
+}
+
 export interface PlanHint {
   level: "warn" | "info";
   message: string;

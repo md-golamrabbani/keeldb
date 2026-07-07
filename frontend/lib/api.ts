@@ -3,9 +3,11 @@ import type {
   ColumnInfo,
   ConnectionProfile,
   ConnectionProfileIn,
+  ConstraintList,
   DependentsResult,
   DuplicateResult,
   ExportResult,
+  IndexList,
   FilterCond,
   GridResult,
   ImportResult,
@@ -84,6 +86,14 @@ export const api = {
     req<TableProfile>(`/db/${connId}/profile`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
   explainQuery: (connId: string, sql: string, schema = "") =>
     req<QueryPlan>(`/db/${connId}/explain`, { method: "POST", body: JSON.stringify({ sql, schema_name: schema }) }),
+  listIndexes: (connId: string, schema: string, table: string) =>
+    req<IndexList>(`/db/${connId}/indexes`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
+  createIndex: (connId: string, schema: string, table: string, name: string, columns: string[], unique: boolean) =>
+    req<{ ok: boolean }>(`/db/${connId}/index/create`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name, columns, unique }) }),
+  dropIndex: (connId: string, schema: string, table: string, name: string) =>
+    req<{ ok: boolean }>(`/db/${connId}/index/drop`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name }) }),
+  listConstraints: (connId: string, schema: string, table: string) =>
+    req<ConstraintList>(`/db/${connId}/constraints`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
 
   listProjects: () => req<MigrationProject[]>("/projects"),
   saveProject: (p: Partial<MigrationProject> & { name: string; mapping_ids: string[] }) =>
