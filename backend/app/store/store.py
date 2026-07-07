@@ -13,6 +13,7 @@ from typing import Optional
 from cryptography.fernet import Fernet
 
 from ..models import (
+    AlertRule,
     ConnectionProfileIn,
     HistoryEntry,
     MappingProfile,
@@ -249,8 +250,39 @@ class HistoryStore(_JsonStore):
         return len(items) - len(kept)
 
 
+class AlertStore(_JsonStore):
+    filename = "alerts.json"
+
+    def list(self) -> list[AlertRule]:
+        items = sorted(self._load().values(), key=lambda r: r.get("created_at", ""), reverse=True)
+        return [AlertRule(**r) for r in items]
+
+    def get(self, alert_id: str) -> Optional[AlertRule]:
+        r = self._load().get(alert_id)
+        return AlertRule(**r) if r else None
+
+    def save(self, rule: AlertRule) -> AlertRule:
+        if not rule.id:
+            rule.id = str(uuid.uuid4())
+        if not rule.created_at:
+            rule.created_at = datetime.now(timezone.utc).isoformat()
+        items = self._load()
+        items[rule.id] = rule.model_dump()
+        self._save(items)
+        return rule
+
+    def delete(self, alert_id: str) -> bool:
+        items = self._load()
+        if alert_id not in items:
+            return False
+        del items[alert_id]
+        self._save(items)
+        return True
+
+
 connection_store = ConnectionStore()
 mapping_store = MappingStore()
 project_store = ProjectStore()
 snippet_store = SnippetStore()
 history_store = HistoryStore()
+alert_store = AlertStore()

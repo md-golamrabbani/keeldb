@@ -1,5 +1,8 @@
 import type {
   ActivityReport,
+  AlertCondition,
+  AlertResult,
+  AlertRule,
   ColumnDef,
   ColumnInfo,
   ConnectionProfile,
@@ -21,6 +24,7 @@ import type {
   ProjectEvent,
   QueryPlan,
   RollbackSim,
+  ServerMetrics,
   QueryResult,
   RunEvent,
   SchemaGraph,
@@ -106,6 +110,13 @@ export const api = {
   activity: (connId: string) => req<ActivityReport>(`/db/${connId}/activity`),
   killSession: (connId: string, sessionId: string | number) =>
     req<{ ok: boolean; id: number }>(`/db/${connId}/kill`, { method: "POST", body: JSON.stringify({ session_id: String(sessionId) }) }),
+  serverMetrics: (connId: string) => req<ServerMetrics>(`/db/${connId}/metrics`),
+  checkAlerts: (connId: string, schema: string) =>
+    req<AlertResult[]>(`/db/${connId}/alerts/check`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
+  listAlerts: () => req<AlertRule[]>("/alerts"),
+  createAlert: (rule: { name: string; sql: string; condition: AlertCondition; threshold: number }) =>
+    req<AlertRule>("/alerts", { method: "POST", body: JSON.stringify(rule) }),
+  deleteAlert: (id: string) => req<{ deleted: string }>(`/alerts/${id}`, { method: "DELETE" }),
 
   // query history + saved snippets
   history: (connId: string, limit = 100) => req<HistoryEntry[]>(`/db/${connId}/history?limit=${limit}`),

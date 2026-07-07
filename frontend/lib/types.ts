@@ -134,6 +134,36 @@ export interface HealthReport {
   tables: TableStat[];
 }
 
+export interface MetricTile {
+  key: string;
+  label: string;
+  value: number | null;
+  unit: string;
+}
+export interface ServerMetrics {
+  supported: boolean;
+  dialect: string;
+  metrics: MetricTile[];
+}
+
+export type AlertCondition = "rows_gt_zero" | "value_gt" | "value_lt";
+export interface AlertRule {
+  id: string;
+  name: string;
+  sql: string;
+  condition: AlertCondition;
+  threshold: number;
+  created_at: string;
+}
+export interface AlertResult {
+  rule_id: string;
+  name: string;
+  triggered: boolean;
+  value: string | number | null;
+  detail: string;
+  error: string | null;
+}
+
 export interface Session {
   id: number;
   user: string | null;

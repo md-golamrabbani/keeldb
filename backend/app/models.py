@@ -144,6 +144,20 @@ class Snippet(BaseModel):
     created_at: str = ""
 
 
+AlertCondition = Literal["rows_gt_zero", "value_gt", "value_lt"]
+
+
+class AlertRule(BaseModel):
+    """A saved SQL check that fires when its condition is met (e.g. a query
+    returns any rows, or a scalar crosses a threshold)."""
+    id: str = ""
+    name: str
+    sql: str
+    condition: AlertCondition = "rows_gt_zero"
+    threshold: float = 0
+    created_at: str = ""
+
+
 class HistoryEntry(BaseModel):
     """One executed query, auto-recorded from the SQL editor."""
     id: str = ""

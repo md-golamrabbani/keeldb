@@ -5,10 +5,13 @@ from typing import Any, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from .. import activity, advisor, dbops, duplicates, explain, health, profiler, relational, verify
+from .. import (
+    activity, advisor, alerts, dbops, duplicates, explain, health, metrics,
+    profiler, relational, verify,
+)
 from ..connectors import connector_for
 from ..models import HistoryEntry
-from ..store import connection_store, history_store
+from ..store import alert_store, connection_store, history_store
 
 router = APIRouter(prefix="/db", tags=["explorer"])
 
@@ -135,6 +138,30 @@ def health_report(conn_id: str, req: OrphanRequest):
     c = _connector(conn_id)
     try:
         return health.report(c, req.schema_name)
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.get("/{conn_id}/metrics")
+def server_metrics(conn_id: str):
+    """Live server KPI tiles (PostgreSQL / MySQL)."""
+    c = _connector(conn_id)
+    try:
+        return metrics.server_metrics(c)
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.post("/{conn_id}/alerts/check")
+def check_alerts(conn_id: str, req: OrphanRequest):
+    """Evaluate every saved alert rule against this connection."""
+    c = _connector(conn_id)
+    try:
+        return alerts.evaluate_all(c, alert_store.list(), req.schema_name)
     except Exception as exc:
         raise HTTPException(502, dbops.clean_error(exc))
     finally:

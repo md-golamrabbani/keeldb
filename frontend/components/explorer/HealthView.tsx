@@ -1,8 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { HealthReport, IndexAdvice } from "@/lib/types";
+import type { HealthReport, IndexAdvice, ServerMetrics } from "@/lib/types";
 import ActivityPanel from "./ActivityPanel";
+import AlertsPanel from "./AlertsPanel";
 import { IconRefresh } from "@/components/icons";
 
 function fmtBytes(n: number | null): string {
@@ -17,6 +18,7 @@ function fmtBytes(n: number | null): string {
 export default function HealthView({ connId, schema }: { connId: string; schema: string }) {
   const [rep, setRep] = useState<HealthReport | null>(null);
   const [advice, setAdvice] = useState<IndexAdvice | null>(null);
+  const [server, setServer] = useState<ServerMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -24,8 +26,15 @@ export default function HealthView({ connId, schema }: { connId: string; schema:
     setLoading(true); setError("");
     api.health(connId, schema).then(setRep).catch((e) => setError(String(e))).finally(() => setLoading(false));
     api.indexAdvice(connId, schema).then(setAdvice).catch(() => setAdvice(null));
+    api.serverMetrics(connId).then(setServer).catch(() => setServer(null));
   }, [connId, schema]);
   useEffect(load, [load]);
+
+  const fmtMetric = (v: number | null, unit: string) => {
+    if (v === null) return "—";
+    if (unit === "bytes") return fmtBytes(v);
+    return `${v.toLocaleString()}${unit === "%" ? "%" : unit === "s" ? "s" : ""}`;
+  };
 
   const bySize = !!rep && rep.tables.some((t) => t.size_bytes !== null);
   const maxMetric = rep ? Math.max(1, ...rep.tables.map((t) => (bySize ? t.size_bytes ?? 0 : t.rows))) : 1;
@@ -48,6 +57,15 @@ export default function HealthView({ connId, schema }: { connId: string; schema:
             <Stat label="Total rows" value={rep.overview.total_rows.toLocaleString()} />
             <Stat label="Total size" value={fmtBytes(rep.overview.total_size_bytes)} />
           </div>
+
+          {server && server.supported && server.metrics.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="font-semibold">Server metrics</h3>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                {server.metrics.map((m) => <Stat key={m.key} label={m.label} value={fmtMetric(m.value, m.unit)} />)}
+              </div>
+            </div>
+          )}
 
           {!bySize && (
             <p className="text-xs muted">
@@ -117,6 +135,10 @@ export default function HealthView({ connId, schema }: { connId: string; schema:
 
           <div className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
             <ActivityPanel connId={connId} />
+          </div>
+
+          <div className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
+            <AlertsPanel connId={connId} schema={schema} />
           </div>
         </>
       )}
