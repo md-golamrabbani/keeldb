@@ -37,7 +37,7 @@ export default function SqlSidebar({
   });
 
   return (
-    <aside className="card flex h-full w-full shrink-0 flex-col lg:w-60">
+    <aside className="card flex w-full shrink-0 flex-col lg:sticky lg:top-0 lg:w-60 lg:max-h-[calc(100vh-9rem)]">
       <div className="flex items-center gap-1.5 border-b p-2" style={{ borderColor: "var(--border)" }}>
         <button className="btn btn-primary btn-sm flex-1" onClick={onNew}><IconPlus width={13} height={13} /> New query</button>
         <button className="btn btn-secondary btn-sm" onClick={onSave} title="Save now">

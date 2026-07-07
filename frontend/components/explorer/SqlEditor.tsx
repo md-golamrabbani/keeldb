@@ -8,7 +8,7 @@ import GuardDialog from "./GuardDialog";
 import SqlSidebar, { type SaveState } from "./SqlSidebar";
 import ResultChart from "./ResultChart";
 import AiSettingsModal from "./AiSettingsModal";
-import { IconDownload, IconPlay, IconSettings } from "@/components/icons";
+import { IconDownload, IconPlay, IconSettings, IconSparkles } from "@/components/icons";
 
 interface LintError {
   line?: number;
@@ -366,7 +366,7 @@ export default function SqlEditor({
       <div className="min-w-0 flex-1 space-y-3">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm" aria-hidden>✨</span>
+          <IconSparkles width={14} height={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--accent)" }} />
           <input className="input !h-9 !w-full !py-0 !pl-8" placeholder="Ask in plain English — e.g. “top 10 customers by total orders”"
             value={aiQuestion} onChange={(e) => setAiQuestion(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") askAi(); }} />

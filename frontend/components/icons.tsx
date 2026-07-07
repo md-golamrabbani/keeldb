@@ -38,4 +38,5 @@ export {
   Gauge as IconGauge,
   Rows3 as IconRows,
   TriangleAlert as IconWarning,
+  Sparkles as IconSparkles,
 } from "lucide-react";
