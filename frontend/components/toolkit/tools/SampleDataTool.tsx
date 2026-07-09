@@ -1,110 +1,198 @@
 "use client";
-import { useState, useMemo } from "react";
-import ToolContainer from "../ToolContainer";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { OptionLabel, OptionInput } from "../OptionField";
 import Select from "@/components/ui/Select";
+import { IconCopy, IconPlus, IconTrash } from "@/components/icons";
 
-// Simple fake data generators
-function generateId(): string {
-  return Math.floor(Math.random() * 1000000).toString();
+interface ColumnDef {
+  name: string;
+  type: string;
 }
 
-function generateEmail(): string {
-  const names = ["alice", "bob", "charlie", "diana", "eve", "frank"];
-  const domains = ["example.com", "test.com", "demo.org"];
-  return `${names[Math.floor(Math.random() * names.length)]}${Math.floor(Math.random() * 100)}@${domains[Math.floor(Math.random() * domains.length)]}`;
+const TYPE_OPTIONS = [
+  { value: "id", label: "ID (number)" },
+  { value: "uuid", label: "UUID" },
+  { value: "name", label: "Full Name" },
+  { value: "first_name", label: "First Name" },
+  { value: "last_name", label: "Last Name" },
+  { value: "email", label: "Email" },
+  { value: "phone", label: "Phone Number" },
+  { value: "age", label: "Age (number)" },
+  { value: "integer", label: "Integer" },
+  { value: "decimal", label: "Decimal" },
+  { value: "boolean", label: "Boolean" },
+  { value: "status", label: "Status" },
+  { value: "date", label: "Date" },
+  { value: "timestamp", label: "Timestamp" },
+  { value: "company", label: "Company" },
+  { value: "city", label: "City" },
+  { value: "country", label: "Country" },
+  { value: "url", label: "URL" },
+  { value: "string", label: "Random Word" },
+];
+
+const UNQUOTED_SQL_TYPES = new Set(["id", "age", "integer", "decimal", "boolean"]);
+const DATE_SQL_TYPES = new Set(["date", "timestamp"]);
+
+const DEFAULT_COLUMNS: ColumnDef[] = [
+  { name: "id", type: "id" },
+  { name: "name", type: "name" },
+  { name: "email", type: "email" },
+  { name: "phone", type: "phone" },
+  { name: "created_at", type: "timestamp" },
+  { name: "status", type: "status" },
+];
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function generateName(): string {
-  const names = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Henry"];
-  return names[Math.floor(Math.random() * names.length)];
+const FIRST_NAMES = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Henry", "Ivan", "Julia"];
+const LAST_NAMES = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"];
+const STATUSES = ["active", "inactive", "pending", "archived"];
+const COMPANIES = ["Acme Corp", "Globex", "Initech", "Umbrella Inc", "Stark Industries", "Wayne Enterprises"];
+const CITIES = ["New York", "London", "Tokyo", "Berlin", "Sydney", "Toronto", "Paris", "Dhaka"];
+const COUNTRIES = ["USA", "UK", "Japan", "Germany", "Australia", "Canada", "France", "Bangladesh"];
+const WORDS = ["lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit"];
+
+function generateUUID(): string {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
-function generateStatus(): string {
-  const statuses = ["active", "inactive", "pending", "archived"];
-  return statuses[Math.floor(Math.random() * statuses.length)];
+function generatePhone(): string {
+  const area = 200 + Math.floor(Math.random() * 800);
+  const exchange = 200 + Math.floor(Math.random() * 800);
+  const line = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+  return `+1-${area}-${exchange}-${line}`;
 }
 
-function generateTimestamp(): string {
-  const date = new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000);
-  return date.toISOString();
-}
-
-function generateBoolean(): string {
-  return Math.random() > 0.5 ? "true" : "false";
+function generateValue(type: string, index: number): string {
+  switch (type) {
+    case "id":
+      return String(Math.floor(Math.random() * 1000000));
+    case "uuid":
+      return generateUUID();
+    case "first_name":
+      return pick(FIRST_NAMES);
+    case "last_name":
+      return pick(LAST_NAMES);
+    case "name":
+      return `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
+    case "email": {
+      const first = pick(FIRST_NAMES).toLowerCase();
+      const domains = ["example.com", "test.com", "demo.org", "mail.com"];
+      return `${first}${Math.floor(Math.random() * 100)}@${pick(domains)}`;
+    }
+    case "phone":
+      return generatePhone();
+    case "age":
+      return String(18 + Math.floor(Math.random() * 63));
+    case "integer":
+      return String(Math.floor(Math.random() * 1000));
+    case "decimal":
+      return (Math.random() * 1000).toFixed(2);
+    case "boolean":
+      return Math.random() > 0.5 ? "true" : "false";
+    case "status":
+      return pick(STATUSES);
+    case "date": {
+      const date = new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000);
+      return date.toISOString().split("T")[0];
+    }
+    case "timestamp": {
+      const date = new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000);
+      return date.toISOString();
+    }
+    case "company":
+      return pick(COMPANIES);
+    case "city":
+      return pick(CITIES);
+    case "country":
+      return pick(COUNTRIES);
+    case "url": {
+      const domains = ["example.com", "test.io", "sample.dev"];
+      return `https://${pick(domains)}/${Math.random().toString(36).substring(2, 8)}`;
+    }
+    case "string":
+      return pick(WORDS);
+    default:
+      return `value_${index}`;
+  }
 }
 
 const EMPTY_OPTIONS = {};
 
 export default function SampleDataTool() {
   const selectedTool = "sample-data";
-  const input = useToolkitStore((s) => s.toolInputs[selectedTool] ?? "");
-  const updateInput = useToolkitStore((s) => s.updateInput);
   const options = useToolkitStore((s) => s.toolOptions[selectedTool] ?? EMPTY_OPTIONS);
   const updateOptions = useToolkitStore((s) => s.updateOptions);
   const addToHistory = useToolkitStore((s) => s.addToHistory);
 
+  const [columns, setColumns] = useState<ColumnDef[]>(
+    Array.isArray(options.columns) && options.columns.length > 0 ? options.columns : DEFAULT_COLUMNS
+  );
   const [rowCount, setRowCount] = useState(options.rowCount || "10");
   const [outputFormat, setOutputFormat] = useState<"csv" | "json" | "sql">(options.outputFormat || "csv");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    updateOptions(selectedTool, { columns, rowCount, outputFormat });
+  }, [columns, rowCount, outputFormat]);
+
+  const addColumn = () => {
+    setColumns((c) => [...c, { name: `column_${c.length + 1}`, type: "string" }]);
+  };
+
+  const removeColumn = (idx: number) => {
+    setColumns((c) => c.filter((_, i) => i !== idx));
+  };
+
+  const updateColumn = (idx: number, patch: Partial<ColumnDef>) => {
+    setColumns((c) => c.map((col, i) => (i === idx ? { ...col, ...patch } : col)));
+  };
 
   const output = useMemo(() => {
     try {
       const count = parseInt(rowCount, 10) || 10;
-      if (count <= 0) return "";
-
-      // Parse input as column definitions (name: type)
-      const lines = input.trim().split("\n").filter((l) => l.trim());
-      if (lines.length === 0) return "-- Define columns as 'name: type' (one per line)";
-
-      const columns = lines.map((line) => {
-        const [name, type] = line.split(":").map((s) => s.trim());
-        return { name: name || "col", type: (type || "string").toLowerCase() };
-      });
+      if (count <= 0 || columns.length === 0) return "";
 
       const rows: Record<string, string>[] = [];
       for (let i = 0; i < count; i++) {
         const row: Record<string, string> = {};
         for (const col of columns) {
-          if (col.type === "id" || col.type === "integer") {
-            row[col.name] = generateId();
-          } else if (col.type === "email") {
-            row[col.name] = generateEmail();
-          } else if (col.type === "name" || col.type === "string") {
-            row[col.name] = generateName();
-          } else if (col.type === "status") {
-            row[col.name] = generateStatus();
-          } else if (col.type === "timestamp" || col.type === "date") {
-            row[col.name] = generateTimestamp();
-          } else if (col.type === "boolean") {
-            row[col.name] = generateBoolean();
-          } else {
-            row[col.name] = `value_${i}`;
-          }
+          row[col.name] = generateValue(col.type, i);
         }
         rows.push(row);
       }
 
       if (outputFormat === "csv") {
         const header = columns.map((c) => c.name).join(",");
-        const data = rows.map((row) => columns.map((c) => `"${row[c.name]}"`).join(",")).join("\n");
+        const data = rows
+          .map((row) => columns.map((c) => `"${row[c.name].replace(/"/g, '""')}"`).join(","))
+          .join("\n");
         return header + "\n" + data;
       } else if (outputFormat === "json") {
         return JSON.stringify(rows, null, 2);
       } else if (outputFormat === "sql") {
         const colNames = columns.map((c) => `\`${c.name}\``).join(", ");
         const values = rows
-          .map((row) =>
-            "(" +
-            columns
-              .map((c) => {
-                const val = row[c.name];
-                if (c.type === "timestamp" || c.type === "date") return `'${val}'`;
-                if (c.type === "integer" || c.type === "id") return val;
-                return `'${val.replace(/'/g, "''")}'`;
-              })
-              .join(", ") +
-            ")"
+          .map(
+            (row) =>
+              "(" +
+              columns
+                .map((c) => {
+                  const val = row[c.name];
+                  if (DATE_SQL_TYPES.has(c.type)) return `'${val}'`;
+                  if (UNQUOTED_SQL_TYPES.has(c.type)) return val;
+                  return `'${val.replace(/'/g, "''")}'`;
+                })
+                .join(", ") +
+              ")"
           )
           .join(",\n  ");
         return `INSERT INTO table_name (${colNames}) VALUES\n  ${values};`;
@@ -114,37 +202,70 @@ export default function SampleDataTool() {
     } catch (e) {
       return `-- Error: ${(e as any).message}`;
     }
-  }, [input, rowCount, outputFormat]);
+  }, [columns, rowCount, outputFormat]);
 
-  const handleInputChange = (value: string) => {
-    updateInput(selectedTool, value);
-  };
-
-  const handleCopy = (text: string) => {
-    addToHistory(selectedTool, input, text);
-    updateOptions(selectedTool, { rowCount, outputFormat });
-  };
+  const handleCopy = useCallback(() => {
+    if (output) {
+      navigator.clipboard.writeText(output);
+      setCopied(true);
+      addToHistory(selectedTool, JSON.stringify(columns), output);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [output, columns]);
 
   return (
-    <ToolContainer
-      title="Sample Data Generator"
-      description="Generate lightweight SQL-ready test data. Define columns and types to generate rows."
-      inputPlaceholder="Define columns (one per line):&#10;id: id&#10;name: name&#10;email: email&#10;created_at: timestamp&#10;status: status"
-      outputPlaceholder="Sample data will appear here..."
-      input={input}
-      output={output}
-      onInputChange={handleInputChange}
-      onClear={() => updateInput(selectedTool, "")}
-      onCopy={handleCopy}
-      options={
-        <>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Sample Data Generator</h2>
+        <p className="mt-1 text-sm muted">
+          Generate lightweight SQL-ready test data. Define columns and pick a type for each to generate realistic values.
+        </p>
+      </div>
+
+      <div className="card card-pad space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium">Columns</h3>
+          <button className="btn btn-secondary btn-sm" onClick={addColumn}>
+            <IconPlus width={14} height={14} /> Add column
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {columns.map((col, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={col.name}
+                onChange={(e) => updateColumn(idx, { name: e.target.value })}
+                placeholder="column_name"
+                className="input flex-1"
+              />
+              <div className="w-52 shrink-0">
+                <Select
+                  value={col.type}
+                  onValueChange={(v) => updateColumn(idx, { type: v })}
+                  className="w-full"
+                  options={TYPE_OPTIONS}
+                />
+              </div>
+              <button
+                onClick={() => removeColumn(idx)}
+                className="btn btn-ghost btn-sm shrink-0"
+                aria-label="Remove column"
+                disabled={columns.length <= 1}
+              >
+                <IconTrash width={14} height={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card card-pad">
+        <div className="grid gap-4 grid-cols-2">
           <div>
             <OptionLabel>Number of Rows</OptionLabel>
-            <OptionInput
-              type="number"
-              value={rowCount}
-              onChange={setRowCount}
-            />
+            <OptionInput type="number" value={rowCount} onChange={setRowCount} />
           </div>
 
           <div>
@@ -160,8 +281,26 @@ export default function SampleDataTool() {
               ]}
             />
           </div>
-        </>
-      }
-    />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <label className="block text-sm font-medium">Output</label>
+        <textarea
+          value={output}
+          readOnly
+          placeholder="Sample data will appear here..."
+          className="input flex-1 font-mono text-sm resize-none"
+          style={{ minHeight: "260px", background: "var(--surface-2)" }}
+        />
+        <button
+          onClick={handleCopy}
+          className={`btn btn-sm w-fit ${copied ? "btn-success" : "btn-primary"}`}
+          disabled={!output}
+        >
+          <IconCopy width={14} height={14} /> {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+    </div>
   );
 }
