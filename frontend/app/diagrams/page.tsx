@@ -27,7 +27,7 @@ import AiSettingsModal from "@/components/explorer/AiSettingsModal";
 import DbmlCodeEditor from "@/components/diagrams/DbmlCodeEditor";
 import Select from "@/components/ui/Select";
 import {
-  IconBolt, IconChevronDown, IconDownload, IconLayers, IconPlay, IconPlus, IconRefresh, IconSearch, IconSettings, IconSparkles, IconTrash, IconUpload, IconWarning,
+  IconBolt, IconChevronDown, IconDownload, IconLayers, IconMaximize, IconMinimize, IconPlay, IconPlus, IconRefresh, IconSearch, IconSettings, IconSparkles, IconTrash, IconUpload, IconWarning,
 } from "@/components/icons";
 
 const NODE_W = 240;
@@ -144,9 +144,28 @@ export default function DiagramsPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [nameDialog, setNameDialog] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+  // what was last persisted — powers the unsaved-changes indicator
+  const savedRef = useRef<{ name: string; dbml: string } | null>(null);
+  const dirty = !savedRef.current || savedRef.current.dbml !== src || savedRef.current.name !== name;
 
   const [openList, setOpenList] = useState<{ id: string; name: string; updated_at: string }[] | null>(null);
   const [openSearch, setOpenSearch] = useState("");
+  // always-visible saved-diagrams sidebar
+  const [sideList, setSideList] = useState<{ id: string; name: string; updated_at: string }[]>([]);
+  const [sideSearch, setSideSearch] = useState("");
+  const refreshList = useCallback(() => {
+    api.listDiagrams().then(setSideList).catch(() => {});
+  }, []);
+  useEffect(refreshList, [refreshList]);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [importMenu, setImportMenu] = useState(false);
   const [exportMenu, setExportMenu] = useState(false);
@@ -243,28 +262,41 @@ export default function DiagramsPage() {
   // ---- toolbar actions ----
   const newDiagram = () => {
     undoRef.current = [];
+    savedRef.current = null;
     setDiagramId(""); setName("Untitled diagram"); setSrc(STARTER_DBML);
     setPositions({}); setChat([]); flash("New diagram");
   };
 
-  const save = async (asCopy = false) => {
+  const doSave = async (saveName: string, asCopy = false) => {
     setSaving(true); setError("");
     try {
       const d = await api.saveDiagram({
         id: asCopy ? undefined : diagramId || undefined,
-        name: asCopy && diagramId ? `${name} (copy)` : name,
+        name: asCopy && diagramId ? `${saveName} (copy)` : saveName,
         dbml: src, positions,
       });
       setDiagramId(d.id);
-      if (asCopy) setName(d.name);
-      flash(asCopy ? `Saved as "${d.name}"` : `Saved "${d.name}"`);
+      setName(d.name);
+      savedRef.current = { name: d.name, dbml: src };
+      setNameDialog(false);
+      refreshList();
+      flash(`Saved "${d.name}"`);
     } catch (e) { setError(String(e)); } finally { setSaving(false); }
+  };
+
+  // First save (or a still-untitled diagram) asks for a proper name so
+  // diagrams never pile up as "Untitled diagram …".
+  const save = (asCopy = false) => {
+    if (asCopy) return doSave(name, true);
+    if (!diagramId || /^untitled diagram/i.test(name.trim())) setNameDialog(true);
+    else doSave(name);
   };
 
   const openDiagram = async (id: string) => {
     try {
       const d = await api.getDiagram(id);
       undoRef.current = [];
+      savedRef.current = { name: d.name, dbml: d.dbml };
       setDiagramId(d.id); setName(d.name); setSrc(d.dbml);
       setPositions(d.positions ?? {}); setOpenList(null); setChat([]);
     } catch (e) { setError(String(e)); }
@@ -373,8 +405,10 @@ export default function DiagramsPage() {
         <button className="btn btn-secondary btn-sm !h-9" onClick={newDiagram}><IconPlus width={14} height={14} /> New</button>
         <button className="btn btn-secondary btn-sm !h-9"
           onClick={() => { setOpenSearch(""); api.listDiagrams().then(setOpenList).catch((e) => setError(String(e))); }}>Open</button>
-        <button className="btn btn-primary btn-sm !h-9" onClick={() => save(false)} disabled={saving || !name.trim()}>
+        <button className="btn btn-primary btn-sm !h-9" onClick={() => save(false)} disabled={saving || !name.trim()}
+          title={dirty ? "You have unsaved changes" : "All changes saved"}>
           {saving ? "Saving…" : diagramId ? "Save" : "Save as…"}
+          {dirty && <span aria-label="Unsaved changes" className="ml-1 inline-block h-1.5 w-1.5 rounded-full" style={{ background: "var(--warning)" }} />}
         </button>
         {diagramId && (
           <button className="btn btn-secondary btn-sm !h-9" onClick={() => save(true)} disabled={saving}
@@ -441,10 +475,52 @@ export default function DiagramsPage() {
       {notice && <p className="text-xs shrink-0" style={{ color: "var(--success)" }}>{notice}</p>}
       {error && <p className="alert-danger shrink-0">{error}</p>}
 
-      {/* workspace: editor | canvas | (chat) */}
+      {/* workspace: saved list | editor | canvas | (chat) */}
       <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+        {/* saved diagrams sidebar */}
+        <div className="flex max-h-56 w-full shrink-0 flex-col lg:max-h-none lg:w-52">
+          <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b px-3 py-2" style={{ borderColor: "var(--border)" }}>
+              <span className="text-xs font-semibold uppercase tracking-wide muted">Saved diagrams</span>
+              <span className="text-xs faint">{sideList.length}</span>
+            </div>
+            <div className="relative border-b p-2" style={{ borderColor: "var(--border)" }}>
+              <IconSearch width={12} height={12} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2" style={{ color: "var(--text-faint)" }} />
+              <input className="input !h-8 !w-full !py-0 !pl-7 text-xs" placeholder="Search…"
+                value={sideSearch} onChange={(e) => setSideSearch(e.target.value)} />
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+              {sideList.filter((d) => d.name.toLowerCase().includes(sideSearch.toLowerCase())).map((d) => (
+                <div key={d.id}
+                  className="group flex w-full cursor-pointer items-center gap-1 rounded-md px-2 py-1.5 text-left transition-colors"
+                  style={d.id === diagramId ? { background: "var(--accent-soft)" } : undefined}
+                  onClick={() => openDiagram(d.id)}>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm" style={d.id === diagramId ? { color: "var(--accent)", fontWeight: 600 } : { color: "var(--text)" }}>
+                      {d.name}
+                    </span>
+                    <span className="block truncate text-[10px] faint">{new Date(d.updated_at).toLocaleString()}</span>
+                  </div>
+                  <button className="opacity-0 transition-opacity group-hover:opacity-100" aria-label="Delete diagram"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await api.deleteDiagram(d.id).catch(() => {});
+                      if (d.id === diagramId) setDiagramId("");
+                      refreshList();
+                    }}>
+                    <IconTrash width={13} height={13} style={{ color: "var(--text-faint)" }} />
+                  </button>
+                </div>
+              ))}
+              {sideList.length === 0 && (
+                <p className="px-2 py-4 text-center text-xs muted">Nothing saved yet — hit Save and give it a name.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* DBML editor */}
-        <div className="flex min-h-[16rem] w-full shrink-0 flex-col lg:w-[24rem]">
+        <div className="flex min-h-[16rem] w-full shrink-0 flex-col lg:w-80">
           <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b px-3 py-2" style={{ borderColor: "var(--border)" }}>
               <span className="text-xs font-semibold uppercase tracking-wide muted">DBML</span>
@@ -462,8 +538,12 @@ export default function DiagramsPage() {
           </div>
         </div>
 
-        {/* canvas */}
-        <div ref={flowRef} className="card min-h-[20rem] flex-1 overflow-hidden p-0">
+        {/* canvas (same element in normal & fullscreen mode so React Flow keeps its state) */}
+        <div ref={flowRef}
+          className={fullscreen
+            ? "fixed inset-0 z-50 overflow-hidden"
+            : "card relative min-h-[20rem] flex-1 overflow-hidden p-0"}
+          style={fullscreen ? { background: "var(--bg)" } : undefined}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -482,6 +562,15 @@ export default function DiagramsPage() {
               maskColor="color-mix(in srgb, var(--surface-2) 70%, transparent)"
               style={{ background: "var(--surface)" }} />
           </ReactFlow>
+          <button
+            className="btn btn-secondary btn-sm absolute right-3 top-3 z-10 !h-8"
+            onClick={() => setFullscreen((f) => !f)}
+            title={fullscreen ? "Exit full screen (Esc)" : "Full screen canvas"}
+          >
+            {fullscreen
+              ? <><IconMinimize width={13} height={13} /> Exit full screen</>
+              : <><IconMaximize width={13} height={13} /> Full screen</>}
+          </button>
         </div>
 
         {/* AI chat */}
@@ -593,6 +682,14 @@ export default function DiagramsPage() {
 
       {importDb && <ImportFromDbModal onClose={() => setImportDb(false)} onImport={importFromConnection} />}
       {applyDb && <ApplyToDbModal dbml={src} onClose={() => setApplyDb(false)} />}
+      {nameDialog && (
+        <SaveNameModal
+          initial={/^untitled diagram/i.test(name.trim()) ? "" : name}
+          saving={saving}
+          onClose={() => setNameDialog(false)}
+          onSave={(n) => { setName(n); doSave(n); }}
+        />
+      )}
     </div>
   );
 }
@@ -683,6 +780,33 @@ function ApplyToDbModal({ dbml, onClose }: { dbml: string; onClose: () => void }
           <button className="btn btn-ghost" onClick={onClose}>{result ? "Close" : "Cancel"}</button>
           <button className="btn btn-primary" onClick={run} disabled={!canRun || !!conn?.read_only}>
             <IconBolt width={14} height={14} /> {running ? "Running…" : "Run DDL"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** First-save prompt: forces a real name so diagrams are findable later. */
+function SaveNameModal({ initial, saving, onClose, onSave }: {
+  initial: string; saving: boolean; onClose: () => void; onSave: (name: string) => void;
+}) {
+  const [value, setValue] = useState(initial);
+  const ok = value.trim().length > 0;
+  return (
+    <Modal title="Save diagram" onClose={onClose}>
+      <div className="space-y-3">
+        <div>
+          <label className="label">Diagram name</label>
+          <input autoFocus className="input" value={value} placeholder="e.g. HRIS, CRM, Inventory…"
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && ok) onSave(value.trim()); }} />
+          <p className="mt-1.5 text-xs faint">You'll find it again under Open — searchable by this name.</p>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => onSave(value.trim())} disabled={!ok || saving}>
+            {saving ? "Saving…" : "Save"}
           </button>
         </div>
       </div>

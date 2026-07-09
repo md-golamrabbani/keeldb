@@ -49,4 +49,6 @@ export {
   Camera as IconCamera,
   Pause as IconPause,
   ChevronUp as IconChevronUp,
+  Maximize2 as IconMaximize,
+  Minimize2 as IconMinimize,
 } from "lucide-react";
