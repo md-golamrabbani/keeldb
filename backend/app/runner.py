@@ -12,6 +12,7 @@ Dry-run performs the full read + transform + validation but never writes.
 """
 from __future__ import annotations
 
+import json
 import uuid
 from pathlib import Path
 from typing import Any, Iterator, Optional
@@ -25,6 +26,45 @@ from .transform.registry import apply_cast
 
 MAX_LOGGED_ERRORS = 200
 EXPORT_DIR = DATA_DIR / "exports"
+CHECKPOINT_FILE = DATA_DIR / "checkpoints.json"
+
+
+# -- checkpoint / resume -----------------------------------------------------
+# After every fully-written batch the runner records how many source rows are
+# safely persisted, keyed by mapping id. An interrupted push migration can then
+# resume by skipping that many source rows. Resume assumes the source read
+# order is stable between runs (same table, no concurrent reordering writes) —
+# pair it with the "skip" conflict strategy for belt-and-braces safety.
+def _load_checkpoints() -> dict[str, dict[str, Any]]:
+    if not CHECKPOINT_FILE.exists():
+        return {}
+    try:
+        data = json.loads(CHECKPOINT_FILE.read_text())
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_checkpoints(items: dict[str, dict[str, Any]]) -> None:
+    CHECKPOINT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = CHECKPOINT_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(items, indent=2, default=str))
+    tmp.replace(CHECKPOINT_FILE)
+
+
+def get_checkpoint(mapping_id: str) -> Optional[dict[str, Any]]:
+    return _load_checkpoints().get(mapping_id)
+
+
+def set_checkpoint(mapping_id: str, rows_read: int, done: bool = False) -> None:
+    if not mapping_id:
+        return
+    items = _load_checkpoints()
+    if done:
+        items.pop(mapping_id, None)
+    else:
+        items[mapping_id] = {"rows_read": rows_read}
+    _save_checkpoints(items)
 
 
 def transform_row(
@@ -89,6 +129,7 @@ def run_migration(
     source_profile: SavedConnection,
     target_profile: Optional[SavedConnection],
     dry_run: bool = False,
+    resume_offset: int = 0,
 ) -> Iterator[dict[str, Any]]:
     source = connector_for(source_profile)
     target = connector_for(target_profile) if target_profile else None
@@ -109,6 +150,7 @@ def run_migration(
             "source_count": report.source_count,
             "dry_run": dry_run,
             "output_mode": mapping.output_mode,
+            "resume_offset": resume_offset,
         }
 
         if not dry_run:
@@ -125,6 +167,8 @@ def run_migration(
             good_rows: list[dict[str, Any]] = []
             for row in batch:
                 row_index += 1
+                if row_index <= resume_offset:
+                    continue  # already persisted by the interrupted run
                 report.rows_read += 1
                 transformed, row_errors = transform_row(row, enabled)
                 if row_errors:
@@ -144,6 +188,8 @@ def run_migration(
                     result = sink.write_batch(good_rows)
                     report.rows_written += result["written"]
                     report.rows_skipped += result["skipped"]
+                    if mapping.output_mode == "push":
+                        set_checkpoint(mapping.id, row_index)
                 except Exception as exc:
                     report.rows_errored += len(good_rows)
                     msg = f"batch write failed: {exc}"
@@ -170,6 +216,8 @@ def run_migration(
             report.target_count_after = sink.target_count()
 
         report.ok = report.rows_errored == 0 and not report.aborted
+        if report.ok and not dry_run and mapping.output_mode == "push":
+            set_checkpoint(mapping.id, 0, done=True)  # finished — no resume point
         done: dict[str, Any] = {"event": "done", "report": report.model_dump()}
         if export_id and not report.aborted:
             done["export_id"] = export_id

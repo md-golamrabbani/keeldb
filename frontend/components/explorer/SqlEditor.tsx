@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import type { Environment, Flavor, QueryPlan, QueryResult, Snippet } from "@/lib/types";
+import type { Environment, Flavor, QueryPlan, QueryResult, SnapshotMeta, Snippet } from "@/lib/types";
 import { analyzeSql, type StmtInfo } from "@/lib/sqlguard";
 import SqlCodeEditor from "./SqlCodeEditor";
 import GuardDialog from "./GuardDialog";
@@ -110,6 +110,63 @@ function toCsv(
 }
 
 const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000];
+const TIMEOUT_OPTIONS = [
+  { value: "0", label: "No timeout" },
+  { value: "5", label: "5 s" },
+  { value: "30", label: "30 s" },
+  { value: "60", label: "1 min" },
+  { value: "300", label: "5 min" },
+];
+
+const ROW_HEIGHT = 25; // px — fixed row height for the virtualized result grid
+const OVERSCAN = 12;
+
+/** Windowed result rows: only the visible slice (plus overscan) is in the DOM,
+    so 100k-row results scroll smoothly. Spacer rows keep the scrollbar honest. */
+function VirtualRows({
+  rows,
+  colCount,
+  scrollTop,
+  viewport,
+}: {
+  rows: (string | number | boolean | null)[][];
+  colCount: number;
+  scrollTop: number;
+  viewport: number;
+}) {
+  const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+  const count = Math.ceil(viewport / ROW_HEIGHT) + OVERSCAN * 2;
+  const end = Math.min(rows.length, start + count);
+  const above = start * ROW_HEIGHT;
+  const below = (rows.length - end) * ROW_HEIGHT;
+  return (
+    <tbody>
+      {above > 0 && (
+        <tr aria-hidden style={{ height: above }}>
+          <td colSpan={colCount} style={{ padding: 0, border: 0 }} />
+        </tr>
+      )}
+      {rows.slice(start, end).map((row, i) => (
+        <tr key={start + i} style={{ height: ROW_HEIGHT }}>
+          {row.map((cell, c) => (
+            <td
+              key={c}
+              className="max-w-[24rem] truncate border-b px-2.5 font-mono"
+              title={String(cell ?? "")}
+            >
+              {cell == null ? <span className="faint">null</span> : String(cell)}
+            </td>
+          ))}
+        </tr>
+      ))}
+      {below > 0 && (
+        <tr aria-hidden style={{ height: below }}>
+          <td colSpan={colCount} style={{ padding: 0, border: 0 }} />
+        </tr>
+      )}
+    </tbody>
+  );
+}
 
 export default function SqlEditor({
   connId,
@@ -147,6 +204,74 @@ export default function SqlEditor({
   const [aiMsg, setAiMsg] = useState("");
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [showChart, setShowChart] = useState(false);
+
+  // Guard extras: statement timeout, pre-write snapshots (undo), tx sandbox.
+  const [timeoutS, setTimeoutS] = useState(0);
+  const [autoSnapshot, setAutoSnapshot] = useState(environment === "prod");
+  const [lastSnapshot, setLastSnapshot] = useState<SnapshotMeta | null>(null);
+  const [undoMsg, setUndoMsg] = useState("");
+  const [sandboxId, setSandboxId] = useState<string | null>(null);
+  const [sandboxWrites, setSandboxWrites] = useState(0);
+  const [sandboxBusy, setSandboxBusy] = useState(false);
+  const [gridScroll, setGridScroll] = useState(0);
+  const [gridHeight, setGridHeight] = useState(480);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+
+  const beginSandbox = async () => {
+    setSandboxBusy(true);
+    try {
+      const r = await api.sandboxBegin(connId, schema);
+      setSandboxId(r.sandbox_id);
+      setSandboxWrites(0);
+    } catch (e) {
+      setResult({ ok: false, error: String(e) });
+    } finally {
+      setSandboxBusy(false);
+    }
+  };
+
+  const endSandbox = async (commit: boolean) => {
+    if (!sandboxId) return;
+    setSandboxBusy(true);
+    try {
+      const r = commit
+        ? await api.sandboxCommit(connId, sandboxId)
+        : await api.sandboxRollback(connId, sandboxId);
+      setUndoMsg(
+        commit
+          ? `Sandbox committed — ${r.writes} write statement${r.writes === 1 ? "" : "s"} persisted.`
+          : `Sandbox rolled back — ${r.writes} write statement${r.writes === 1 ? "" : "s"} discarded.`,
+      );
+    } catch (e) {
+      setUndoMsg(String(e));
+    } finally {
+      setSandboxId(null);
+      setSandboxWrites(0);
+      setSandboxBusy(false);
+    }
+  };
+
+  // Roll an abandoned sandbox back when the editor unmounts.
+  const sandboxRef = useRef<{ id: string | null; connId: string }>({ id: null, connId });
+  sandboxRef.current = { id: sandboxId, connId };
+  useEffect(
+    () => () => {
+      const { id, connId: cid } = sandboxRef.current;
+      if (id) api.sandboxRollback(cid, id).catch(() => {});
+    },
+    [],
+  );
+
+  const undoSnapshot = async () => {
+    if (!lastSnapshot) return;
+    try {
+      const r = await api.restoreSnapshot(connId, lastSnapshot.id);
+      setUndoMsg(`Restored ${r.restored.join(", ")} from the pre-change snapshot.`);
+      setLastSnapshot(null);
+    } catch (e) {
+      setUndoMsg(String(e));
+    }
+  };
 
   // ---- saved queries: each auto-saves; New query mints a unique Untitled ----
   const [snippets, setSnippets] = useState<Snippet[]>([]);
@@ -305,8 +430,15 @@ export default function SqlEditor({
     setGuard(null);
     setRunning(true);
     setUsedLimit(rowLimit);
+    setUndoMsg("");
+    setGridScroll(0);
     try {
-      setResult(await api.runSql(connId, sql, schema, rowLimit));
+      const res = sandboxId
+        ? await api.sandboxRun(connId, sandboxId, sql, rowLimit)
+        : await api.runSql(connId, sql, schema, rowLimit, timeoutS, autoSnapshot);
+      setResult(res);
+      if (res.sandbox?.writes != null) setSandboxWrites(res.sandbox.writes);
+      if (res.snapshot?.id) setLastSnapshot(res.snapshot);
     } catch (e) {
       setResult({ ok: false, error: String(e) });
     } finally {
@@ -316,10 +448,11 @@ export default function SqlEditor({
   };
 
   // Safe Query Assistant: reads run immediately; writes go through the guard.
+  // In a sandbox, writes run directly — nothing persists until Commit.
   const run = async () => {
     const stmts = analyzeSql(sql);
     const writes = stmts.filter((s) => s.isWrite);
-    if (writes.length === 0) { await execute(); return; }
+    if (writes.length === 0 || sandboxId) { await execute(); return; }
     if (readOnly) {
       setResult({ ok: false, error: "This connection is read-only. Turn off read-only mode on the connection to run writes." });
       return;
@@ -418,6 +551,27 @@ export default function SqlEditor({
             )}
           </span>
           <div className="flex shrink-0 items-center gap-2">
+            <label
+              className="flex cursor-pointer items-center gap-1.5 text-xs muted"
+              title="Before destructive SQL (UPDATE/DELETE/DROP/…) runs, affected tables are snapshotted so you can undo."
+            >
+              <input
+                type="checkbox"
+                checked={autoSnapshot}
+                onChange={(e) => setAutoSnapshot(e.target.checked)}
+                disabled={!!sandboxId}
+              />
+              Snapshot
+            </label>
+            <label className="flex items-center gap-1.5 text-xs muted">
+              Timeout
+              <Select
+                ariaLabel="Statement timeout"
+                value={String(timeoutS)}
+                onValueChange={(v) => setTimeoutS(Number(v))}
+                options={TIMEOUT_OPTIONS}
+              />
+            </label>
             <label className="flex items-center gap-1.5 text-xs muted">
               Limit
               <Select
@@ -427,6 +581,16 @@ export default function SqlEditor({
                 options={[...LIMIT_OPTIONS.map((n) => ({ value: String(n), label: n.toLocaleString() })), { value: "0", label: "All" }]}
               />
             </label>
+            {!sandboxId && !readOnly && (
+              <button
+                className="btn btn-secondary btn-sm py-2"
+                onClick={beginSandbox}
+                disabled={sandboxBusy || running}
+                title="Open a transaction sandbox: writes stay invisible to everyone else until you Commit — or Rollback to discard them."
+              >
+                Sandbox
+              </button>
+            )}
             <button
               className="btn btn-secondary btn-sm py-2"
               onClick={analyze}
@@ -445,6 +609,52 @@ export default function SqlEditor({
           </div>
         </div>
       </div>
+
+      {sandboxId && (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium"
+          style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid var(--accent)" }}
+        >
+          <span>
+            🧪 Transaction sandbox — {sandboxWrites} write statement{sandboxWrites === 1 ? "" : "s"} pending.
+            Nothing is visible to other sessions until you commit.
+          </span>
+          <span className="ml-auto flex items-center gap-2">
+            <button className="btn btn-primary btn-sm !h-7" onClick={() => endSandbox(true)} disabled={sandboxBusy}>
+              Commit
+            </button>
+            <button className="btn btn-secondary btn-sm !h-7" onClick={() => endSandbox(false)} disabled={sandboxBusy}>
+              Rollback
+            </button>
+          </span>
+        </div>
+      )}
+
+      {undoMsg && <p className="text-xs muted">{undoMsg}</p>}
+
+      {result?.warning && <p className="alert-danger whitespace-pre-wrap">⚠ {result.warning}</p>}
+
+      {lastSnapshot && (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-xs"
+          style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}
+        >
+          <span>
+            📸 Snapshot saved before this change (
+            {lastSnapshot.tables.map((t) => `${t.table}: ${t.rows.toLocaleString()} rows`).join(", ")}
+            {lastSnapshot.skipped?.length
+              ? ` — skipped ${lastSnapshot.skipped.map((s) => `${s.table} (${s.reason})`).join(", ")}`
+              : ""}
+            ).
+          </span>
+          <button className="btn btn-secondary btn-sm !h-7 ml-auto" onClick={undoSnapshot}>
+            Undo change
+          </button>
+          <button className="btn btn-ghost btn-sm !h-7" onClick={() => setLastSnapshot(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {planError && <p className="alert-danger whitespace-pre-wrap">{planError}</p>}
       {plan && (
@@ -512,6 +722,11 @@ export default function SqlEditor({
           )}
           {result.is_select && result.columns && (
             <div
+              ref={(el) => {
+                gridRef.current = el;
+                if (el && el.clientHeight !== gridHeight) setGridHeight(el.clientHeight);
+              }}
+              onScroll={(e) => setGridScroll((e.target as HTMLDivElement).scrollTop)}
               className="card overflow-auto"
               style={{ maxHeight: "calc(100vh - 26rem)", minHeight: 160 }}
             >
@@ -537,25 +752,12 @@ export default function SqlEditor({
                     ))}
                   </tr>
                 </thead>
-                <tbody>
-                  {result.rows?.map((row, r) => (
-                    <tr key={r}>
-                      {row.map((cell, c) => (
-                        <td
-                          key={c}
-                          className="max-w-[24rem] truncate border-b px-2.5 py-1 font-mono"
-                          title={String(cell ?? "")}
-                        >
-                          {cell == null ? (
-                            <span className="faint">null</span>
-                          ) : (
-                            String(cell)
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
+                <VirtualRows
+                  rows={result.rows ?? []}
+                  colCount={result.columns.length}
+                  scrollTop={gridScroll}
+                  viewport={gridHeight}
+                />
               </table>
               {result.rows?.length === 0 && (
                 <p className="p-6 text-center muted">No rows returned.</p>

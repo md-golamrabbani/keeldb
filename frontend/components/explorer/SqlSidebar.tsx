@@ -61,12 +61,32 @@ export default function SqlSidebar({
         </span>
       </div>
 
-      <div className="flex gap-1 px-2 pt-2 text-xs">
+      <div className="flex items-center gap-1 px-2 pt-2 text-xs">
         {(["saved", "history"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className="rounded-md px-2 py-1 font-medium capitalize transition-colors"
             style={tab === t ? { background: "var(--accent-soft)", color: "var(--accent)" } : { color: "var(--text-muted)" }}>{t}</button>
         ))}
+        {tab === "history" && history.length > 0 && (
+          <button
+            className="ml-auto rounded-md px-2 py-1 font-medium transition-colors hover:bg-[var(--surface-2)]"
+            style={{ color: "var(--text-muted)" }}
+            title="Download this connection's query history as a CSV audit log"
+            onClick={async () => {
+              try {
+                const blob = await api.exportHistoryCsv(connId);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "query-audit-log.csv";
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+              } catch { /* history export is best-effort */ }
+            }}
+          >
+            Export CSV
+          </button>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-1.5 max-lg:max-h-52">

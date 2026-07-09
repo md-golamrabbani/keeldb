@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+import csv
+import io
+
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from .. import (
-    activity, advisor, ai, alerts, backup, dbops, duplicates, explain, health, metrics,
-    profiler, relational, verify,
+    activity, advisor, ai, alerts, backup, bloat, dbops, duplicates, explain, health,
+    metrics, profiler, relational, sandbox, snapshots, verify,
 )
 from ..connectors import connector_for
 from ..models import HistoryEntry
@@ -60,6 +64,8 @@ class QueryRequest(BaseModel):
     sql: str
     max_rows: int = dbops.MAX_ROWS_DEFAULT
     schema_name: str = ""
+    timeout_s: int = 0        # 0 = no statement timeout
+    auto_snapshot: bool = False  # snapshot affected tables before destructive SQL
 
 
 class TableDataRequest(BaseModel):
@@ -110,11 +116,119 @@ class ExportRequest(BaseModel):
 def run_query(conn_id: str, req: QueryRequest):
     c = _connector(conn_id)
     try:
-        result = dbops.run_sql(c, req.sql, req.max_rows, req.schema_name)
+        snap = None
+        if req.auto_snapshot and not getattr(c.profile, "read_only", False):
+            try:
+                snap = snapshots.snapshot_for_sql(c, conn_id, req.schema_name, req.sql)
+            except Exception:
+                snap = None  # snapshotting must never block the query itself
+        result = dbops.run_sql(c, req.sql, req.max_rows, req.schema_name, req.timeout_s)
+        if snap:
+            result["snapshot"] = snap
         _record_history(conn_id, req.sql, result)
         return result
     finally:
         c.dispose()
+
+
+# -- transaction sandbox -----------------------------------------------------
+class SandboxRunRequest(BaseModel):
+    sql: str
+    max_rows: int = dbops.MAX_ROWS_DEFAULT
+
+
+@router.post("/{conn_id}/sandbox/begin")
+def sandbox_begin(conn_id: str, req: OrphanRequest):
+    record = connection_store.get(conn_id)
+    if not record:
+        raise HTTPException(404, "connection not found")
+    try:
+        return sandbox.begin(record, req.schema_name)
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+
+
+@router.post("/{conn_id}/sandbox/{sandbox_id}/run")
+def sandbox_run(conn_id: str, sandbox_id: str, req: SandboxRunRequest):
+    try:
+        result = sandbox.run(sandbox_id, req.sql, req.max_rows)
+        _record_history(conn_id, req.sql, result)
+        return result
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
+@router.post("/{conn_id}/sandbox/{sandbox_id}/commit")
+def sandbox_commit(conn_id: str, sandbox_id: str):
+    try:
+        return sandbox.commit(sandbox_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+
+
+@router.post("/{conn_id}/sandbox/{sandbox_id}/rollback")
+def sandbox_rollback(conn_id: str, sandbox_id: str):
+    try:
+        return sandbox.rollback(sandbox_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+
+
+# -- snapshots (undo) ---------------------------------------------------------
+@router.get("/{conn_id}/snapshots")
+def list_snapshots(conn_id: str):
+    return snapshots.list_snapshots(conn_id)
+
+
+@router.post("/{conn_id}/snapshots/{snap_id}/restore")
+def restore_snapshot(conn_id: str, snap_id: str):
+    c = _connector(conn_id)
+    try:
+        return snapshots.restore(c, snap_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.delete("/{conn_id}/snapshots/{snap_id}")
+def delete_snapshot(conn_id: str, snap_id: str):
+    if not snapshots.delete(snap_id):
+        raise HTTPException(404, "snapshot not found")
+    return {"ok": True}
+
+
+# -- bloat / vacuum advisor ----------------------------------------------------
+@router.post("/{conn_id}/bloat")
+def bloat_report(conn_id: str, req: OrphanRequest):
+    """Dead tuples / reclaimable space + VACUUM / OPTIMIZE advice."""
+    c = _connector(conn_id)
+    try:
+        return bloat.report(c, req.schema_name)
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.get("/{conn_id}/history/export")
+def export_history(conn_id: str):
+    """Audit log: the connection's query history as a CSV download."""
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["ran_at", "conn_id", "ok", "rowcount", "elapsed_ms", "sql"])
+    for h in history_store.list(conn_id, limit=history_store.MAX):
+        w.writerow([h.ran_at, h.conn_id, h.ok, h.rowcount, h.elapsed_ms, h.sql])
+    return PlainTextResponse(
+        buf.getvalue(), media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="query-audit-log.csv"'},
+    )
 
 
 def _record_history(conn_id: str, sql: str, result: dict) -> None:

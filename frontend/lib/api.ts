@@ -1,6 +1,8 @@
 import type {
   ActivityReport,
   AiSettingsPublic,
+  BloatReport,
+  SnapshotMeta,
   AlertCondition,
   AlertResult,
   AlertRule,
@@ -183,6 +185,11 @@ export const api = {
 
   // query history + saved snippets
   history: (connId: string, limit = 100) => req<HistoryEntry[]>(`/db/${connId}/history?limit=${limit}`),
+  exportHistoryCsv: async (connId: string): Promise<Blob> => {
+    const res = await fetch(`${await resolveApiBase()}/db/${connId}/history/export`, { headers: authHeaders() });
+    if (!res.ok) throw new Error(res.statusText);
+    return res.blob();
+  },
   clearHistory: (connId: string) => req<{ cleared: number }>(`/db/${connId}/history`, { method: "DELETE" }),
   listSnippets: () => req<Snippet[]>("/snippets"),
   createSnippet: (name: string, sql: string) =>
@@ -228,8 +235,36 @@ export const api = {
     req<RollbackSim>("/migrate/rollback-simulate", { method: "POST", body: JSON.stringify({ mapping }) }),
 
   // ---- Database Explorer ----
-  runSql: (connId: string, sql: string, schema = "", maxRows = 1000) =>
-    req<QueryResult>(`/db/${connId}/query`, { method: "POST", body: JSON.stringify({ sql, max_rows: maxRows, schema_name: schema }) }),
+  runSql: (connId: string, sql: string, schema = "", maxRows = 1000, timeoutS = 0, autoSnapshot = false) =>
+    req<QueryResult>(`/db/${connId}/query`, {
+      method: "POST",
+      body: JSON.stringify({ sql, max_rows: maxRows, schema_name: schema, timeout_s: timeoutS, auto_snapshot: autoSnapshot }),
+    }),
+
+  // ---- transaction sandbox ----
+  sandboxBegin: (connId: string, schema = "") =>
+    req<{ ok: boolean; sandbox_id: string }>(`/db/${connId}/sandbox/begin`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
+  sandboxRun: (connId: string, sandboxId: string, sql: string, maxRows = 1000) =>
+    req<QueryResult>(`/db/${connId}/sandbox/${sandboxId}/run`, { method: "POST", body: JSON.stringify({ sql, max_rows: maxRows }) }),
+  sandboxCommit: (connId: string, sandboxId: string) =>
+    req<{ ok: boolean; committed: boolean; writes: number }>(`/db/${connId}/sandbox/${sandboxId}/commit`, { method: "POST" }),
+  sandboxRollback: (connId: string, sandboxId: string) =>
+    req<{ ok: boolean; committed: boolean; writes: number }>(`/db/${connId}/sandbox/${sandboxId}/rollback`, { method: "POST" }),
+
+  // ---- snapshots (undo) ----
+  listSnapshots: (connId: string) => req<SnapshotMeta[]>(`/db/${connId}/snapshots`),
+  restoreSnapshot: (connId: string, snapId: string) =>
+    req<{ ok: boolean; restored: string[] }>(`/db/${connId}/snapshots/${snapId}/restore`, { method: "POST" }),
+  deleteSnapshot: (connId: string, snapId: string) =>
+    req<{ ok: boolean }>(`/db/${connId}/snapshots/${snapId}`, { method: "DELETE" }),
+
+  // ---- bloat / vacuum advisor ----
+  bloatReport: (connId: string, schema = "") =>
+    req<BloatReport>(`/db/${connId}/bloat`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
+
+  // ---- migration checkpoint ----
+  migrateCheckpoint: (mappingId: string) =>
+    req<{ checkpoint: { rows_read: number } | null }>(`/migrate/checkpoint/${mappingId}`),
   previewWrite: (connId: string, sql: string, schema = "") =>
     req<WritePreview>(`/db/${connId}/preview-write`, { method: "POST", body: JSON.stringify({ sql, schema_name: schema }) }),
   tableData: (
@@ -304,12 +339,13 @@ export const api = {
 export async function runMigration(
   mapping: MappingProfile,
   dryRun: boolean,
-  onEvent: (e: RunEvent) => void
+  onEvent: (e: RunEvent) => void,
+  resumeOffset = 0
 ): Promise<void> {
   const res = await fetch(`${await resolveApiBase()}/migrate/run`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ mapping, dry_run: dryRun }),
+    body: JSON.stringify({ mapping, dry_run: dryRun, resume_offset: resumeOffset }),
   });
   if (!res.ok || !res.body) {
     let detail = res.statusText;

@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, runMigration } from "@/lib/api";
 import { buildMapping } from "@/lib/mapping";
 import { useWizard } from "@/lib/store";
@@ -35,6 +35,16 @@ export default function RunPanel() {
 
   const isDownload = outputMode !== "push";
 
+  // Checkpoint/resume: an interrupted push run leaves a resume point behind.
+  const [checkpoint, setCheckpoint] = useState<number | null>(null);
+  const [resume, setResume] = useState(false);
+  useEffect(() => {
+    if (!wizard.loadedMappingId || outputMode !== "push") { setCheckpoint(null); setResume(false); return; }
+    api.migrateCheckpoint(wizard.loadedMappingId)
+      .then((r) => setCheckpoint(r.checkpoint?.rows_read ?? null))
+      .catch(() => setCheckpoint(null));
+  }, [wizard.loadedMappingId, outputMode, report]);
+
   const checkRollback = async () => {
     setSimBusy(true); setSimError(""); setSim(null);
     try {
@@ -52,6 +62,7 @@ export default function RunPanel() {
     setReport(null); setFatal(""); setSourceCount(null); setExportUrl("");
     setProgress({ rows_read: 0, rows_written: 0, rows_skipped: 0, rows_errored: 0 });
     errorsRef.current = []; setErrors([]);
+    const resumeOffset = !dryRun && resume && checkpoint ? checkpoint : 0;
     try {
       await runMigration(buildMapping(wizard), dryRun, (e) => {
         if (e.event === "start") setSourceCount(e.source_count);
@@ -66,7 +77,7 @@ export default function RunPanel() {
           setReport(e.report);
           if (e.export_id && e.output_mode) setExportUrl(api.exportUrl(e.export_id, e.output_mode));
         }
-      });
+      }, resumeOffset);
     } catch (e) {
       setFatal(String(e));
     } finally {
@@ -139,6 +150,19 @@ export default function RunPanel() {
         </div>
       </div>
       {saveMsg && <p className="text-xs" style={{ color: "var(--success)" }}>{saveMsg}</p>}
+
+      {checkpoint != null && outputMode === "push" && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm"
+          style={{ background: "var(--warning-soft, var(--accent-soft))", color: "var(--warning, var(--accent))" }}>
+          <span>
+            ⏸ A previous run of this mapping stopped after {checkpoint.toLocaleString()} source rows were written.
+          </span>
+          <label className="ml-auto flex items-center gap-2 font-medium">
+            <Checkbox checked={resume} onCheckedChange={setResume} />
+            Resume from row {checkpoint.toLocaleString() }
+          </label>
+        </div>
+      )}
 
       {simError && <p className="alert-danger">{simError}</p>}
       {sim && <RollbackReport sim={sim} />}

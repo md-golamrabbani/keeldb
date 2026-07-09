@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "@/lib/api";
-import type { HealthReport, IndexAdvice, ServerMetrics } from "@/lib/types";
+import type { BloatReport, HealthReport, IndexAdvice, ServerMetrics } from "@/lib/types";
 import ActivityPanel from "./ActivityPanel";
 import AlertsPanel from "./AlertsPanel";
 import {
@@ -35,6 +35,7 @@ const TABS: { id: string; label: string; Icon: IconType }[] = [
   { id: "overview", label: "Overview", Icon: IconGauge },
   { id: "tables", label: "Tables", Icon: IconTable },
   { id: "indexes", label: "Indexes", Icon: IconColumns },
+  { id: "bloat", label: "Bloat", Icon: IconHardDrive },
   { id: "sessions", label: "Sessions", Icon: IconActivity },
   { id: "alerts", label: "Alerts", Icon: IconBell },
 ];
@@ -66,6 +67,7 @@ export default function HealthView({
   const [rep, setRep] = useState<HealthReport | null>(null);
   const [advice, setAdvice] = useState<IndexAdvice | null>(null);
   const [server, setServer] = useState<ServerMetrics | null>(null);
+  const [bloatRep, setBloatRep] = useState<BloatReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -85,6 +87,10 @@ export default function HealthView({
       .serverMetrics(connId)
       .then(setServer)
       .catch(() => setServer(null));
+    api
+      .bloatReport(connId, schema)
+      .then(setBloatRep)
+      .catch(() => setBloatRep(null));
   }, [connId, schema]);
   useEffect(load, [load]);
 
@@ -313,6 +319,100 @@ export default function HealthView({
               Unused-index detection needs query statistics — available on
               PostgreSQL and MySQL.
             </p>
+          )}
+        </div>
+      )}
+
+      {tab === "bloat" && (
+        <div className="space-y-3">
+          {!bloatRep || !bloatRep.supported ? (
+            <p className="text-xs faint">
+              {bloatRep?.message ??
+                "Bloat analysis (dead tuples / reclaimable space) is available for PostgreSQL and MySQL connections."}
+            </p>
+          ) : (
+            <>
+              {bloatRep.advice.length === 0 ? (
+                <div
+                  className="rounded-lg px-3 py-2 text-sm font-semibold"
+                  style={{ background: "var(--success-soft)", color: "var(--success)" }}
+                >
+                  ✅ No table needs a vacuum / optimize right now.
+                </div>
+              ) : (
+                <div className="card divide-y" style={{ borderColor: "var(--border)" }}>
+                  {bloatRep.advice.map((a, i) => (
+                    <div key={i} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+                      <IconWarning
+                        width={15}
+                        height={15}
+                        style={{
+                          color: a.severity === "high" ? "var(--danger)" : "var(--warning)",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span className="font-mono text-xs muted">{a.table}</span>
+                      <span className="flex-1">{a.message}</span>
+                      <code
+                        className="rounded px-2 py-0.5 text-xs"
+                        style={{ background: "var(--surface-2)" }}
+                      >
+                        {a.action}
+                      </code>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {bloatRep.tables.length > 0 && (
+                <div className="card overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr
+                        style={{ background: "var(--surface-2)" }}
+                        className="text-left text-xs uppercase tracking-wide muted"
+                      >
+                        <th className="px-3 py-2">Table</th>
+                        {bloatRep.dialect === "postgresql" ? (
+                          <>
+                            <th className="px-3 py-2 text-right">Live rows</th>
+                            <th className="px-3 py-2 text-right">Dead rows</th>
+                            <th className="px-3 py-2 text-right">Dead %</th>
+                            <th className="px-3 py-2">Last vacuum</th>
+                          </>
+                        ) : (
+                          <>
+                            <th className="px-3 py-2 text-right">Rows (est.)</th>
+                            <th className="px-3 py-2 text-right">Size</th>
+                            <th className="px-3 py-2 text-right">Reclaimable</th>
+                          </>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bloatRep.tables.map((t) => (
+                        <tr key={t.table} className="border-t">
+                          <td className="px-3 py-1.5 font-mono font-medium">{t.table}</td>
+                          {bloatRep.dialect === "postgresql" ? (
+                            <>
+                              <td className="px-3 py-1.5 text-right font-mono">{(t.live_rows ?? 0).toLocaleString()}</td>
+                              <td className="px-3 py-1.5 text-right font-mono">{(t.dead_rows ?? 0).toLocaleString()}</td>
+                              <td className="px-3 py-1.5 text-right font-mono">{((t.dead_ratio ?? 0) * 100).toFixed(1)}%</td>
+                              <td className="px-3 py-1.5 text-xs muted">{t.last_vacuum ?? "never"}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-3 py-1.5 text-right font-mono">{(t.rows_est ?? 0).toLocaleString()}</td>
+                              <td className="px-3 py-1.5 text-right font-mono">{fmtBytes(t.size_bytes ?? 0)}</td>
+                              <td className="px-3 py-1.5 text-right font-mono">{fmtBytes(t.reclaimable_bytes ?? 0)}</td>
+                            </>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

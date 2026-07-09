@@ -396,6 +396,47 @@ export interface QueryResult {
   truncated?: boolean;
   elapsed_ms?: number;
   error?: string;
+  warning?: string;
+  snapshot?: SnapshotMeta;
+  sandbox?: SandboxStatus;
+}
+
+export interface SandboxStatus {
+  active: boolean;
+  sandbox_id?: string;
+  statements?: number;
+  writes?: number;
+  age_s?: number;
+}
+
+export interface SnapshotMeta {
+  id: string;
+  conn_id: string;
+  schema: string;
+  tables: { table: string; rows: number }[];
+  skipped?: { table: string; reason: string }[];
+  sql_head?: string;
+  created_at?: string;
+}
+
+export interface BloatTable {
+  table: string;
+  live_rows?: number;
+  dead_rows?: number;
+  dead_ratio?: number;
+  last_vacuum?: string | null;
+  last_analyze?: string | null;
+  rows_est?: number;
+  size_bytes?: number;
+  reclaimable_bytes?: number;
+}
+
+export interface BloatReport {
+  dialect: string;
+  supported: boolean;
+  message?: string;
+  tables: BloatTable[];
+  advice: { table: string; severity: string; message: string; action: string }[];
 }
 
 export interface TableData {

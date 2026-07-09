@@ -34,11 +34,28 @@ _SECRET_FIELDS = (
 
 
 def _fernet() -> Fernet:
+    """Encryption key for secrets at rest. Existing installs keep their key.bin
+    (changing it would orphan stored secrets). New installs prefer the OS
+    keychain (Secret Service / macOS Keychain / Windows Credential Manager) via
+    the optional `keyring` package, falling back to a 0600 key file."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     key_file = DATA_DIR / "key.bin"
-    if not key_file.exists():
-        key_file.write_bytes(Fernet.generate_key())
-        key_file.chmod(0o600)
+    if key_file.exists():
+        return Fernet(key_file.read_bytes())
+    try:
+        import keyring
+        stored = keyring.get_password("KeelDB", "secrets-key")
+        if stored:
+            return Fernet(stored.encode())
+        key = Fernet.generate_key()
+        keyring.set_password("KeelDB", "secrets-key", key.decode())
+        # verify the backend actually persisted it (the null backend doesn't)
+        if keyring.get_password("KeelDB", "secrets-key") == key.decode():
+            return Fernet(key)
+    except Exception:
+        pass
+    key_file.write_bytes(Fernet.generate_key())
+    key_file.chmod(0o600)
     return Fernet(key_file.read_bytes())
 
 

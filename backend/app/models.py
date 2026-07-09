@@ -194,6 +194,7 @@ class TransformPreviewRequest(BaseModel):
 class MigrateRequest(BaseModel):
     mapping: MappingProfile
     dry_run: bool = False
+    resume_offset: int = 0  # skip this many source rows (checkpoint resume)
 
 
 class RowError(BaseModel):

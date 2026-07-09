@@ -11,7 +11,7 @@ from .. import rollback, schemagen, verify
 from ..connectors import connector_for
 from ..dbops import clean_error
 from ..models import MappingProfile, MigrateRequest
-from ..runner import EXPORT_DIR, run_migration
+from ..runner import EXPORT_DIR, get_checkpoint, run_migration
 from ..sinks import EXPORT_EXT, EXPORT_MEDIA
 from ..store import connection_store
 
@@ -121,10 +121,17 @@ def migrate(req: MigrateRequest):
         raise HTTPException(422, "no enabled column mappings")
 
     def stream():
-        for event in run_migration(req.mapping, source, target, dry_run=req.dry_run):
+        for event in run_migration(req.mapping, source, target, dry_run=req.dry_run,
+                                   resume_offset=max(0, req.resume_offset)):
             yield json.dumps(event, default=str) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+@router.get("/checkpoint/{mapping_id}")
+def checkpoint(mapping_id: str):
+    """Resume point left by an interrupted push migration (None when clean)."""
+    return {"checkpoint": get_checkpoint(mapping_id)}
 
 
 @router.get("/export/{export_id}")

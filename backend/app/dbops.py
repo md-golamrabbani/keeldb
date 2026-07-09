@@ -114,8 +114,22 @@ def preview_write(connector: Connector, sql: str, schema: str = "") -> dict[str,
         return {"ok": False, "error": clean_error(exc)}
 
 
+def _apply_timeout(conn, connector: Connector, timeout_s: int) -> None:
+    """Best-effort per-session statement timeout. PostgreSQL cancels any
+    statement; MySQL's max_execution_time only applies to SELECTs. Dialects
+    without support (SQLite) silently skip."""
+    if not timeout_s or timeout_s <= 0:
+        return
+    ms = int(timeout_s * 1000)
+    d = connector.engine.dialect.name
+    if d == "postgresql":
+        conn.execute(sa.text(f"SET statement_timeout = {ms}"))
+    elif d == "mysql":
+        conn.execute(sa.text(f"SET SESSION MAX_EXECUTION_TIME = {ms}"))
+
+
 # -- SQL editor ------------------------------------------------------------
-def run_sql(connector: Connector, sql: str, max_rows: int = MAX_ROWS_DEFAULT, schema: str = "") -> dict[str, Any]:
+def run_sql(connector: Connector, sql: str, max_rows: int = MAX_ROWS_DEFAULT, schema: str = "", timeout_s: int = 0) -> dict[str, Any]:
     """Execute one or more statements in a single transaction. Returns the last
     statement's result set (for SELECTs) plus counts. Rolls back on any error."""
     statements = [s for s in split_statements(sql) if s.strip()]
@@ -133,6 +147,7 @@ def run_sql(connector: Connector, sql: str, max_rows: int = MAX_ROWS_DEFAULT, sc
     try:
         with connector.engine.begin() as conn:
             _apply_schema(conn, connector, schema)
+            _apply_timeout(conn, connector, timeout_s)
             for stmt in statements:
                 result = conn.execute(sa.text(stmt))
                 executed += 1
