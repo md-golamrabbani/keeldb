@@ -16,6 +16,7 @@ from ..models import (
     AiSettings,
     AlertRule,
     ConnectionProfileIn,
+    Diagram,
     HistoryEntry,
     MappingProfile,
     MigrationProject,
@@ -232,6 +233,38 @@ class SnippetStore(_JsonStore):
         return True
 
 
+class DiagramStore(_JsonStore):
+    filename = "diagrams.json"
+
+    def list(self) -> list[Diagram]:
+        items = sorted(self._load().values(), key=lambda r: r.get("updated_at", ""), reverse=True)
+        return [Diagram(**r) for r in items]
+
+    def get(self, diagram_id: str) -> Optional[Diagram]:
+        r = self._load().get(diagram_id)
+        return Diagram(**r) if r else None
+
+    def save(self, d: Diagram) -> Diagram:
+        now = datetime.now(timezone.utc).isoformat()
+        if not d.id:
+            d.id = str(uuid.uuid4())
+        if not d.created_at:
+            d.created_at = now
+        d.updated_at = now
+        items = self._load()
+        items[d.id] = d.model_dump()
+        self._save(items)
+        return d
+
+    def delete(self, diagram_id: str) -> bool:
+        items = self._load()
+        if diagram_id not in items:
+            return False
+        del items[diagram_id]
+        self._save(items)
+        return True
+
+
 class HistoryStore(_JsonStore):
     """Recent executed queries, newest first, capped. Stored as a JSON list."""
     filename = "history.json"
@@ -336,3 +369,4 @@ snippet_store = SnippetStore()
 history_store = HistoryStore()
 alert_store = AlertStore()
 ai_settings_store = AiSettingsStore()
+diagram_store = DiagramStore()

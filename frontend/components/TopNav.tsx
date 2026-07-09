@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
-import { IconArrows, IconBookmark, IconDatabase, IconDownload, IconTable, IconWrench } from "./icons";
+import { IconArrows, IconBookmark, IconColumns, IconDatabase, IconDownload, IconTable, IconWrench } from "./icons";
 
 export const APP_VERSION = "0.1.0";
 const RELEASES_API = "https://api.github.com/repos/md-golamrabbani/MigrationStudio/releases/latest";
@@ -39,6 +39,7 @@ const LINKS = [
   { href: "/", label: "Connections", icon: IconDatabase, match: (p: string) => p === "/" },
   { href: "/explorer", label: "Explorer", icon: IconTable, match: (p: string) => p.startsWith("/explorer") },
   { href: "/migrate", label: "Migrate", icon: IconArrows, match: (p: string) => p.startsWith("/migrate") },
+  { href: "/diagrams", label: "Diagrams", icon: IconColumns, match: (p: string) => p.startsWith("/diagrams") },
   { href: "/toolkit", label: "Toolkit", icon: IconWrench, match: (p: string) => p.startsWith("/toolkit") },
   { href: "/profiles", label: "Saved Migrations", icon: IconBookmark, match: (p: string) => p.startsWith("/profiles") },
 ];

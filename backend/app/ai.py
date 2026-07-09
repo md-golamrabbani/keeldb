@@ -84,6 +84,48 @@ def _call_llm(provider: str, key: str, model: str, system: str, prompt: str) -> 
     return data["choices"][0]["message"]["content"]
 
 
+_DBML_SYSTEM = (
+    "You are a database schema designer working in DBML (Database Markup Language, "
+    "as used by dbdiagram.io). You receive the current DBML source of a diagram and an "
+    "instruction. Apply the instruction and return the COMPLETE updated DBML source.\n"
+    "Rules:\n"
+    "- Return ONLY DBML — no explanation, no markdown fences.\n"
+    "- Preserve all existing tables, columns, refs and notes unless the instruction says to change them.\n"
+    "- Use standard DBML: Table name { col type [pk, increment, not null, unique, note: '...'] }, "
+    "Ref: a.col > b.col (many-to-one), < (one-to-many), - (one-to-one).\n"
+    "- Prefer snake_case names, sensible types (int, bigint, varchar(255), text, timestamp, boolean, decimal(10,2), json), "
+    "an integer 'id' primary key on new tables, and created_at/updated_at timestamps where they make sense."
+)
+
+
+def edit_dbml(dbml: str, instruction: str) -> dict:
+    """AI diagram assistant: apply a natural-language instruction to a DBML
+    schema and return the full updated source (never executed anywhere)."""
+    if not instruction.strip():
+        raise ValueError("give the assistant an instruction")
+    provider, key, model = _resolve()
+    if not key:
+        return {"available": False, "dbml": "",
+                "message": "AI assist is not configured. Choose a provider and add an API key in AI settings."}
+    prompt = (
+        f"Current DBML:\n```\n{dbml.strip() or '// (empty diagram)'}\n```\n\n"
+        f"Instruction: {instruction}\n\nUpdated DBML:"
+    )
+    try:
+        text = _call_llm(provider, key, model, _DBML_SYSTEM, prompt)
+    except Exception as exc:
+        detail = str(exc)
+        if isinstance(exc, urllib.error.HTTPError):
+            try:
+                detail = exc.read().decode()[:300]
+            except Exception:
+                pass
+        return {"available": True, "dbml": "", "message": f"{PROVIDER_LABELS.get(provider, provider)} error: {detail}"}
+    m = re.search(r"```(?:dbml)?\s*(.+?)```", text, re.DOTALL | re.IGNORECASE)
+    out = (m.group(1) if m else text).strip()
+    return {"available": True, "dbml": out, "model": model, "provider": provider}
+
+
 def nl_to_sql(connector: Connector, schema: str, question: str) -> dict:
     if not question.strip():
         raise ValueError("ask a question")

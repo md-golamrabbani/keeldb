@@ -1,9 +1,12 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { api } from "@/lib/api";
 import { useToolkitStore } from "@/lib/toolkitStore";
+import type { ColumnInfo, ConnectionProfile } from "@/lib/types";
 import { OptionLabel, OptionInput } from "../OptionField";
 import Select from "@/components/ui/Select";
-import { IconCopy, IconDownload, IconPlus, IconTrash } from "@/components/icons";
+import Combobox from "@/components/ui/Combobox";
+import { IconCopy, IconDownload, IconPlus, IconTrash, IconUpload } from "@/components/icons";
 
 // Rendering a huge string into the textarea freezes the DOM, so the live
 // preview is capped; the full dataset is only materialized for Copy/Download.
@@ -13,6 +16,33 @@ const MIME: Record<string, string> = { csv: "text/csv", json: "application/json"
 interface ColumnDef {
   name: string;
   type: string;
+  options?: string[]; // enum choices when type === "enum"
+}
+
+/** Map a real DB column onto the closest generator type (name + type heuristics). */
+function inferGenType(col: ColumnInfo): ColumnDef {
+  const n = col.name.toLowerCase();
+  const t = col.data_type.toUpperCase();
+  if (col.enum_values?.length) return { name: col.name, type: "enum", options: col.enum_values };
+  if (/UUID|CHAR\(36\)/.test(t) || n.endsWith("uuid")) return { name: col.name, type: "uuid" };
+  if (col.is_pk && /INT|SERIAL/.test(t)) return { name: col.name, type: "id" };
+  if (n.includes("email")) return { name: col.name, type: "email" };
+  if (n.includes("phone") || n.includes("mobile")) return { name: col.name, type: "phone" };
+  if (n === "first_name") return { name: col.name, type: "first_name" };
+  if (n === "last_name") return { name: col.name, type: "last_name" };
+  if (n.includes("name") || n.includes("title")) return { name: col.name, type: "name" };
+  if (n.includes("company")) return { name: col.name, type: "company" };
+  if (n.includes("city")) return { name: col.name, type: "city" };
+  if (n.includes("country")) return { name: col.name, type: "country" };
+  if (n.includes("url") || n.includes("link") || n.includes("slug")) return { name: col.name, type: "url" };
+  if (n.includes("status") || n.includes("state")) return { name: col.name, type: "status" };
+  if (n.includes("age")) return { name: col.name, type: "age" };
+  if (/BOOL|TINYINT\(1\)/.test(t)) return { name: col.name, type: "boolean" };
+  if (/DECIMAL|NUMERIC|FLOAT|DOUBLE|REAL/.test(t)) return { name: col.name, type: "decimal" };
+  if (/INT|SERIAL|YEAR/.test(t)) return { name: col.name, type: "integer" };
+  if (t.startsWith("DATETIME") || t.startsWith("TIMESTAMP")) return { name: col.name, type: "timestamp" };
+  if (t.startsWith("DATE")) return { name: col.name, type: "date" };
+  return { name: col.name, type: "string" };
 }
 
 const TYPE_OPTIONS = [
@@ -35,6 +65,7 @@ const TYPE_OPTIONS = [
   { value: "country", label: "Country" },
   { value: "url", label: "URL" },
   { value: "string", label: "Random Word" },
+  { value: "enum", label: "Enum (from table)" },
 ];
 
 const UNQUOTED_SQL_TYPES = new Set(["id", "age", "integer", "decimal", "boolean"]);
@@ -76,8 +107,10 @@ function generatePhone(): string {
   return `+1-${area}-${exchange}-${line}`;
 }
 
-function generateValue(type: string, index: number): string {
+function generateValue(type: string, index: number, options?: string[]): string {
   switch (type) {
+    case "enum":
+      return options?.length ? pick(options) : pick(STATUSES);
     case "id":
       return String(Math.floor(Math.random() * 1000000));
     case "uuid":
@@ -145,6 +178,40 @@ export default function SampleDataTool() {
   const [outputFormat, setOutputFormat] = useState<"csv" | "json" | "sql">(options.outputFormat || "csv");
   const [copied, setCopied] = useState(false);
 
+  // ---- database target (load columns from a table / push rows into it) ----
+  const [connections, setConnections] = useState<ConnectionProfile[]>([]);
+  const [connId, setConnId] = useState("");
+  const [schemas, setSchemas] = useState<string[]>([]);
+  const [schema, setSchema] = useState("");
+  const [tables, setTables] = useState<string[]>([]);
+  const [table, setTable] = useState("");
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState("");
+  const [pushErr, setPushErr] = useState("");
+
+  useEffect(() => { api.listConnections().then(setConnections).catch(() => {}); }, []);
+  useEffect(() => {
+    setSchemas([]); setSchema(""); setTables([]); setTable("");
+    if (!connId) return;
+    api.listSchemas(connId).then((s) => { setSchemas(s); if (s.length === 1) setSchema(s[0]); }).catch(() => {});
+  }, [connId]);
+  useEffect(() => {
+    setTables([]); setTable("");
+    if (!connId || !schema) return;
+    api.listTables(connId, schema).then((ts) => setTables(ts.map((t) => t.name))).catch(() => {});
+  }, [connId, schema]);
+
+  const conn = connections.find((c) => c.id === connId);
+
+  const loadFromTable = async () => {
+    setPushErr(""); setPushMsg("");
+    try {
+      const cols = await api.listColumns(connId, schema, table);
+      setColumns(cols.map(inferGenType));
+      setPushMsg(`Loaded ${cols.length} columns from ${table} — tweak the generator types, then Push.`);
+    } catch (e) { setPushErr(String(e)); }
+  };
+
   useEffect(() => {
     updateOptions(selectedTool, { columns, rowCount, outputFormat });
   }, [columns, rowCount, outputFormat]);
@@ -169,7 +236,7 @@ export default function SampleDataTool() {
       for (let i = 0; i < count; i++) {
         const row: Record<string, string> = {};
         for (const col of columns) {
-          row[col.name] = generateValue(col.type, i);
+          row[col.name] = generateValue(col.type, i, col.options);
         }
         rows.push(row);
       }
@@ -227,6 +294,24 @@ export default function SampleDataTool() {
       setTimeout(() => setCopied(false), 2000);
     }
   }, [buildOutput, preview, isLarge, totalCount, columns]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pushRows = useCallback(async () => {
+    if (!connId || !schema || !table) return;
+    setPushBusy(true); setPushErr(""); setPushMsg("");
+    try {
+      // CSV goes through the existing import pipeline (batched, header-matched)
+      const rows: string[] = [columns.map((c) => c.name).join(",")];
+      for (let i = 0; i < totalCount; i++) {
+        rows.push(columns.map((c) => `"${generateValue(c.type, i, c.options).replace(/"/g, '""')}"`).join(","));
+      }
+      const file = new File([rows.join("\n")], "generated.csv", { type: "text/csv" });
+      const res = await api.importCsv(connId, schema, table, file);
+      setPushMsg(
+        `Inserted ${res.inserted.toLocaleString()} of ${res.total.toLocaleString()} rows into ${table}` +
+        (res.errors.length ? ` — ${res.errors.length} batch error(s): ${res.errors[0]}` : ""),
+      );
+    } catch (e) { setPushErr(String(e)); } finally { setPushBusy(false); }
+  }, [connId, schema, table, columns, totalCount]);
 
   const handleDownload = useCallback(() => {
     const full = buildOutput(totalCount);
@@ -309,6 +394,49 @@ export default function SampleDataTool() {
             />
           </div>
         </div>
+      </div>
+
+      {/* database target: pull real column structure, push generated rows */}
+      <div className="card card-pad space-y-3">
+        <div>
+          <h3 className="text-sm font-medium">Database target (optional)</h3>
+          <p className="text-xs muted">Pick a table to load its columns into the generator, then push the rows straight in — no copy/paste.</p>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <OptionLabel>Connection</OptionLabel>
+            <Select className="!w-52" value={connId} onValueChange={setConnId} placeholder="— select —"
+              options={connections.map((c) => ({ value: c.id, label: `${c.name} (${c.flavor})` }))} />
+          </div>
+          {schemas.length > 0 && (
+            <div>
+              <OptionLabel>Schema</OptionLabel>
+              <Select className="!w-40" value={schema} onValueChange={setSchema} placeholder="— select —"
+                options={schemas.map((s) => ({ value: s, label: s }))} />
+            </div>
+          )}
+          {tables.length > 0 && (
+            <div>
+              <OptionLabel>Table</OptionLabel>
+              <Combobox className="!w-48" value={table} onValueChange={setTable} placeholder="— select —"
+                searchPlaceholder="Search tables…" options={tables.map((t) => ({ value: t }))} />
+            </div>
+          )}
+          <button className="btn btn-secondary btn-sm" onClick={loadFromTable} disabled={!table}>
+            Load columns
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={pushRows}
+            disabled={!table || pushBusy || conn?.read_only}
+            title={conn?.read_only ? "Connection is read-only" : `Insert ${totalCount.toLocaleString()} generated rows into ${table || "the table"}`}>
+            <IconUpload width={13} height={13} /> {pushBusy ? "Pushing…" : `Push ${totalCount.toLocaleString()} rows`}
+          </button>
+        </div>
+        {conn?.environment === "prod" && (
+          <p className="text-xs" style={{ color: "var(--danger)" }}>This is a PRODUCTION connection — pushing sample data here is almost certainly a mistake.</p>
+        )}
+        {pushMsg && <p className="text-xs" style={{ color: "var(--success)" }}>{pushMsg}</p>}
+        {pushErr && <p className="alert-danger whitespace-pre-wrap">{pushErr}</p>}
+        <p className="text-xs faint">Tip: delete the auto-increment PK column from the list above to let the database assign ids.</p>
       </div>
 
       <div className="flex flex-col gap-3">

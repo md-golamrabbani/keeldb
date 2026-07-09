@@ -281,6 +281,18 @@ export const api = {
   bloatReport: (connId: string, schema = "") =>
     req<BloatReport>(`/db/${connId}/bloat`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
 
+  // ---- ER diagram designer ----
+  listDiagrams: () => req<{ id: string; name: string; updated_at: string }[]>("/diagrams"),
+  getDiagram: (id: string) =>
+    req<{ id: string; name: string; dbml: string; positions: Record<string, { x: number; y: number }> }>(`/diagrams/${id}`),
+  saveDiagram: (d: { id?: string; name: string; dbml: string; positions: Record<string, { x: number; y: number }> }) =>
+    req<{ id: string; name: string }>("/diagrams", { method: "POST", body: JSON.stringify({ id: d.id ?? "", ...d }) }),
+  deleteDiagram: (id: string) => req<{ ok: boolean }>(`/diagrams/${id}`, { method: "DELETE" }),
+  aiDiagram: (dbml: string, instruction: string) =>
+    req<{ available: boolean; dbml: string; message?: string; model?: string }>("/diagrams/ai", {
+      method: "POST", body: JSON.stringify({ dbml, instruction }),
+    }),
+
   // ---- migration checkpoint ----
   migrateCheckpoint: (mappingId: string) =>
     req<{ checkpoint: { rows_read: number } | null }>(`/migrate/checkpoint/${mappingId}`),

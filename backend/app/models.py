@@ -146,6 +146,16 @@ class Snippet(BaseModel):
     created_at: str = ""
 
 
+class Diagram(BaseModel):
+    """A saved ER diagram: DBML source + per-table canvas positions."""
+    id: str = ""
+    name: str
+    dbml: str = ""
+    positions: dict[str, dict[str, float]] = {}
+    created_at: str = ""
+    updated_at: str = ""
+
+
 AiProvider = Literal["anthropic", "openai", "groq"]
 
 
