@@ -1,11 +1,11 @@
 "use client";
 import { COLUMN_TYPES } from "@/lib/types";
-import Select from "@/components/ui/Select";
+import Combobox from "@/components/ui/Combobox";
 
-const CUSTOM = "__custom__";
-
-/** A column-type dropdown of common SQL types, with a "Custom…" escape hatch
- * that reveals a free-text input (so uncommon types are still possible). */
+/** Searchable column-type picker (shadcn-style combobox) over the full type
+ * catalog — integers, decimals, text family, ENUM/SET, blobs, date/time, JSON,
+ * UUID, network types… Typing anything not in the list uses it as a custom
+ * type, so e.g. ENUM values can be edited freely. */
 export default function TypeSelect({
   value, onChange, className = "",
 }: {
@@ -13,26 +13,15 @@ export default function TypeSelect({
   onChange: (v: string) => void;
   className?: string;
 }) {
-  const known = COLUMN_TYPES.includes(value);
-  const isCustom = value !== "" && !known;
-
   return (
-    <div className="flex items-center gap-1.5">
-      <Select
-        className={className}
-        value={isCustom ? CUSTOM : value}
-        onValueChange={(v) => onChange(v === CUSTOM ? "" : v)}
-        options={[...COLUMN_TYPES.map((t) => ({ value: t, label: t })), { value: CUSTOM, label: "Custom…" }]}
-      />
-      {isCustom && (
-        <input
-          className={`input font-mono ${className}`}
-          autoFocus
-          value={value}
-          placeholder="e.g. VARCHAR(64)"
-          onChange={(e) => onChange(e.target.value)}
-        />
-      )}
-    </div>
+    <Combobox
+      className={className}
+      value={value}
+      onValueChange={onChange}
+      allowCustom
+      placeholder="Type…"
+      searchPlaceholder="Search types (or type your own)…"
+      options={COLUMN_TYPES.map((t) => ({ value: t }))}
+    />
   );
 }

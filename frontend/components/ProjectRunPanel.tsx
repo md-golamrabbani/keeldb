@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { runProject } from "@/lib/api";
 import Modal from "@/components/explorer/Modal";
-import { IconFlask, IconPlay } from "@/components/icons";
+import { IconCheckCircle, IconFlask, IconPlay, IconWarning } from "@/components/icons";
 
 interface TableState { table: string; written: number; skipped: number; errored: number; status: "pending" | "running" | "done" | "error" }
 
@@ -82,7 +82,13 @@ export default function ProjectRunPanel({ projectId, projectName, onClose }: { p
             {totals && (
               <tfoot>
                 <tr className="border-t font-semibold" style={{ background: "var(--surface-2)" }}>
-                  <td className="px-3 py-2">Total {ok ? "✅" : "⚠️"}</td>
+                  <td className="px-3 py-2">
+                    <span className="inline-flex items-center gap-1.5">
+                      Total {ok
+                        ? <IconCheckCircle width={14} height={14} style={{ color: "var(--success)" }} />
+                        : <IconWarning width={14} height={14} style={{ color: "var(--warning)" }} />}
+                    </span>
+                  </td>
                   <td className="px-3 py-2 text-right">{totals.rows_written.toLocaleString()}</td>
                   <td className="px-3 py-2 text-right">{totals.rows_skipped.toLocaleString()}</td>
                   <td className="px-3 py-2 text-right">{totals.rows_errored.toLocaleString()}</td>

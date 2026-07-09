@@ -44,4 +44,9 @@ export {
   Wrench as IconWrench,
   Copy as IconCopy,
   Star as IconStar,
+  CircleCheck as IconCheckCircle,
+  CircleAlert as IconAlert,
+  Camera as IconCamera,
+  Pause as IconPause,
+  ChevronUp as IconChevronUp,
 } from "lucide-react";

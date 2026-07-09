@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { OrphanResult } from "@/lib/types";
 import Modal from "./Modal";
-import { IconRefresh } from "@/components/icons";
+import { IconCheckCircle, IconRefresh, IconWarning } from "@/components/icons";
 
 // Post-migration integrity: scan every FK in the schema for orphaned rows
 // (a child row whose foreign-key value has no matching parent).
@@ -34,9 +34,11 @@ export default function IntegrityModal({ connId, schema, onClose }: { connId: st
               style={res.total_orphans === 0
                 ? { background: "var(--success-soft)", color: "var(--success)" }
                 : { background: "var(--danger-soft)", color: "var(--danger)" }}>
-              {res.total_orphans === 0
-                ? `✅ No orphaned rows across ${res.scanned} table(s).`
-                : `⚠ ${res.total_orphans.toLocaleString()} orphaned row(s) found.`}
+              <span className="inline-flex items-center gap-1.5">
+                {res.total_orphans === 0
+                  ? <><IconCheckCircle width={15} height={15} className="shrink-0" /> No orphaned rows across {res.scanned} table(s).</>
+                  : <><IconWarning width={15} height={15} className="shrink-0" /> {res.total_orphans.toLocaleString()} orphaned row(s) found.</>}
+              </span>
             </div>
 
             {res.tables.length === 0 ? (

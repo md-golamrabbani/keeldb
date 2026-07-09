@@ -6,6 +6,8 @@ import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
 import IndexManager from "./IndexManager";
 import TypeSelect from "./TypeSelect";
 import Checkbox from "@/components/ui/Checkbox";
+import Combobox from "@/components/ui/Combobox";
+import { COLLATIONS } from "@/lib/types";
 import { IconEdit, IconPlus, IconTrash } from "@/components/icons";
 
 export default function StructureEditor({ connId, schema, table }: { connId: string; schema: string; table: string }) {
@@ -13,7 +15,7 @@ export default function StructureEditor({ connId, schema, table }: { connId: str
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editCol, setEditCol] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", type: "", nullable: true });
+  const [form, setForm] = useState({ name: "", type: "", nullable: true, collation: "" });
   const [adding, setAdding] = useState(false);
   const [newCol, setNewCol] = useState({ name: "", type: "TEXT", nullable: true, default: "" });
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
@@ -25,12 +27,14 @@ export default function StructureEditor({ connId, schema, table }: { connId: str
   useEffect(() => { load(); setEditCol(null); setAdding(false); }, [load]);
 
   const flash = (m: string) => { setNotice(m); setTimeout(() => setNotice(""), 2500); };
-  const startEdit = (c: ColumnInfo) => { setEditCol(c.name); setForm({ name: c.name, type: c.data_type, nullable: c.nullable }); };
+  const startEdit = (c: ColumnInfo) => { setEditCol(c.name); setForm({ name: c.name, type: c.data_type, nullable: c.nullable, collation: c.collation ?? "" }); };
 
   const saveEdit = async (c: ColumnInfo) => {
     try {
-      if (form.type !== c.data_type || form.nullable !== c.nullable) {
-        await api.modifyColumn(connId, schema, table, c.name, form.type, form.nullable);
+      const collationChanged = form.collation !== (c.collation ?? "");
+      if (form.type !== c.data_type || form.nullable !== c.nullable || collationChanged) {
+        await api.modifyColumn(connId, schema, table, c.name, form.type, form.nullable,
+          collationChanged || form.collation ? form.collation : "");
       }
       if (form.name !== c.name) {
         await api.renameColumn(connId, schema, table, c.name, form.name);
@@ -78,7 +82,7 @@ export default function StructureEditor({ connId, schema, table }: { connId: str
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: "var(--surface-2)" }} className="text-left text-xs uppercase tracking-wide muted">
-              <th className="px-3 py-2.5">Column</th><th className="px-3 py-2.5">Type</th><th className="px-3 py-2.5">Nullable</th>
+              <th className="px-3 py-2.5">Column</th><th className="px-3 py-2.5">Type</th><th className="px-3 py-2.5">Collation</th><th className="px-3 py-2.5">Nullable</th>
               <th className="px-3 py-2.5">Key</th><th className="px-3 py-2.5">Default</th><th className="px-3 py-2.5 text-right">Actions</th>
             </tr>
           </thead>
@@ -87,6 +91,12 @@ export default function StructureEditor({ connId, schema, table }: { connId: str
               <tr key={c.name} className="border-t" style={{ background: "var(--surface-2)" }}>
                 <td className="px-3 py-2"><input className="input !h-8 !py-0 !w-36" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></td>
                 <td className="px-3 py-2"><TypeSelect className="!h-8 !py-0 !w-36" value={form.type} onChange={(v) => setForm({ ...form, type: v })} /></td>
+                <td className="px-3 py-2">
+                  <Combobox className="!h-8 !py-0 !w-44" value={form.collation} allowCustom
+                    placeholder="(table default)" searchPlaceholder="Search collations…"
+                    onValueChange={(v) => setForm({ ...form, collation: v })}
+                    options={COLLATIONS.map((c) => ({ value: c }))} />
+                </td>
                 <td className="px-3 py-2"><Checkbox checked={form.nullable} onCheckedChange={(v) => setForm({ ...form, nullable: v })} /></td>
                 <td className="px-3 py-2"></td><td className="px-3 py-2"></td>
                 <td className="px-3 py-2 text-right">
@@ -98,6 +108,7 @@ export default function StructureEditor({ connId, schema, table }: { connId: str
               <tr key={c.name} className="border-t">
                 <td className="px-3 py-2 font-mono font-medium">{c.name}</td>
                 <td className="px-3 py-2 font-mono muted">{c.data_type}</td>
+                <td className="px-3 py-2 font-mono text-xs faint">{c.collation ?? "—"}</td>
                 <td className="px-3 py-2">{c.nullable ? <span className="muted">yes</span> : <span style={{ color: "var(--danger)" }}>NOT NULL</span>}</td>
                 <td className="px-3 py-2">{c.is_pk && <span className="badge badge-warning mr-1">PK</span>}{c.is_fk && <span className="badge badge-accent" title={c.fk_target}>FK</span>}</td>
                 <td className="px-3 py-2 font-mono faint">{c.default ?? "—"}</td>

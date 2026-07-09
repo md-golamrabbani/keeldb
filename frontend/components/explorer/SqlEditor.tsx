@@ -9,7 +9,9 @@ import SqlSidebar, { type SaveState } from "./SqlSidebar";
 import ResultChart from "./ResultChart";
 import Select from "@/components/ui/Select";
 import AiSettingsModal from "./AiSettingsModal";
-import { IconDownload, IconPlay, IconSettings, IconSparkles } from "@/components/icons";
+import {
+  IconCamera, IconCheck, IconDownload, IconFlask, IconPlay, IconSettings, IconSparkles, IconWarning,
+} from "@/components/icons";
 
 interface LintError {
   line?: number;
@@ -215,7 +217,14 @@ export default function SqlEditor({
   const [sandboxBusy, setSandboxBusy] = useState(false);
   const [gridScroll, setGridScroll] = useState(0);
   const [gridHeight, setGridHeight] = useState(480);
+  const [resultTab, setResultTab] = useState(0);
   const gridRef = useRef<HTMLDivElement | null>(null);
+
+  // Multi-statement runs return one result set per SELECT; show them as tabs.
+  const sets = result?.ok ? (result.result_sets ?? null) : null;
+  const activeSet = sets ? sets[Math.min(resultTab, sets.length - 1)] : null;
+  const shownColumns = activeSet?.columns ?? result?.columns;
+  const shownRows = activeSet?.rows ?? result?.rows;
 
   const beginSandbox = async () => {
     setSandboxBusy(true);
@@ -432,6 +441,7 @@ export default function SqlEditor({
     setUsedLimit(rowLimit);
     setUndoMsg("");
     setGridScroll(0);
+    setResultTab(0);
     try {
       const res = sandboxId
         ? await api.sandboxRun(connId, sandboxId, sql, rowLimit)
@@ -542,7 +552,7 @@ export default function SqlEditor({
           >
             {lintError ? (
               <>
-                <span aria-hidden>⚠</span>
+                <IconWarning width={13} height={13} className="shrink-0" aria-hidden />
                 {lintError.line ? <b>Line {lintError.line}:</b> : null}{" "}
                 {lintError.message}
               </>
@@ -615,8 +625,9 @@ export default function SqlEditor({
           className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium"
           style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid var(--accent)" }}
         >
-          <span>
-            🧪 Transaction sandbox — {sandboxWrites} write statement{sandboxWrites === 1 ? "" : "s"} pending.
+          <span className="inline-flex items-center gap-1.5">
+            <IconFlask width={14} height={14} className="shrink-0" />
+            Transaction sandbox — {sandboxWrites} write statement{sandboxWrites === 1 ? "" : "s"} pending.
             Nothing is visible to other sessions until you commit.
           </span>
           <span className="ml-auto flex items-center gap-2">
@@ -632,15 +643,20 @@ export default function SqlEditor({
 
       {undoMsg && <p className="text-xs muted">{undoMsg}</p>}
 
-      {result?.warning && <p className="alert-danger whitespace-pre-wrap">⚠ {result.warning}</p>}
+      {result?.warning && (
+        <p className="alert-danger flex items-start gap-1.5 whitespace-pre-wrap">
+          <IconWarning width={14} height={14} className="mt-0.5 shrink-0" /> {result.warning}
+        </p>
+      )}
 
       {lastSnapshot && (
         <div
           className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-xs"
           style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}
         >
-          <span>
-            📸 Snapshot saved before this change (
+          <span className="inline-flex items-center gap-1.5">
+            <IconCamera width={13} height={13} className="shrink-0" />
+            Snapshot saved before this change (
             {lastSnapshot.tables.map((t) => `${t.table}: ${t.rows.toLocaleString()} rows`).join(", ")}
             {lastSnapshot.skipped?.length
               ? ` — skipped ${lastSnapshot.skipped.map((s) => `${s.table} (${s.reason})`).join(", ")}`
@@ -668,8 +684,8 @@ export default function SqlEditor({
           <div className="space-y-1.5">
             {plan.hints.map((h, i) => (
               <div key={i} className="flex items-start gap-2 text-sm">
-                <span aria-hidden style={{ color: h.level === "warn" ? "var(--warning)" : "var(--success)" }}>
-                  {h.level === "warn" ? "⚠" : "✓"}
+                <span aria-hidden className="mt-0.5" style={{ color: h.level === "warn" ? "var(--warning)" : "var(--success)" }}>
+                  {h.level === "warn" ? <IconWarning width={14} height={14} /> : <IconCheck width={14} height={14} />}
                 </span>
                 <span style={h.level === "warn" ? { color: "var(--text)" } : { color: "var(--text-muted)" }}>{h.message}</span>
               </div>
@@ -717,10 +733,25 @@ export default function SqlEditor({
             )}
           </div>
 
-          {showChart && result.is_select && result.columns && result.rows && result.rows.length > 0 && (
-            <ResultChart columns={result.columns} rows={result.rows} />
+          {sets && sets.length > 1 && (
+            <div className="flex items-center gap-1 overflow-x-auto border-b" style={{ borderColor: "var(--border)" }}>
+              {sets.map((s, i) => (
+                <button key={i} onClick={() => { setResultTab(i); setGridScroll(0); }}
+                  title={s.statement}
+                  className="whitespace-nowrap border-b-2 px-3 py-1.5 text-xs font-medium transition-colors"
+                  style={i === resultTab
+                    ? { borderColor: "var(--accent)", color: "var(--accent)" }
+                    : { borderColor: "transparent", color: "var(--text-muted)" }}>
+                  Result {i + 1} <span className="faint">({s.rowcount.toLocaleString()})</span>
+                </button>
+              ))}
+            </div>
           )}
-          {result.is_select && result.columns && (
+
+          {showChart && result.is_select && shownColumns && shownRows && shownRows.length > 0 && (
+            <ResultChart columns={shownColumns} rows={shownRows} />
+          )}
+          {result.is_select && shownColumns && (
             <div
               ref={(el) => {
                 gridRef.current = el;
@@ -736,7 +767,7 @@ export default function SqlEditor({
               >
                 <thead>
                   <tr className="text-left uppercase tracking-wide muted">
-                    {result.columns.map((c, i) => (
+                    {shownColumns.map((c, i) => (
                       <th
                         key={i}
                         className="border-b px-2.5 py-2 font-mono normal-case"
@@ -753,13 +784,13 @@ export default function SqlEditor({
                   </tr>
                 </thead>
                 <VirtualRows
-                  rows={result.rows ?? []}
-                  colCount={result.columns.length}
+                  rows={shownRows ?? []}
+                  colCount={shownColumns.length}
                   scrollTop={gridScroll}
                   viewport={gridHeight}
                 />
               </table>
-              {result.rows?.length === 0 && (
+              {shownRows?.length === 0 && (
                 <p className="p-6 text-center muted">No rows returned.</p>
               )}
             </div>

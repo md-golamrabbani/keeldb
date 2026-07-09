@@ -4,7 +4,7 @@ import { api, runMigration } from "@/lib/api";
 import { buildMapping } from "@/lib/mapping";
 import { useWizard } from "@/lib/store";
 import type { OutputMode, Report, RollbackSim, RowError } from "@/lib/types";
-import { IconCheck, IconDownload, IconFlask, IconLock, IconPlay } from "./icons";
+import { IconCheck, IconDownload, IconFlask, IconLock, IconPause, IconPlay } from "./icons";
 import Checkbox from "@/components/ui/Checkbox";
 
 interface Progress { rows_read: number; rows_written: number; rows_skipped: number; rows_errored: number }
@@ -154,8 +154,9 @@ export default function RunPanel() {
       {checkpoint != null && outputMode === "push" && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm"
           style={{ background: "var(--warning-soft, var(--accent-soft))", color: "var(--warning, var(--accent))" }}>
-          <span>
-            ⏸ A previous run of this mapping stopped after {checkpoint.toLocaleString()} source rows were written.
+          <span className="inline-flex items-center gap-1.5">
+            <IconPause width={14} height={14} className="shrink-0" />
+            A previous run of this mapping stopped after {checkpoint.toLocaleString()} source rows were written.
           </span>
           <label className="ml-auto flex items-center gap-2 font-medium">
             <Checkbox checked={resume} onCheckedChange={setResume} />

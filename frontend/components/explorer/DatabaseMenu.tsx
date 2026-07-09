@@ -1,16 +1,18 @@
 "use client";
 import { useState } from "react";
 import { api } from "@/lib/api";
-import type { ColumnDef } from "@/lib/types";
+import { COLLATIONS, type ColumnDef } from "@/lib/types";
 import Checkbox from "@/components/ui/Checkbox";
+import Combobox from "@/components/ui/Combobox";
 import ErrorBanner from "./ErrorBanner";
 import GridTable from "./GridTable";
 import IntegrityModal from "./IntegrityModal";
 import Modal from "./Modal";
 import TypeSelect from "./TypeSelect";
+import UsersModal from "./UsersModal";
 import { IconChevronDown, IconPlus, IconTrash } from "@/components/icons";
 
-type Dialog = null | "createTable" | "createDb" | "renameDb" | "dropDb" | "privileges" | "integrity";
+type Dialog = null | "createTable" | "createDb" | "renameDb" | "dropDb" | "privileges" | "integrity" | "users";
 
 export default function DatabaseMenu({
   connId, schema, database, onTableCreated,
@@ -60,6 +62,7 @@ export default function DatabaseMenu({
             {item("Create database", "createDb")}
             {item("Rename database", "renameDb")}
             {item("Privileges", "privileges")}
+            {item("Users & privileges", "users")}
             {item("Check integrity (FK orphans)", "integrity")}
             <div className="my-1 border-t" />
             <button className="block w-full px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-2)]"
@@ -101,6 +104,9 @@ export default function DatabaseMenu({
       {dialog === "integrity" && (
         <IntegrityModal connId={connId} schema={schema} onClose={() => setDialog(null)} />
       )}
+      {dialog === "users" && (
+        <UsersModal connId={connId} schema={schema} onClose={() => setDialog(null)} />
+      )}
     </div>
   );
 }
@@ -130,16 +136,22 @@ function NameModal({ title, label, action, initial = "", danger, onClose, onSubm
   );
 }
 
+// One shared grid template so the header labels and every row line up exactly
+// (Null / PK / AI are fixed-width, center-aligned columns).
+const CT_GRID = "minmax(8rem,1.2fr) minmax(8rem,1.2fr) minmax(6rem,1fr) minmax(7rem,1fr) 2.5rem 2.5rem 2.5rem 2.25rem";
+
 function CreateTableModal({ connId, schema, onClose, onCreated }: {
   connId: string; schema: string; onClose: () => void; onCreated: (name: string) => void;
 }) {
   const [name, setName] = useState("");
-  const [cols, setCols] = useState<ColumnDef[]>([{ name: "id", type: "INTEGER", nullable: false, pk: true }]);
+  const [cols, setCols] = useState<ColumnDef[]>([
+    { name: "id", type: "INTEGER", nullable: false, pk: true, default: "", collation: "", auto_increment: true },
+  ]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const patch = (i: number, p: Partial<ColumnDef>) => setCols((cs) => cs.map((c, j) => (j === i ? { ...c, ...p } : c)));
-  const add = () => setCols((cs) => [...cs, { name: "", type: "TEXT", nullable: true, pk: false }]);
+  const add = () => setCols((cs) => [...cs, { name: "", type: "TEXT", nullable: true, pk: false, default: "", collation: "", auto_increment: false }]);
   const remove = (i: number) => setCols((cs) => cs.filter((_, j) => j !== i));
 
   const create = async () => {
@@ -154,16 +166,24 @@ function CreateTableModal({ connId, schema, onClose, onCreated }: {
     <Modal title="Create table" wide onClose={onClose}>
       <div className="space-y-4">
         <div><label className="label">Table name</label><input autoFocus className="input !w-64" value={name} onChange={(e) => setName(e.target.value)} /></div>
-        <div className="space-y-2">
-          <div className="grid grid-cols-[1fr_1fr_auto_auto_auto] items-center gap-2 text-xs uppercase muted">
-            <span>Name</span><span>Type</span><span>Null</span><span>PK</span><span></span>
+        <div className="space-y-2 overflow-x-auto">
+          <div className="grid items-center gap-2 text-xs uppercase muted" style={{ gridTemplateColumns: CT_GRID, minWidth: "44rem" }}>
+            <span>Name</span><span>Type</span><span>Default</span><span>Collation</span>
+            <span className="text-center">Null</span><span className="text-center">PK</span>
+            <span className="text-center" title="Auto increment (MySQL)">AI</span><span></span>
           </div>
           {cols.map((c, i) => (
-            <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto_auto] items-center gap-2">
+            <div key={i} className="grid items-center gap-2" style={{ gridTemplateColumns: CT_GRID, minWidth: "44rem" }}>
               <input className="input !h-9 !py-0" value={c.name} onChange={(e) => patch(i, { name: e.target.value })} placeholder="column" />
-              <TypeSelect className="!h-9 !py-0" value={c.type} onChange={(v) => patch(i, { type: v })} />
-              <Checkbox checked={c.nullable} onCheckedChange={(v) => patch(i, { nullable: v })} ariaLabel="Nullable" />
-              <Checkbox checked={c.pk} onCheckedChange={(v) => patch(i, { pk: v })} ariaLabel="Primary key" />
+              <TypeSelect className="!h-9 !py-0 w-full" value={c.type} onChange={(v) => patch(i, { type: v })} />
+              <input className="input !h-9 !py-0" value={c.default ?? ""} onChange={(e) => patch(i, { default: e.target.value })} placeholder="—" title="Default value (number, string, NULL, CURRENT_TIMESTAMP…)" />
+              <Combobox className="!h-9 !py-0 w-full" value={c.collation ?? ""} allowCustom
+                placeholder="default" searchPlaceholder="Search collations…"
+                onValueChange={(v) => patch(i, { collation: v })}
+                options={COLLATIONS.map((x) => ({ value: x }))} />
+              <span className="flex justify-center"><Checkbox checked={c.nullable} onCheckedChange={(v) => patch(i, { nullable: v })} ariaLabel="Nullable" /></span>
+              <span className="flex justify-center"><Checkbox checked={c.pk} onCheckedChange={(v) => patch(i, { pk: v })} ariaLabel="Primary key" /></span>
+              <span className="flex justify-center"><Checkbox checked={!!c.auto_increment} onCheckedChange={(v) => patch(i, { auto_increment: v })} ariaLabel="Auto increment" /></span>
               <button className="btn btn-ghost btn-sm" onClick={() => remove(i)} aria-label="Remove"><IconTrash width={13} height={13} /></button>
             </div>
           ))}

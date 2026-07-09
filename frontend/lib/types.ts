@@ -302,6 +302,8 @@ export interface ColumnInfo {
   default: string | null;
   char_len: number | null;
   numeric_precision: number | null;
+  enum_values?: string[];
+  collation?: string | null;
 }
 
 export interface ColumnMap {
@@ -399,6 +401,16 @@ export interface QueryResult {
   warning?: string;
   snapshot?: SnapshotMeta;
   sandbox?: SandboxStatus;
+  /** Present when a run produced more than one SELECT result set. */
+  result_sets?: ResultSet[];
+}
+
+export interface ResultSet {
+  statement: string;
+  columns: string[];
+  rows: (string | number | boolean | null)[][];
+  rowcount: number;
+  truncated: boolean;
 }
 
 export interface SandboxStatus {
@@ -477,6 +489,9 @@ export interface ColumnDef {
   type: string;
   nullable: boolean;
   pk: boolean;
+  default?: string;
+  collation?: string;
+  auto_increment?: boolean;
 }
 
 export interface SchemaGraphTable {
@@ -507,26 +522,88 @@ export const FILTER_OPS: { value: string; label: string; noValue?: boolean }[] =
 
 export const PAGE_SIZES = [10, 25, 50, 100, 250, 500];
 
-// Common SQL column types offered in dropdowns (portable across MySQL/Postgres/SQLite).
+// SQL column types offered in the (searchable) type dropdown. Grouped roughly
+// by family; anything not listed can still be typed in as custom.
 export const COLUMN_TYPES = [
+  // integers
+  "TINYINT",
+  "SMALLINT",
+  "MEDIUMINT",
+  "INT",
   "INTEGER",
   "BIGINT",
-  "SMALLINT",
+  "INT UNSIGNED",
+  "BIGINT UNSIGNED",
   "SERIAL",
   "BIGSERIAL",
+  // exact / floating numerics
   "NUMERIC(10,2)",
   "DECIMAL(10,2)",
+  "DECIMAL(18,4)",
+  "FLOAT",
   "REAL",
+  "DOUBLE",
   "DOUBLE PRECISION",
+  // boolean / bit
   "BOOLEAN",
-  "VARCHAR(255)",
-  "VARCHAR(100)",
-  "TEXT",
+  "BIT(1)",
+  // strings
+  "CHAR(1)",
   "CHAR(36)",
+  "VARCHAR(50)",
+  "VARCHAR(100)",
+  "VARCHAR(255)",
+  "VARCHAR(500)",
+  "TINYTEXT",
+  "TEXT",
+  "MEDIUMTEXT",
+  "LONGTEXT",
+  // enum / set (edit the values)
+  "ENUM('a','b','c')",
+  "SET('a','b','c')",
+  // binary
+  "BINARY(16)",
+  "VARBINARY(255)",
+  "TINYBLOB",
+  "BLOB",
+  "MEDIUMBLOB",
+  "LONGBLOB",
+  "BYTEA",
+  // date & time
   "DATE",
   "TIME",
+  "DATETIME",
   "TIMESTAMP",
+  "TIMESTAMPTZ",
+  "YEAR",
+  "INTERVAL",
+  // structured / special
   "UUID",
   "JSON",
   "JSONB",
+  "XML",
+  "INET",
+  "CIDR",
+  "MACADDR",
+  "GEOMETRY",
+  "POINT",
+  "ARRAY",
+  "TSVECTOR",
+];
+
+// Common collations for the collation picker (MySQL first, then Postgres).
+export const COLLATIONS = [
+  "utf8mb4_unicode_ci",
+  "utf8mb4_general_ci",
+  "utf8mb4_bin",
+  "utf8mb4_0900_ai_ci",
+  "utf8mb3_unicode_ci",
+  "utf8mb3_general_ci",
+  "latin1_swedish_ci",
+  "latin1_general_ci",
+  "ascii_general_ci",
+  "binary",
+  "C",
+  "POSIX",
+  "en_US.utf8",
 ];

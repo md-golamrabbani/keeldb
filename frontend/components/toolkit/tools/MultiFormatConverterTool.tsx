@@ -1,10 +1,15 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseLines, deduplicate } from "../lib/transformers";
 import { OptionLabel } from "../OptionField";
 import Select from "@/components/ui/Select";
+import { IconDownload, IconUpload } from "@/components/icons";
+
+const OUT_EXT: Record<string, string> = {
+  csv: "csv", json: "json", "sql-in": "sql", "sql-array": "txt", plaintext: "txt",
+};
 
 const EMPTY_OPTIONS = {};
 
@@ -51,6 +56,21 @@ export default function MultiFormatConverterTool() {
     updateOptions(selectedTool, { outputFormat });
   };
 
+  const fileInput = useRef<HTMLInputElement>(null);
+  const uploadFile = async (f: File) => {
+    updateInput(selectedTool, await f.text());
+  };
+  const downloadOutput = () => {
+    if (!output) return;
+    const blob = new Blob([output], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `converted.${OUT_EXT[outputFormat] ?? "txt"}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   return (
     <ToolContainer
       title="Multi-Format Converter"
@@ -63,20 +83,32 @@ export default function MultiFormatConverterTool() {
       onClear={() => updateInput(selectedTool, "")}
       onCopy={handleCopy}
       options={
-        <div>
-          <OptionLabel>Output Format</OptionLabel>
-          <Select
-            value={outputFormat}
-            onValueChange={(e) => setOutputFormat(e as any)}
-            className="w-full"
-            options={[
-              { value: "plaintext", label: "Plaintext (one per line)" },
-              { value: "csv", label: "CSV (comma-separated)" },
-              { value: "json", label: "JSON array" },
-              { value: "sql-in", label: "SQL IN clause" },
-              { value: "sql-array", label: "PostgreSQL array format" },
-            ]}
-          />
+        <div className="space-y-3">
+          <div>
+            <OptionLabel>Output Format</OptionLabel>
+            <Select
+              value={outputFormat}
+              onValueChange={(e) => setOutputFormat(e as any)}
+              className="w-full"
+              options={[
+                { value: "plaintext", label: "Plaintext (one per line)" },
+                { value: "csv", label: "CSV (comma-separated)" },
+                { value: "json", label: "JSON array" },
+                { value: "sql-in", label: "SQL IN clause" },
+                { value: "sql-array", label: "PostgreSQL array format" },
+              ]}
+            />
+          </div>
+          <div className="flex gap-2">
+            <input ref={fileInput} type="file" className="hidden" accept=".txt,.csv,.json,.sql,text/plain"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.currentTarget.value = ""; }} />
+            <button className="btn btn-secondary btn-sm" onClick={() => fileInput.current?.click()}>
+              <IconUpload width={13} height={13} /> Upload file
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={downloadOutput} disabled={!output}>
+              <IconDownload width={13} height={13} /> Download output
+            </button>
+          </div>
         </div>
       }
     />

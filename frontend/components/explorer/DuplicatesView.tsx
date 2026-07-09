@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { ColumnInfo, DuplicateResult } from "@/lib/types";
-import { IconSearch } from "@/components/icons";
+import { IconCheckCircle, IconSearch } from "@/components/icons";
 import Checkbox from "@/components/ui/Checkbox";
 
 // Find rows sharing the same value(s) in a chosen set of columns. "View rows"
@@ -68,7 +68,7 @@ export default function DuplicatesView({ connId, schema, table, onViewRows }: {
               ? { background: "var(--success-soft)", color: "var(--success)" }
               : { background: "var(--warning-soft)", color: "var(--warning)" }}>
             {res.group_count === 0
-              ? "✅ No duplicates for these columns."
+              ? <span className="inline-flex items-center gap-1.5"><IconCheckCircle width={15} height={15} className="shrink-0" /> No duplicates for these columns.</span>
               : `${res.group_count.toLocaleString()} duplicate group(s) · ${res.redundant_rows.toLocaleString()} redundant row(s)`}
           </div>
 

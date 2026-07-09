@@ -89,6 +89,8 @@ class ColumnInfo(BaseModel):
     default: Optional[str] = None
     char_len: Optional[int] = None
     numeric_precision: Optional[int] = None
+    enum_values: list[str] = []
+    collation: Optional[str] = None
 
 
 class TableInfo(BaseModel):

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { DependentsResult } from "@/lib/types";
 import Modal from "./Modal";
+import { IconCheckCircle, IconWarning } from "@/components/icons";
 
 // Reverse-FK: everything that references one row. "View" jumps to the child
 // table filtered on the referencing column (delete/cascade-impact view).
@@ -37,9 +38,11 @@ export default function DependentsDialog({ connId, schema, table, pk, onClose, o
               style={res.total_dependents === 0
                 ? { background: "var(--success-soft)", color: "var(--success)" }
                 : { background: "var(--warning-soft)", color: "var(--warning)" }}>
-              {res.total_dependents === 0
-                ? "✅ Nothing references this row — safe to delete."
-                : `⚠ ${res.total_dependents.toLocaleString()} row(s) across ${res.referencing_tables} table(s) reference this row.`}
+              <span className="inline-flex items-center gap-1.5">
+                {res.total_dependents === 0
+                  ? <><IconCheckCircle width={15} height={15} className="shrink-0" /> Nothing references this row — safe to delete.</>
+                  : <><IconWarning width={15} height={15} className="shrink-0" /> {res.total_dependents.toLocaleString()} row(s) across {res.referencing_tables} table(s) reference this row.</>}
+              </span>
             </div>
 
             {res.dependents.filter((g) => g.count > 0).map((g, i) => {

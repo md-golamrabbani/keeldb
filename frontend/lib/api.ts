@@ -160,6 +160,25 @@ export const api = {
     req<{ ok: boolean }>(`/db/${connId}/index/drop`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name }) }),
   listConstraints: (connId: string, schema: string, table: string) =>
     req<ConstraintList>(`/db/${connId}/constraints`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
+  addForeignKey: (connId: string, schema: string, table: string, p: { name: string; columns: string[]; ref_table: string; ref_columns: string[]; on_delete?: string }) =>
+    req<{ ok: boolean; created: string }>(`/db/${connId}/constraint/add-fk`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, on_delete: "", ...p }) }),
+  dropConstraint: (connId: string, schema: string, table: string, name: string, kind: string) =>
+    req<{ ok: boolean }>(`/db/${connId}/constraint/drop`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name, kind }) }),
+  listViews: (connId: string, schema: string) =>
+    req<{ name: string }[]>(`/db/${connId}/views`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
+  viewDefinition: (connId: string, schema: string, view: string) =>
+    req<{ name: string; definition: string }>(`/db/${connId}/view-definition`, { method: "POST", body: JSON.stringify({ schema_name: schema, table: view }) }),
+  listRoutines: (connId: string, schema: string) =>
+    req<{ supported: boolean; routines: { name: string; kind: string; returns: string; definition: string }[] }>(
+      `/db/${connId}/routines`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
+  listUsers: (connId: string) =>
+    req<{ supported: boolean; users: { name: string; host: string; superuser: boolean | null; can_login?: boolean }[] }>(`/db/${connId}/users`),
+  createUser: (connId: string, name: string, password: string, host = "%") =>
+    req<{ ok: boolean }>(`/db/${connId}/users/create`, { method: "POST", body: JSON.stringify({ name, password, host }) }),
+  dropUser: (connId: string, name: string, host = "%") =>
+    req<{ ok: boolean }>(`/db/${connId}/users/drop`, { method: "POST", body: JSON.stringify({ name, host }) }),
+  grantUser: (connId: string, name: string, schema: string, level: "read" | "write" | "all", host = "%") =>
+    req<{ ok: boolean }>(`/db/${connId}/users/grant`, { method: "POST", body: JSON.stringify({ name, schema_name: schema, level, host }) }),
   health: (connId: string, schema: string) =>
     req<HealthReport>(`/db/${connId}/health`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
   backupTable: (connId: string, schema: string, table: string) =>
@@ -321,8 +340,8 @@ export const api = {
     req<{ ok: boolean }>(`/db/${connId}/column/rename`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name, new_name: newName }) }),
   dropColumn: (connId: string, schema: string, table: string, name: string) =>
     req<{ ok: boolean }>(`/db/${connId}/column/drop`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name }) }),
-  modifyColumn: (connId: string, schema: string, table: string, name: string, newType: string, nullable: boolean | null) =>
-    req<{ ok: boolean }>(`/db/${connId}/column/modify`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name, new_type: newType, nullable }) }),
+  modifyColumn: (connId: string, schema: string, table: string, name: string, newType: string, nullable: boolean | null, collation = "") =>
+    req<{ ok: boolean }>(`/db/${connId}/column/modify`, { method: "POST", body: JSON.stringify({ schema_name: schema, table, name, new_type: newType, nullable, collation }) }),
   createDatabase: (connId: string, name: string) =>
     req<{ ok: boolean }>(`/db/${connId}/database/create`, { method: "POST", body: JSON.stringify({ name }) }),
   dropDatabase: (connId: string, name: string) =>

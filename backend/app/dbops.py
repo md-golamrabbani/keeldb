@@ -143,6 +143,7 @@ def run_sql(connector: Connector, sql: str, max_rows: int = MAX_ROWS_DEFAULT, sc
     is_select = False
     truncated = False
     executed = 0
+    result_sets: list[dict[str, Any]] = []  # one per SELECT-like statement
     t0 = time.perf_counter()
     try:
         with connector.engine.begin() as conn:
@@ -163,11 +164,16 @@ def run_sql(connector: Connector, sql: str, max_rows: int = MAX_ROWS_DEFAULT, sc
                     rows = [[jsonable(v) for v in row] for row in fetched]
                     rowcount = len(rows)
                     is_select = True
+                    result_sets.append({
+                        "statement": stmt.strip()[:120],
+                        "columns": columns, "rows": rows,
+                        "rowcount": rowcount, "truncated": truncated,
+                    })
                 else:
                     rowcount = result.rowcount if result.rowcount is not None else 0
                     is_select = False
                     columns, rows, truncated = [], [], False
-        return {
+        out = {
             "ok": True,
             "columns": columns,
             "rows": rows,
@@ -177,6 +183,11 @@ def run_sql(connector: Connector, sql: str, max_rows: int = MAX_ROWS_DEFAULT, sc
             "truncated": truncated,
             "elapsed_ms": round((time.perf_counter() - t0) * 1000, 1),
         }
+        # Multiple SELECTs in one run: expose every result set (the legacy
+        # top-level fields keep carrying the last one for old callers).
+        if len(result_sets) > 1:
+            out["result_sets"] = result_sets
+        return out
     except Exception as exc:
         return {"ok": False, "error": clean_error(exc), "executed": executed}
 

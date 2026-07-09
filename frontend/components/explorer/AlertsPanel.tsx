@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { AlertCondition, AlertResult, AlertRule } from "@/lib/types";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
-import { IconPlus, IconTrash } from "@/components/icons";
+import { IconAlert, IconCheck, IconPlus, IconTrash, IconWarning } from "@/components/icons";
 import Select from "@/components/ui/Select";
 
 const CONDITIONS: { value: AlertCondition; label: string }[] = [
@@ -93,8 +93,8 @@ export default function AlertsPanel({ connId, schema }: { connId: string; schema
             return (
               <div key={r.id} className="flex items-start gap-2 px-3 py-2 text-sm">
                 {res && (
-                  <span aria-hidden style={{ color: res.error ? "var(--warning)" : res.triggered ? "var(--danger)" : "var(--success)" }}>
-                    {res.error ? "⚠" : res.triggered ? "🔴" : "✓"}
+                  <span aria-hidden className="mt-0.5" style={{ color: res.error ? "var(--warning)" : res.triggered ? "var(--danger)" : "var(--success)" }}>
+                    {res.error ? <IconWarning width={14} height={14} /> : res.triggered ? <IconAlert width={14} height={14} /> : <IconCheck width={14} height={14} />}
                   </span>
                 )}
                 <div className="min-w-0 flex-1">

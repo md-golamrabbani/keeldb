@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, clearToken, getToken, setToken, setOnUnauthorized } from "@/lib/api";
 import Select from "@/components/ui/Select";
+import { IconLock, IconWarning } from "@/components/icons";
 
 type Phase = "loading" | "setup" | "login" | "forgot" | "blocked" | "ready";
 
@@ -129,7 +130,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     return (
       <Shell>
         <div className="rounded-lg px-3 py-3 text-sm font-medium" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
-          🔒 This app is permanently locked after too many failed recovery attempts.
+          <span className="inline-flex items-center gap-1.5">
+            <IconLock width={14} height={14} className="shrink-0" /> This app is permanently locked after too many failed recovery attempts.
+          </span>
         </div>
         <p className="text-xs faint">The local database data is intact but can no longer be unlocked from here.</p>
       </Shell>
@@ -184,7 +187,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
           <input type="password" className="input" value={pw2} onChange={(e) => setPw2(e.target.value)} />
         </div>
         {attemptsLeft !== null && attemptsLeft <= 2 && (
-          <p className="text-xs" style={{ color: "var(--warning)" }}>⚠ {attemptsLeft} attempt(s) left before the app is permanently locked.</p>
+          <p className="flex items-center gap-1.5 text-xs" style={{ color: "var(--warning)" }}>
+            <IconWarning width={13} height={13} className="shrink-0" /> {attemptsLeft} attempt(s) left before the app is permanently locked.
+          </p>
         )}
         {error && <p className="alert-danger">{error}</p>}
         <div className="flex gap-2">

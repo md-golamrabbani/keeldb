@@ -3,12 +3,29 @@ import { useRef, useState } from "react";
 import { api } from "@/lib/api";
 import type { ConnectionProfile, ConnectionProfileIn, Flavor } from "@/lib/types";
 import StatusPill, { type PillState } from "./StatusPill";
-import { IconChevronLeft, IconFile, IconLock, IconUpload } from "./icons";
+import { IconChevronLeft, IconDatabase, IconFile, IconLock, IconUpload } from "./icons";
 import Select from "@/components/ui/Select";
 import Checkbox from "@/components/ui/Checkbox";
 
-const DB_FLAVORS: Flavor[] = ["mysql", "postgresql", "supabase", "neon"];
+const DB_FLAVORS: { id: Flavor; label: string; hint: string }[] = [
+  { id: "mysql", label: "MySQL", hint: "MySQL / MariaDB server" },
+  { id: "postgresql", label: "PostgreSQL", hint: "Self-hosted or managed PG" },
+  { id: "supabase", label: "Supabase", hint: "Connection string + SSL" },
+  { id: "neon", label: "Neon", hint: "Serverless Postgres" },
+];
 const DEFAULT_PORT: Record<string, number> = { mysql: 3306, postgresql: 5432, supabase: 5432, neon: 5432 };
+
+function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3 rounded-xl border p-4" style={{ borderColor: "var(--border)" }}>
+      <div>
+        <h4 className="text-sm font-semibold">{title}</h4>
+        {hint && <p className="text-xs faint">{hint}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 const empty = (flavor: Flavor = "mysql"): ConnectionProfileIn => ({
   name: "",
@@ -144,45 +161,63 @@ export default function ConnectionForm({
           </div>
         </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Column 1 — identity, environment, database type */}
-          <div className="space-y-4">
-            <div>
-              <label className="label">Connection name</label>
-              <input className="input" value={form.name} placeholder="e.g. Legacy HRIS (MySQL)"
-                onChange={(e) => set({ name: e.target.value })} />
-            </div>
-            <div>
-              <label className="label">Environment</label>
-              <Select className="w-full" value={form.environment}
-                onValueChange={(v) => set({ environment: v as ConnectionProfileIn["environment"] })}
-                options={[{ value: "dev", label: "Development" }, { value: "staging", label: "Staging" }, { value: "prod", label: "Production" }]} />
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.read_only} onCheckedChange={(v) => set({ read_only: v })} />
-              Read-only (block all writes)
-            </label>
-            {form.environment === "prod" && (
-              <span className="badge badge-danger">production — extra guards on</span>
-            )}
-            <div>
-              <label className="label">Database type</label>
-              <div className="grid grid-cols-2 gap-2">
-                {DB_FLAVORS.map((f) => (
-                  <button key={f} onClick={() => set({ flavor: f, port: DEFAULT_PORT[f], ssl: f === "supabase" || f === "neon" })}
-                    className="rounded-lg border py-2 text-sm font-medium capitalize transition-colors"
-                    style={form.flavor === f
-                      ? { borderColor: "var(--accent)", background: "var(--accent-soft)", color: "var(--accent)" }
-                      : { borderColor: "var(--border-strong)", color: "var(--text-muted)" }}>
-                    {f}
-                  </button>
-                ))}
-              </div>
+        <div className="space-y-5">
+          {/* Database type — cards with a one-line description */}
+          <div>
+            <label className="label">Database type</label>
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+              {DB_FLAVORS.map((f) => (
+                <button key={f.id}
+                  onClick={() => set({ flavor: f.id, port: DEFAULT_PORT[f.id], ssl: f.id === "supabase" || f.id === "neon" })}
+                  className="rounded-xl border p-3 text-left transition-colors"
+                  style={form.flavor === f.id
+                    ? { borderColor: "var(--accent)", background: "var(--accent-soft)" }
+                    : { borderColor: "var(--border-strong)" }}>
+                  <div className="flex items-center gap-2 text-sm font-semibold"
+                    style={form.flavor === f.id ? { color: "var(--accent)" } : undefined}>
+                    <IconDatabase width={15} height={15} /> {f.label}
+                  </div>
+                  <div className="mt-0.5 text-xs faint">{f.hint}</div>
+                </button>
+              ))}
             </div>
           </div>
 
+          <div className="grid gap-5 lg:grid-cols-2">
+          {/* Column 1 — identity & safety */}
+          <div className="space-y-5">
+            <Section title="General" hint="How this connection appears in the app.">
+              <div>
+                <label className="label">Connection name</label>
+                <input className="input" value={form.name} placeholder="e.g. Legacy HRIS (MySQL)"
+                  onChange={(e) => set({ name: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Environment</label>
+                  <Select className="w-full" value={form.environment}
+                    onValueChange={(v) => set({ environment: v as ConnectionProfileIn["environment"] })}
+                    options={[{ value: "dev", label: "Development" }, { value: "staging", label: "Staging" }, { value: "prod", label: "Production" }]} />
+                </div>
+                <div className="flex items-end pb-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={form.read_only} onCheckedChange={(v) => set({ read_only: v })} />
+                    Read-only
+                  </label>
+                </div>
+              </div>
+              {form.environment === "prod" && (
+                <p className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium"
+                  style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
+                  <IconLock width={13} height={13} /> Production — writes require confirmation, guards stay on.
+                </p>
+              )}
+            </Section>
+          </div>
+
           {/* Column 2 — connection details + SSH tunnel */}
-          <div className="space-y-4">
+          <div className="space-y-5">
+            <Section title="Connection details" hint="Where and how to reach the server.">
             {isPreset ? (
               <>
                 <div>
@@ -240,6 +275,7 @@ export default function ConnectionForm({
                 </label>
               </>
             )}
+            </Section>
 
             {/* SSH tunnel */}
             <div className="rounded-xl border p-4" style={{ borderColor: "var(--border)" }}>
@@ -283,6 +319,7 @@ export default function ConnectionForm({
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
       )}

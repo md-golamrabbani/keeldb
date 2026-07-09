@@ -8,7 +8,7 @@ import Select from "@/components/ui/Select";
 // Radix Select can't use "" as an item value, so map the "empty" choices to sentinels.
 const SKIP = "__skip__";      // target column: — skip —
 const NOCAST = "__none__";    // cast type: — (no cast)
-import { IconBolt } from "./icons";
+import { IconBolt, IconWarning } from "./icons";
 
 function ColBadges({ c }: { c: ColumnInfo }) {
   return (
@@ -97,7 +97,7 @@ export default function MappingCanvas() {
                       onValueChange={(v) => patchColumnMap(m.source_col, { target_col: v === SKIP ? "" : v })}
                       options={[{ value: SKIP, label: "— skip —" },
                         ...targetColumns.map((c) => ({ value: c.name, label: `${c.name} (${c.data_type})${!c.nullable ? " *" : ""}` }))]} />
-                    {mismatch && <span className="ml-1" style={{ color: "var(--warning)" }} title={`Type mismatch: ${sc?.data_type} → ${tc?.data_type}. Add a cast or transform.`}>⚠</span>}
+                    {mismatch && <span className="ml-1 inline-flex align-middle" style={{ color: "var(--warning)" }} title={`Type mismatch: ${sc?.data_type} → ${tc?.data_type}. Add a cast or transform.`}><IconWarning width={13} height={13} /></span>}
                   </td>
                   <td className="px-3 py-1.5">
                     <Select className="w-24" value={m.cast_type || NOCAST} disabled={!m.enabled}
@@ -115,7 +115,7 @@ export default function MappingCanvas() {
                       <input className="input !w-64 !py-1.5 font-mono text-xs" placeholder="e.g. split_part(value, ' ', -1)"
                         value={m.transform_expr} disabled={!m.enabled}
                         onChange={(e) => patchColumnMap(m.source_col, { transform_expr: e.target.value })} />
-                      <Select className="w-auto" value="" placeholder="🎭" disabled={!m.enabled}
+                      <Select className="w-auto" value="" placeholder="Mask" disabled={!m.enabled}
                         ariaLabel="Insert a data-masking preset"
                         onValueChange={(v) => { if (v) patchColumnMap(m.source_col, { transform_expr: v }); }}
                         options={MASK_PRESETS.map((p) => ({ value: p.expr, label: p.label }))} />

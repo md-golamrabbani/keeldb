@@ -7,7 +7,7 @@ import {
   searchTools,
   ToolDefinition,
 } from "./lib/toolRegistry";
-import { IconSearch, IconChevronDown } from "@/components/icons";
+import { IconSearch, IconChevronDown, IconStar } from "@/components/icons";
 
 export interface ToolSidebarProps {
   selectedToolId: string;
@@ -230,7 +230,9 @@ function ToolItem({
           className="shrink-0 text-lg leading-none opacity-0 transition-opacity group-hover:opacity-100 cursor-pointer"
           title={isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
-          {isFavorite ? "★" : "☆"}
+          <IconStar width={14} height={14}
+            fill={isFavorite ? "var(--warning)" : "none"}
+            style={{ color: isFavorite ? "var(--warning)" : "var(--text-faint)" }} />
         </div>
       </div>
     </button>

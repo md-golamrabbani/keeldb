@@ -146,6 +146,8 @@ class Connector(ABC):
                     default=str(default) if default is not None else None,
                     char_len=getattr(ctype, "length", None),
                     numeric_precision=getattr(ctype, "precision", None),
+                    enum_values=list(getattr(ctype, "enums", None) or []),
+                    collation=getattr(ctype, "collation", None),
                 )
             )
         return out

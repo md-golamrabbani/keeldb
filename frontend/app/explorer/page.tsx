@@ -11,6 +11,8 @@ import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import type { ConnectionProfile, TableInfo } from "@/lib/types";
 import TableDocument from "@/components/explorer/TableDocument";
+import ViewDocument from "@/components/explorer/ViewDocument";
+import RoutinesView from "@/components/explorer/RoutinesView";
 import SqlEditor from "@/components/explorer/SqlEditor";
 import DesignerView from "@/components/explorer/DesignerView";
 import HealthView from "@/components/explorer/HealthView";
@@ -20,13 +22,15 @@ import GridTable from "@/components/explorer/GridTable";
 import {
   IconColumns,
   IconDatabase,
+  IconLock,
   IconSearch,
   IconTable,
   IconTerminal,
   IconBolt,
+  IconWarning,
 } from "@/components/icons";
 
-type TabKind = "table" | "sql" | "designer" | "triggers" | "health";
+type TabKind = "table" | "view" | "sql" | "designer" | "triggers" | "routines" | "health";
 interface OpenTab {
   id: string;
   kind: TabKind;
@@ -39,9 +43,11 @@ interface OpenTab {
 
 const KIND_ICON = {
   table: IconTable,
+  view: IconSearch,
   sql: IconTerminal,
   designer: IconColumns,
   triggers: IconBolt,
+  routines: IconBolt,
   health: IconDatabase,
 };
 
@@ -63,6 +69,7 @@ function ConnectionSession({
   const [schema, setSchema] = useState("");
   const [schemas, setSchemas] = useState<string[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
+  const [views, setViews] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
 
@@ -83,12 +90,17 @@ function ConnectionSession({
   const loadTables = useCallback(() => {
     if (!connId || !schema) {
       setTables([]);
+      setViews([]);
       return;
     }
     api
       .listTables(connId, schema)
       .then(setTables)
       .catch((e) => setError(String(e)));
+    api
+      .listViews(connId, schema)
+      .then((vs) => setViews(vs.map((v) => v.name)))
+      .catch(() => setViews([]));
   }, [connId, schema]);
 
   useEffect(() => {
@@ -118,6 +130,18 @@ function ConnectionSession({
       tables.filter((t) => t.name.toLowerCase().includes(filter.toLowerCase())),
     [tables, filter],
   );
+  const filteredViews = useMemo(
+    () => views.filter((v) => v.toLowerCase().includes(filter.toLowerCase())),
+    [views, filter],
+  );
+
+  const openView = (name: string) => {
+    const existing = tabs.find((t) => t.kind === "view" && t.table === name);
+    if (existing) { setActiveId(existing.id); return; }
+    const id = uid();
+    setTabs((prev) => [...prev, { id, kind: "view", table: name, title: name, nonce: 0 }]);
+    setActiveId(id);
+  };
 
   // ---- tab management ----
   const openTable = (name: string, sub: OpenTab["initialSub"] = "data") => {
@@ -242,6 +266,7 @@ function ConnectionSession({
                 { kind: "sql" as const, label: "SQL", Icon: IconTerminal },
                 { kind: "designer" as const, label: "Designer", Icon: IconColumns },
                 { kind: "triggers" as const, label: "Triggers", Icon: IconBolt },
+                { kind: "routines" as const, label: "Routines", Icon: IconBolt },
                 { kind: "health" as const, label: "Health", Icon: IconDatabase },
               ].map(({ kind, label, Icon }, i) => (
                 <button key={kind}
@@ -272,8 +297,16 @@ function ConnectionSession({
           style={conn.environment === "prod"
             ? { background: "var(--danger-soft)", color: "var(--danger)", border: "1px solid var(--danger)" }
             : { background: "var(--accent-soft)", color: "var(--accent)" }}>
-          {conn.environment === "prod" && <span>⚠ PRODUCTION connection — writes require confirmation.</span>}
-          {conn.read_only && <span>🔒 Read-only — writes are blocked.</span>}
+          {conn.environment === "prod" && (
+            <span className="inline-flex items-center gap-1.5">
+              <IconWarning width={14} height={14} /> PRODUCTION connection — writes require confirmation.
+            </span>
+          )}
+          {conn.read_only && (
+            <span className="inline-flex items-center gap-1.5">
+              <IconLock width={14} height={14} /> Read-only — writes are blocked.
+            </span>
+          )}
         </div>
       )}
 
@@ -323,6 +356,28 @@ function ConnectionSession({
                 <p className="px-2 py-3 text-center text-xs muted">
                   No tables.
                 </p>
+              )}
+              {filteredViews.length > 0 && (
+                <>
+                  <p className="px-2.5 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide faint">
+                    Views
+                  </p>
+                  {filteredViews.map((v) => (
+                    <button
+                      key={`view:${v}`}
+                      onClick={() => openView(v)}
+                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors"
+                      style={
+                        activeTab?.kind === "view" && activeTab.table === v
+                          ? { background: "var(--accent-soft)", color: "var(--accent)" }
+                          : { color: "var(--text-muted)" }
+                      }
+                    >
+                      <IconSearch width={13} height={13} />
+                      <span className="flex-1 truncate">{v}</span>
+                    </button>
+                  ))}
+                </>
               )}
             </div>
           </div>
@@ -405,8 +460,14 @@ function ConnectionSession({
                     readOnly={conn?.read_only ?? false}
                   />
                 )}
+                {t.kind === "view" && t.table && (
+                  <ViewDocument connId={connId} schema={schema} view={t.table} />
+                )}
                 {t.kind === "designer" && (
                   <DesignerView connId={connId} schema={schema} />
+                )}
+                {t.kind === "routines" && (
+                  <RoutinesView connId={connId} schema={schema} />
                 )}
                 {t.kind === "health" && (
                   <HealthView connId={connId} schema={schema} />

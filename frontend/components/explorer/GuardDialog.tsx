@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import type { Environment, WritePreview } from "@/lib/types";
 import type { StmtInfo } from "@/lib/sqlguard";
 import Modal from "./Modal";
+import { IconWarning } from "@/components/icons";
 
 // Shown before any write statement runs from the SQL editor. Fetches the exact
 // affected-row count (rolled-back dry run) and, for dangerous/prod writes,
@@ -37,7 +38,9 @@ export default function GuardDialog({
       <div className="space-y-4">
         {isProd && (
           <p className="rounded-lg px-3 py-2 text-sm font-semibold" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
-            ⚠ This is a PRODUCTION connection.
+            <span className="inline-flex items-center gap-1.5">
+              <IconWarning width={14} height={14} className="shrink-0" /> This is a PRODUCTION connection.
+            </span>
           </p>
         )}
 
@@ -55,7 +58,11 @@ export default function GuardDialog({
                     </span>
                   )}
                 </div>
-                {s.reason && <p className="mt-1 text-xs" style={{ color: "var(--danger)" }}>⚠ {s.reason}</p>}
+                {s.reason && (
+                  <p className="mt-1 flex items-center gap-1.5 text-xs" style={{ color: "var(--danger)" }}>
+                    <IconWarning width={12} height={12} className="shrink-0" /> {s.reason}
+                  </p>
+                )}
               </div>
             );
           })}

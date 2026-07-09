@@ -41,6 +41,33 @@ def _check_type(t: str) -> str:
     return t
 
 
+_COLLATION_RE = re.compile(r"^[A-Za-z0-9_]+$")
+# SQL keywords / functions that may appear unquoted in a DEFAULT clause.
+_DEFAULT_KEYWORDS = {
+    "null", "true", "false", "current_timestamp", "current_date", "current_time",
+    "now()", "current_timestamp()", "uuid()", "gen_random_uuid()",
+}
+
+
+def _check_collation(c: str) -> str:
+    if not _COLLATION_RE.match(c):
+        raise ValueError(f"invalid collation: {c!r}")
+    return c
+
+
+def _render_default(v: str) -> str:
+    """Numbers and known keywords/functions pass through; everything else is a
+    single-quoted literal (with quotes escaped)."""
+    s = v.strip()
+    if s.lower() in _DEFAULT_KEYWORDS:
+        return s
+    try:
+        float(s)
+        return s
+    except ValueError:
+        return "'" + s.replace("'", "''") + "'"
+
+
 def _exec(connector: Connector, sql: str, autocommit: bool = False) -> None:
     if getattr(connector.profile, "read_only", False):
         raise ValueError("This connection is read-only. Turn off read-only mode on the connection to make changes.")
@@ -98,8 +125,16 @@ def create_table(connector: Connector, schema: str, name: str, columns: list[dic
             raise ValueError("every column needs a name")
         ctype = _check_type(col.get("type", "TEXT"))
         piece = f"{_q(connector, cname)} {ctype}"
+        collation = (col.get("collation") or "").strip()
+        if collation and _dialect(connector) in ("mysql", "postgresql"):
+            piece += f" COLLATE {_check_collation(collation)}"
         if not col.get("nullable", True):
             piece += " NOT NULL"
+        default = (col.get("default") or "").strip() if col.get("default") is not None else ""
+        if default:
+            piece += f" DEFAULT {_render_default(default)}"
+        if col.get("auto_increment") and _dialect(connector) == "mysql":
+            piece += " AUTO_INCREMENT"
         parts.append(piece)
         if col.get("pk"):
             pk_cols.append(cname)
@@ -166,16 +201,17 @@ def rename_column(connector: Connector, schema: str, table: str, name: str, new_
 
 
 def modify_column(connector: Connector, schema: str, table: str, name: str, new_type: str,
-                  nullable: Optional[bool] = None) -> dict[str, Any]:
+                  nullable: Optional[bool] = None, collation: str = "") -> dict[str, Any]:
     d = _dialect(connector)
     tgt = _qualified(connector, schema, table)
     typ = _check_type(new_type)
     col = _q(connector, name)
+    coll_sql = f" COLLATE {_check_collation(collation)}" if collation.strip() else ""
     if d == "mysql":
         null_sql = "" if nullable is None else (" NULL" if nullable else " NOT NULL")
-        _exec(connector, f"ALTER TABLE {tgt} MODIFY COLUMN {col} {typ}{null_sql}")
+        _exec(connector, f"ALTER TABLE {tgt} MODIFY COLUMN {col} {typ}{coll_sql}{null_sql}")
     elif d == "postgresql":
-        _exec(connector, f"ALTER TABLE {tgt} ALTER COLUMN {col} TYPE {typ}")
+        _exec(connector, f"ALTER TABLE {tgt} ALTER COLUMN {col} TYPE {typ}{coll_sql}")
         if nullable is not None:
             verb = "DROP NOT NULL" if nullable else "SET NOT NULL"
             _exec(connector, f"ALTER TABLE {tgt} ALTER COLUMN {col} {verb}")
@@ -327,6 +363,60 @@ def drop_index(connector: Connector, schema: str, table: str, name: str) -> dict
 
 
 # -- constraints -----------------------------------------------------------
+# -- views & routines ---------------------------------------------------------
+def list_views(connector: Connector, schema: str) -> list[dict[str, Any]]:
+    insp = sa.inspect(connector.engine)
+    out = []
+    for v in sorted(insp.get_view_names(schema=schema or None)):
+        out.append({"name": v})
+    return out
+
+
+def view_definition(connector: Connector, schema: str, view: str) -> dict[str, Any]:
+    insp = sa.inspect(connector.engine)
+    try:
+        ddl = insp.get_view_definition(view, schema=schema or None) or ""
+    except Exception:
+        ddl = ""
+    return {"name": view, "definition": str(ddl)}
+
+
+def list_routines(connector: Connector, schema: str) -> dict[str, Any]:
+    """Stored procedures & functions (name, type, returns, definition preview)."""
+    d = _dialect(connector)
+    rows: list[dict[str, Any]] = []
+    if d == "mysql":
+        q = sa.text("""
+            SELECT ROUTINE_NAME AS name, ROUTINE_TYPE AS kind,
+                   COALESCE(DTD_IDENTIFIER, '') AS returns, ROUTINE_DEFINITION AS definition
+            FROM information_schema.ROUTINES
+            WHERE ROUTINE_SCHEMA = COALESCE(NULLIF(:s, ''), DATABASE())
+            ORDER BY ROUTINE_NAME
+        """)
+        with connector.engine.connect() as conn:
+            for r in conn.execute(q, {"s": schema or ""}).mappings():
+                rows.append({"name": r["name"], "kind": str(r["kind"] or "").lower(),
+                             "returns": r["returns"] or "", "definition": r["definition"] or ""})
+    elif d == "postgresql":
+        q = sa.text("""
+            SELECT p.proname AS name,
+                   CASE p.prokind WHEN 'p' THEN 'procedure' ELSE 'function' END AS kind,
+                   pg_get_function_result(p.oid) AS returns,
+                   pg_get_functiondef(p.oid) AS definition
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = COALESCE(NULLIF(:s, ''), 'public') AND p.prokind IN ('f', 'p')
+            ORDER BY p.proname
+        """)
+        with connector.engine.connect() as conn:
+            for r in conn.execute(q, {"s": schema or ""}).mappings():
+                rows.append({"name": r["name"], "kind": r["kind"],
+                             "returns": r["returns"] or "", "definition": r["definition"] or ""})
+    else:
+        return {"supported": False, "routines": []}
+    return {"supported": True, "routines": rows}
+
+
 def list_constraints(connector: Connector, schema: str, table: str) -> dict[str, Any]:
     insp = sa.inspect(connector.engine)
     sch = schema or None

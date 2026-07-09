@@ -8,6 +8,7 @@ import AlertsPanel from "./AlertsPanel";
 import {
   IconActivity,
   IconBell,
+  IconCheckCircle,
   IconBolt,
   IconColumns,
   IconGauge,
@@ -283,7 +284,9 @@ export default function HealthView({
                 color: "var(--success)",
               }}
             >
-              ✅ No index or primary-key issues found.
+              <span className="inline-flex items-center gap-1.5">
+                <IconCheckCircle width={15} height={15} className="shrink-0" /> No index or primary-key issues found.
+              </span>
             </div>
           ) : (
             <div
@@ -337,7 +340,9 @@ export default function HealthView({
                   className="rounded-lg px-3 py-2 text-sm font-semibold"
                   style={{ background: "var(--success-soft)", color: "var(--success)" }}
                 >
-                  ✅ No table needs a vacuum / optimize right now.
+                  <span className="inline-flex items-center gap-1.5">
+                    <IconCheckCircle width={15} height={15} className="shrink-0" /> No table needs a vacuum / optimize right now.
+                  </span>
                 </div>
               ) : (
                 <div className="card divide-y" style={{ borderColor: "var(--border)" }}>

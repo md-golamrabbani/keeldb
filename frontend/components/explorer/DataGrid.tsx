@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import type { FilterCond, TableData } from "@/lib/types";
 import { PAGE_SIZES } from "@/lib/types";
 import AdvancedFilter from "./AdvancedFilter";
+import CellEditor, { FkValueSelect } from "./CellEditor";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
 import DependentsDialog from "./DependentsDialog";
 import ErrorBanner from "./ErrorBanner";
@@ -13,7 +14,7 @@ import Modal from "./Modal";
 import Checkbox from "@/components/ui/Checkbox";
 import Select from "@/components/ui/Select";
 import {
-  IconChevronDown, IconChevronLeft, IconChevronRight, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
+  IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
 } from "@/components/icons";
 
 type Cell = string | number | boolean | null;
@@ -51,6 +52,8 @@ export default function DataGrid({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState<{ r: number; c: number } | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [exportMenu, setExportMenu] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newRow, setNewRow] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -216,11 +219,24 @@ export default function DataGrid({
               </>
             )}
           </div>
-          {["csv", "json", "sql"].map((f) => (
-            <button key={f} className="btn btn-secondary btn-sm !h-9 uppercase" onClick={() => doExport(f)}>
-              <IconDownload width={14} height={14} /> {f}
+          <div className="relative">
+            <button className="btn btn-secondary btn-sm !h-9" onClick={() => setExportMenu((o) => !o)}>
+              <IconDownload width={14} height={14} /> Export <IconChevronDown width={13} height={13} style={{ color: "var(--text-faint)" }} />
             </button>
-          ))}
+            {exportMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setExportMenu(false)} />
+                <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-lg border py-1 shadow-lg" style={{ background: "var(--surface)", boxShadow: "var(--shadow-lg)" }}>
+                  {(["csv", "json", "sql"] as const).map((f) => (
+                    <button key={f} className="block w-full px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-2)]"
+                      onClick={() => { setExportMenu(false); doExport(f); }}>
+                      {f.toUpperCase()} file
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -247,29 +263,65 @@ export default function DataGrid({
       {adding && data && (
         <Modal title={`Add row to ${table}`} wide onClose={() => setAdding(false)}>
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {data.columns.map((col) => (
-                <div key={col.name}>
-                  <label className="label flex items-center gap-1.5">
-                    <span className="font-mono normal-case" style={{ color: "var(--text)" }}>{col.name}</span>
-                    {col.is_pk && <span className="badge badge-warning">PK</span>}
-                    {!col.nullable && col.default == null && <span style={{ color: "var(--danger)" }}>*</span>}
-                    <span className="ml-auto faint normal-case">{col.data_type}</span>
-                  </label>
-                  <input className="input" value={newRow[col.name] ?? ""} placeholder={col.nullable ? "null" : "required"}
-                    onChange={(e) => setNewRow((n) => ({ ...n, [col.name]: e.target.value }))} />
-                </div>
-              ))}
+            <div className="card max-h-[60vh] overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ background: "var(--surface-2)" }} className="text-left text-xs uppercase tracking-wide muted">
+                    <th className="px-3 py-2">Column</th>
+                    <th className="px-3 py-2">Type</th>
+                    <th className="w-1/2 px-3 py-2">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.columns.map((col) => (
+                    <tr key={col.name} className="border-t align-middle">
+                      <td className="whitespace-nowrap px-3 py-2 font-mono font-medium">
+                        <span className="inline-flex items-center gap-1.5">
+                          {col.name}
+                          {col.is_pk && <span className="badge badge-warning">PK</span>}
+                          {col.is_fk && <span className="badge badge-accent" title={`→ ${col.fk_target}`}>FK</span>}
+                          {!col.nullable && col.default == null && <span style={{ color: "var(--danger)" }}>*</span>}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 font-mono text-xs muted">{col.data_type}</td>
+                      <td className="px-3 py-2">
+                        {col.is_fk && col.fk_target ? (
+                          <FkValueSelect
+                            connId={connId}
+                            schema={schema}
+                            fkTarget={col.fk_target}
+                            nullable={col.nullable}
+                            className="!h-9 w-full"
+                            value={newRow[col.name] ?? ""}
+                            onChange={(v) => setNewRow((n) => ({ ...n, [col.name]: v }))}
+                          />
+                        ) : (
+                          <CellEditor
+                            col={col}
+                            className="!h-9 w-full"
+                            value={newRow[col.name] ?? ""}
+                            onChange={(v) => setNewRow((n) => ({ ...n, [col.name]: v }))}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="flex justify-end gap-2">
-              <button className="btn btn-ghost" onClick={() => setAdding(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={addRow}><IconPlus width={14} height={14} /> Insert row</button>
+            <div className="flex items-center gap-2">
+              <p className="text-xs faint"><span style={{ color: "var(--danger)" }}>*</span> required (NOT NULL, no default) · empty = NULL</p>
+              <div className="ml-auto flex gap-2">
+                <button className="btn btn-ghost" onClick={() => setAdding(false)}>Cancel</button>
+                <button className="btn btn-primary" onClick={addRow}><IconPlus width={14} height={14} /> Insert row</button>
+              </div>
             </div>
           </div>
         </Modal>
       )}
 
-      <div className="card overflow-x-auto" style={{ minHeight: 220 }}>
+      {/* fills the remaining viewport height (like Structure/DDL); header stays sticky */}
+      <div className="card overflow-auto" style={{ minHeight: 220, height: "calc(100dvh - 21.5rem)" }}>
         <table className="w-full text-xs" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
           <thead>
             <tr className="text-left uppercase tracking-wide muted">
@@ -287,7 +339,9 @@ export default function DataGrid({
                     {col.name}
                     {col.is_pk && <span className="badge badge-warning">PK</span>}
                     {col.is_fk && <span className="badge badge-accent" title={`→ ${col.fk_target}`}>FK</span>}
-                    {orderBy === col.name && <span>{orderDir === "asc" ? "▲" : "▼"}</span>}
+                    {orderBy === col.name && (orderDir === "asc"
+                      ? <IconChevronUp width={12} height={12} />
+                      : <IconChevronDown width={12} height={12} />)}
                   </span>
                 </th>
               ))}
@@ -318,12 +372,22 @@ export default function DataGrid({
                     const base = "max-w-[20rem] truncate border-b px-2 py-1 font-mono";
                     return (
                       <td key={c} className={base} style={c === 0 ? stCell(firstLeft, rowBg) : undefined}
-                        onDoubleClick={() => editable && !fk && setEditing({ r, c })}
+                        onDoubleClick={() => { if (editable && !fk) { setEditValue(cell == null ? "" : String(cell)); setEditing({ r, c }); } }}
                         title={fk ? `View ${fk.table} where ${fk.column} = ${cell}` : editable ? "Double-click to edit" : String(cell ?? "")}>
-                        {isEditing ? (
-                          <input autoFocus defaultValue={cell == null ? "" : String(cell)} className="input !h-7 !py-0 !text-xs"
-                            onBlur={(e) => commitEdit(r, c, e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditing(null); }} />
+                        {isEditing && colInfo ? (
+                          <CellEditor
+                            col={colInfo}
+                            autoFocus
+                            className="!h-7 !py-0 !text-xs min-w-[8rem]"
+                            value={editValue}
+                            onChange={setEditValue}
+                            onCommit={(v) => commitEdit(r, c, v)}
+                            onBlurCommit={() => commitEdit(r, c, editValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitEdit(r, c, editValue);
+                              if (e.key === "Escape") setEditing(null);
+                            }}
+                          />
                         ) : cell == null ? <span className="faint">null</span>
                           : fk ? (
                             <button className="inline-flex items-center gap-1 underline decoration-dotted underline-offset-2" style={{ color: "var(--accent)" }}

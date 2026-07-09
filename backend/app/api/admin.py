@@ -5,7 +5,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from .. import admin
+from .. import admin, users
 from ..connectors import connector_for
 from ..dbops import clean_error as admin_clean
 from ..store import connection_store
@@ -46,6 +46,9 @@ class ColumnDef(BaseModel):
     type: str = "TEXT"
     nullable: bool = True
     pk: bool = False
+    default: str = ""
+    collation: str = ""
+    auto_increment: bool = False
 
 
 class CreateTableReq(BaseModel):
@@ -88,6 +91,7 @@ class ModifyColumnReq(BaseModel):
     name: str
     new_type: str
     nullable: Optional[bool] = None
+    collation: str = ""
 
 
 class CreateIndexReq(BaseModel):
@@ -187,7 +191,7 @@ def drop_column(conn_id: str, req: DropColumnReq):
 
 @router.post("/{conn_id}/column/modify")
 def modify_column(conn_id: str, req: ModifyColumnReq):
-    return _run(conn_id, admin.modify_column, req.schema_name, req.table, req.name, req.new_type, req.nullable)
+    return _run(conn_id, admin.modify_column, req.schema_name, req.table, req.name, req.new_type, req.nullable, req.collation)
 
 
 # -- database ops ----------------------------------------------------------
@@ -241,6 +245,55 @@ def add_unique(conn_id: str, req: AddUniqueReq):
 @router.post("/{conn_id}/constraint/drop")
 def drop_constraint(conn_id: str, req: DropConstraintReq):
     return _run(conn_id, admin.drop_constraint, req.schema_name, req.table, req.name, req.kind)
+
+
+# -- views, routines, users --------------------------------------------------
+class UserReq(BaseModel):
+    name: str
+    password: str = ""
+    host: str = "%"
+
+
+class GrantReq(BaseModel):
+    name: str
+    schema_name: str
+    level: str = "read"
+    host: str = "%"
+
+
+@router.post("/{conn_id}/views")
+def views(conn_id: str, req: SchemaOnly):
+    return _run(conn_id, admin.list_views, req.schema_name)
+
+
+@router.post("/{conn_id}/view-definition")
+def view_definition(conn_id: str, req: SchemaTable):
+    return _run(conn_id, admin.view_definition, req.schema_name, req.table)
+
+
+@router.post("/{conn_id}/routines")
+def routines(conn_id: str, req: SchemaOnly):
+    return _run(conn_id, admin.list_routines, req.schema_name)
+
+
+@router.get("/{conn_id}/users")
+def list_users(conn_id: str):
+    return _run(conn_id, users.list_users)
+
+
+@router.post("/{conn_id}/users/create")
+def create_user(conn_id: str, req: UserReq):
+    return _run(conn_id, users.create_user, req.name, req.password, req.host)
+
+
+@router.post("/{conn_id}/users/drop")
+def drop_user(conn_id: str, req: UserReq):
+    return _run(conn_id, users.drop_user, req.name, req.host)
+
+
+@router.post("/{conn_id}/users/grant")
+def grant_user(conn_id: str, req: GrantReq):
+    return _run(conn_id, users.grant, req.name, req.schema_name, req.level, req.host)
 
 
 # -- inspection ------------------------------------------------------------

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { HistoryEntry, Snippet } from "@/lib/types";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
-import { IconBookmark, IconEdit, IconPlus, IconSave, IconTrash } from "@/components/icons";
+import { IconBookmark, IconCheck, IconClose, IconEdit, IconPlus, IconSave, IconTrash } from "@/components/icons";
 
 export type SaveState = "idle" | "saving" | "saved";
 
@@ -136,7 +136,9 @@ export default function SqlSidebar({
               {history.map((h) => (
                 <li key={h.id}>
                   <button className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-[var(--surface-2)]" onClick={() => onLoadHistory(h.sql)} title={h.sql}>
-                    <span aria-hidden style={{ color: h.ok ? "var(--success)" : "var(--danger)", flexShrink: 0 }}>{h.ok ? "✓" : "✗"}</span>
+                    <span aria-hidden style={{ color: h.ok ? "var(--success)" : "var(--danger)", flexShrink: 0 }}>
+                      {h.ok ? <IconCheck width={12} height={12} /> : <IconClose width={12} height={12} />}
+                    </span>
                     <span className="truncate font-mono text-xs">{h.sql}</span>
                   </button>
                 </li>

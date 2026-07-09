@@ -3,7 +3,12 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { OptionLabel, OptionInput } from "../OptionField";
 import Select from "@/components/ui/Select";
-import { IconCopy, IconPlus, IconTrash } from "@/components/icons";
+import { IconCopy, IconDownload, IconPlus, IconTrash } from "@/components/icons";
+
+// Rendering a huge string into the textarea freezes the DOM, so the live
+// preview is capped; the full dataset is only materialized for Copy/Download.
+const PREVIEW_ROWS = 200;
+const MIME: Record<string, string> = { csv: "text/csv", json: "application/json", sql: "application/sql" };
 
 interface ColumnDef {
   name: string;
@@ -156,9 +161,8 @@ export default function SampleDataTool() {
     setColumns((c) => c.map((col, i) => (i === idx ? { ...col, ...patch } : col)));
   };
 
-  const output = useMemo(() => {
+  const buildOutput = useCallback((count: number): string => {
     try {
-      const count = parseInt(rowCount, 10) || 10;
       if (count <= 0 || columns.length === 0) return "";
 
       const rows: Record<string, string>[] = [];
@@ -202,16 +206,39 @@ export default function SampleDataTool() {
     } catch (e) {
       return `-- Error: ${(e as any).message}`;
     }
-  }, [columns, rowCount, outputFormat]);
+  }, [columns, outputFormat]);
+
+  const totalCount = parseInt(rowCount, 10) || 10;
+  const isLarge = totalCount > PREVIEW_ROWS;
+
+  // Live preview only renders up to PREVIEW_ROWS rows — keeps typing snappy
+  // even when the requested row count is 100k+.
+  const preview = useMemo(
+    () => buildOutput(Math.min(totalCount, PREVIEW_ROWS)),
+    [buildOutput, totalCount],
+  );
 
   const handleCopy = useCallback(() => {
-    if (output) {
-      navigator.clipboard.writeText(output);
+    const full = isLarge ? buildOutput(totalCount) : preview;
+    if (full) {
+      navigator.clipboard.writeText(full);
       setCopied(true);
-      addToHistory(selectedTool, JSON.stringify(columns), output);
+      addToHistory(selectedTool, JSON.stringify(columns), full.slice(0, 10_000));
       setTimeout(() => setCopied(false), 2000);
     }
-  }, [output, columns]);
+  }, [buildOutput, preview, isLarge, totalCount, columns]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDownload = useCallback(() => {
+    const full = buildOutput(totalCount);
+    if (!full) return;
+    const blob = new Blob([full], { type: MIME[outputFormat] ?? "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sample-data-${totalCount}.${outputFormat === "sql" ? "sql" : outputFormat}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, [buildOutput, totalCount, outputFormat]);
 
   return (
     <div className="space-y-6">
@@ -285,21 +312,39 @@ export default function SampleDataTool() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <label className="block text-sm font-medium">Output</label>
+        <label className="block text-sm font-medium">
+          Output{isLarge ? ` — preview of first ${PREVIEW_ROWS.toLocaleString()} rows` : ""}
+        </label>
+        {isLarge && (
+          <p className="rounded-lg px-3 py-2 text-xs"
+            style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+            {totalCount.toLocaleString()} rows requested — the preview is capped to keep the page responsive.
+            Use <b>Download</b> to generate the complete file.
+          </p>
+        )}
         <textarea
-          value={output}
+          value={preview}
           readOnly
           placeholder="Sample data will appear here..."
           className="input flex-1 font-mono text-sm resize-none"
           style={{ minHeight: "260px", background: "var(--surface-2)" }}
         />
-        <button
-          onClick={handleCopy}
-          className={`btn btn-sm w-fit ${copied ? "btn-success" : "btn-primary"}`}
-          disabled={!output}
-        >
-          <IconCopy width={14} height={14} /> {copied ? "Copied!" : "Copy"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleDownload}
+            className="btn btn-sm btn-primary w-fit"
+            disabled={!preview}
+          >
+            <IconDownload width={14} height={14} /> Download ({totalCount.toLocaleString()} rows)
+          </button>
+          <button
+            onClick={handleCopy}
+            className={`btn btn-sm w-fit ${copied ? "btn-success" : "btn-secondary"}`}
+            disabled={!preview}
+          >
+            <IconCopy width={14} height={14} /> {copied ? "Copied!" : "Copy all"}
+          </button>
+        </div>
       </div>
     </div>
   );
