@@ -1,15 +1,28 @@
 "use client";
 import { useRef } from "react";
 
-// Lightweight DBML editor: a transparent textarea over a highlighted <pre>,
-// the same technique as the SQL editor — no heavyweight editor dependency.
+// DBML editor: transparent textarea over a highlighted layer (same approach as
+// the SQL editor). The two layers MUST share identical text metrics and both
+// must use `white-space: pre` (no soft wrap) — any wrap difference makes the
+// caret land on the wrong spot, so long lines scroll horizontally instead.
 
 const KEYWORDS = new Set([
   "table", "ref", "enum", "tablegroup", "project", "note", "indexes", "as",
 ]);
 const ATTRS = new Set([
-  "pk", "primary", "key", "increment", "not", "null", "unique", "default", "ref", "note",
+  "pk", "primary", "key", "increment", "not", "null", "unique", "default", "note",
 ]);
+
+const LH = 20; // px line height — shared by gutter, highlight layer and textarea
+const PADY = 12;
+const PADX = 14;
+const FONT = "ui-monospace, SFMono-Regular, Menlo, monospace";
+
+// One style object for both layers so the metrics can never diverge.
+const codeStyle: React.CSSProperties = {
+  fontFamily: FONT, fontSize: 12, lineHeight: `${LH}px`, whiteSpace: "pre",
+  padding: `${PADY}px ${PADX}px`, margin: 0, tabSize: 2,
+};
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -35,10 +48,8 @@ function highlight(line: string): string {
     else if (ws !== undefined) out += ws;
   }
   if (last < line.length) out += escapeHtml(line.slice(last));
-  return out || "&nbsp;";
+  return out;
 }
-
-const FONT = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
 export default function DbmlCodeEditor({
   value, onChange, errorLine,
@@ -48,41 +59,66 @@ export default function DbmlCodeEditor({
   errorLine?: number | null;
 }) {
   const preRef = useRef<HTMLPreElement>(null);
+  const gutterRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   const sync = () => {
-    if (preRef.current && taRef.current) {
-      preRef.current.scrollTop = taRef.current.scrollTop;
-      preRef.current.scrollLeft = taRef.current.scrollLeft;
+    const ta = taRef.current;
+    if (!ta) return;
+    if (preRef.current) {
+      preRef.current.scrollTop = ta.scrollTop;
+      preRef.current.scrollLeft = ta.scrollLeft;
     }
+    if (gutterRef.current) gutterRef.current.scrollTop = ta.scrollTop;
   };
 
   const lines = value.split("\n");
+  const gutterW = 16 + String(lines.length).length * 8;
+
   return (
-    <div className="relative min-h-0 flex-1 overflow-hidden">
-      <pre
-        ref={preRef}
-        aria-hidden
-        className="pointer-events-none absolute inset-0 overflow-hidden p-3 text-xs leading-5"
-        style={{ fontFamily: FONT, margin: 0 }}
-      >
-        {lines.map((l, i) => (
-          <div
-            key={i}
-            style={errorLine === i + 1 ? { background: "color-mix(in srgb, var(--danger) 12%, transparent)" } : undefined}
-            dangerouslySetInnerHTML={{ __html: highlight(l) }}
-          />
+    <div className="flex min-h-0 flex-1 overflow-hidden">
+      {/* line numbers */}
+      <div ref={gutterRef} className="shrink-0 overflow-hidden border-r text-right"
+        style={{ width: gutterW, background: "var(--surface-2)", borderColor: "var(--border)", paddingTop: PADY, paddingBottom: PADY }}>
+        {lines.map((_, i) => (
+          <div key={i} style={{
+            height: LH, lineHeight: `${LH}px`, fontFamily: FONT, fontSize: 11, paddingRight: 8,
+            color: errorLine === i + 1 ? "var(--danger)" : "var(--text-faint)",
+            fontWeight: errorLine === i + 1 ? 700 : 400,
+          }}>
+            {i + 1}
+          </div>
         ))}
-      </pre>
-      <textarea
-        ref={taRef}
-        className="absolute inset-0 resize-none bg-transparent p-3 text-xs leading-5 outline-none"
-        style={{ fontFamily: FONT, color: "transparent", caretColor: "var(--text)" }}
-        spellCheck={false}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onScroll={sync}
-      />
+      </div>
+
+      <div className="relative min-w-0 flex-1 overflow-hidden">
+        <pre ref={preRef} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden"
+          style={{ ...codeStyle, color: "var(--text)" }}>
+          {lines.map((l, i) => (
+            <div key={i} style={{
+              height: LH, whiteSpace: "pre",
+              ...(errorLine === i + 1
+                ? { background: "color-mix(in srgb, var(--danger) 12%, transparent)" }
+                : {}),
+            }}
+              dangerouslySetInnerHTML={{ __html: highlight(l) }}
+            />
+          ))}
+        </pre>
+        <textarea
+          ref={taRef}
+          wrap="off"
+          className="absolute inset-0 w-full resize-none overflow-auto bg-transparent outline-none"
+          style={{ ...codeStyle, color: "transparent", caretColor: "var(--text)" }}
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onScroll={sync}
+          placeholder="Write DBML… e.g.  Table users { id int [pk] }"
+        />
+      </div>
     </div>
   );
 }
