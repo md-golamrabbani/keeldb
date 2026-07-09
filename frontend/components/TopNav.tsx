@@ -2,12 +2,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
-import { IconArrows, IconBookmark, IconDatabase, IconTable } from "./icons";
+import { IconArrows, IconBookmark, IconDatabase, IconTable, IconWrench } from "./icons";
 
 const LINKS = [
   { href: "/", label: "Connections", icon: IconDatabase, match: (p: string) => p === "/" },
   { href: "/explorer", label: "Explorer", icon: IconTable, match: (p: string) => p.startsWith("/explorer") },
   { href: "/migrate", label: "Migrate", icon: IconArrows, match: (p: string) => p.startsWith("/migrate") },
+  { href: "/toolkit", label: "Toolkit", icon: IconWrench, match: (p: string) => p.startsWith("/toolkit") },
   { href: "/profiles", label: "Saved Migrations", icon: IconBookmark, match: (p: string) => p.startsWith("/profiles") },
 ];
 

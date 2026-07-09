@@ -41,4 +41,7 @@ export {
   Sparkles as IconSparkles,
   ListFilter as IconFilter,
   ChevronDown as IconChevronDown,
+  Wrench as IconWrench,
+  Copy as IconCopy,
+  Star as IconStar,
 } from "lucide-react";
