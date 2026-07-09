@@ -32,6 +32,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
             // Persist connection/mapping profiles in the OS app-data folder.
             let data_dir = app.path().app_data_dir().unwrap_or_default();

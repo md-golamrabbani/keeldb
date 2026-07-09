@@ -79,6 +79,34 @@ export default function ConnectionForm({
   const isPreset = form.flavor === "supabase" || form.flavor === "neon";
   const set = (patch: Partial<ConnectionProfileIn>) => setForm((f) => ({ ...f, ...patch }));
 
+  // Native file picker in the desktop app; the web build falls back to a hint
+  // (browsers never expose full filesystem paths for security).
+  const browseSqlite = async () => {
+    const isTauri = typeof window !== "undefined" &&
+      ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+    if (!isTauri) {
+      setError("The file picker is available in the desktop app — in the browser, paste the full path (e.g. /home/you/data/app.db).");
+      return;
+    }
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const picked = await open({
+        multiple: false,
+        title: "Choose a SQLite database file",
+        filters: [
+          { name: "SQLite database", extensions: ["db", "sqlite", "sqlite3", "db3"] },
+          { name: "All files", extensions: ["*"] },
+        ],
+      });
+      if (typeof picked === "string") {
+        set({ sqlite_path: picked });
+        if (!form.name) set({ name: picked.split("/").pop() ?? "" });
+      }
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
   const test = async () => {
     setPill({ status: "testing" });
     setError("");
@@ -167,7 +195,7 @@ export default function ConnectionForm({
           {/* Database type — cards with a one-line description */}
           <div>
             <label className="label">Database type</label>
-            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
               {DB_FLAVORS.map((f) => (
                 <button key={f.id}
                   onClick={() => set({ flavor: f.id, port: DEFAULT_PORT[f.id], ssl: f.id === "supabase" || f.id === "neon" })}
@@ -223,9 +251,14 @@ export default function ConnectionForm({
             {form.flavor === "sqlite" ? (
               <div>
                 <label className="label">Database file path</label>
-                <input className="input font-mono text-xs" value={form.sqlite_path ?? ""}
-                  placeholder="/home/you/data/app.db"
-                  onChange={(e) => set({ sqlite_path: e.target.value })} />
+                <div className="flex gap-2">
+                  <input className="input min-w-0 flex-1 font-mono text-xs" value={form.sqlite_path ?? ""}
+                    placeholder="/home/you/data/app.db"
+                    onChange={(e) => set({ sqlite_path: e.target.value })} />
+                  <button type="button" className="btn btn-secondary shrink-0" onClick={browseSqlite}>
+                    Browse…
+                  </button>
+                </div>
                 <p className="mt-1.5 text-xs faint">
                   Full path to a local .db / .sqlite / .sqlite3 file. Reads AND writes —
                   tick Read-only above if you only want to browse it.
