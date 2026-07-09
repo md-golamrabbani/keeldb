@@ -45,10 +45,21 @@ const KIND_ICON = {
   health: IconDatabase,
 };
 
-function Explorer() {
-  const params = useSearchParams();
-  const [connections, setConnections] = useState<ConnectionProfile[]>([]);
-  const [connId, setConnId] = useState("");
+/**
+ * One independent database workspace: its own connection, schema, table list
+ * and document tabs. Several sessions stay mounted side by side; the parent
+ * hides inactive ones so their state (open tabs, grids, editors) survives.
+ */
+function ConnectionSession({
+  connections,
+  initialConnId,
+  onLabelChange,
+}: {
+  connections: ConnectionProfile[];
+  initialConnId?: string;
+  onLabelChange: (label: string) => void;
+}) {
+  const [connId, setConnId] = useState(initialConnId ?? "");
   const [schema, setSchema] = useState("");
   const [schemas, setSchemas] = useState<string[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
@@ -64,16 +75,10 @@ function Explorer() {
   const activeTab = tabs.find((t) => t.id === activeId);
   const activeTable = activeTab?.kind === "table" ? activeTab.table : "";
 
+  // Keep the workspace tab label in sync with what this session points at.
   useEffect(() => {
-    api
-      .listConnections()
-      .then((cs) => {
-        setConnections(cs);
-        const initial = params.get("conn");
-        if (initial && cs.some((c) => c.id === initial)) setConnId(initial);
-      })
-      .catch((e) => setError(String(e)));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    onLabelChange(conn ? (schema ? `${conn.name} · ${schema}` : conn.name) : "New workspace");
+  }, [conn, schema]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadTables = useCallback(() => {
     if (!connId || !schema) {
@@ -203,7 +208,7 @@ function Explorer() {
   };
 
   return (
-    <div className="flex flex-col gap-4 lg:h-[calc(100dvh-6.5rem)]">
+    <div className="flex h-full flex-col gap-4">
       <div className="toolbar shrink-0">
         <div className="flex items-center gap-2">
           <IconDatabase width={16} height={16} className="shrink-0" style={{ color: "var(--text-faint)" }} />
@@ -440,6 +445,144 @@ function Explorer() {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+interface Workspace {
+  id: string;
+  label: string;
+  initialConnId?: string;
+}
+
+/**
+ * Multi-database explorer: a strip of connection workspaces. Each workspace
+ * is a fully independent ConnectionSession; all stay mounted so switching
+ * between databases keeps every open document, grid and editor intact.
+ */
+function Explorer() {
+  const params = useSearchParams();
+  const [connections, setConnections] = useState<ConnectionProfile[]>([]);
+  const [error, setError] = useState("");
+
+  const wsIdRef = useRef(0);
+  const newWsId = () => `ws${++wsIdRef.current}`;
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [activeWs, setActiveWs] = useState("");
+
+  useEffect(() => {
+    api
+      .listConnections()
+      .then((cs) => {
+        setConnections(cs);
+        const initial = params.get("conn");
+        const id = newWsId();
+        setWorkspaces([
+          {
+            id,
+            label: "New workspace",
+            initialConnId:
+              initial && cs.some((c) => c.id === initial) ? initial : undefined,
+          },
+        ]);
+        setActiveWs(id);
+      })
+      .catch((e) => setError(String(e)));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const addWorkspace = () => {
+    const id = newWsId();
+    setWorkspaces((prev) => [...prev, { id, label: "New workspace" }]);
+    setActiveWs(id);
+  };
+
+  const closeWorkspace = (id: string) => {
+    setWorkspaces((prev) => {
+      const idx = prev.findIndex((w) => w.id === id);
+      const next = prev.filter((w) => w.id !== id);
+      if (activeWs === id)
+        setActiveWs(next.length ? next[Math.min(idx, next.length - 1)].id : "");
+      return next;
+    });
+  };
+
+  const setLabel = (id: string, label: string) =>
+    setWorkspaces((prev) =>
+      prev.some((w) => w.id === id && w.label !== label)
+        ? prev.map((w) => (w.id === id ? { ...w, label } : w))
+        : prev,
+    );
+
+  return (
+    <div className="flex flex-col gap-3 lg:h-[calc(100dvh-6.5rem)]">
+      {/* workspace strip */}
+      <div
+        className="flex shrink-0 items-center gap-1 overflow-x-auto border-b pb-0"
+        style={{ borderColor: "var(--border)" }}
+      >
+        {workspaces.map((w) => {
+          const active = w.id === activeWs;
+          return (
+            <div
+              key={w.id}
+              onClick={() => setActiveWs(w.id)}
+              className="flex cursor-pointer select-none items-center gap-1.5 whitespace-nowrap rounded-t-lg border border-b-0 px-3 py-1.5 text-sm font-medium"
+              style={
+                active
+                  ? {
+                      borderColor: "var(--border)",
+                      background: "var(--surface-1, var(--surface-2))",
+                      color: "var(--accent)",
+                    }
+                  : {
+                      borderColor: "transparent",
+                      color: "var(--text-muted)",
+                    }
+              }
+            >
+              <IconDatabase width={13} height={13} />
+              <span className="max-w-[16rem] truncate">{w.label}</span>
+              {workspaces.length > 1 && (
+                <button
+                  aria-label="Close workspace"
+                  className="ml-1 rounded px-1 leading-none opacity-60 hover:opacity-100"
+                  style={{ color: "inherit" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeWorkspace(w.id);
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
+        <button
+          aria-label="New workspace"
+          title="Open another database side by side"
+          onClick={addWorkspace}
+          className="ml-1 flex items-center gap-1 rounded-md px-2.5 py-1 text-sm font-medium transition-colors hover:bg-[var(--surface-2)]"
+          style={{ color: "var(--text-muted)" }}
+        >
+          +<span className="hidden sm:inline"> Database</span>
+        </button>
+      </div>
+
+      {error && <p className="alert-danger">{error}</p>}
+
+      {/* All sessions stay mounted; only the active one is visible. */}
+      <div className="min-h-0 flex-1">
+        {workspaces.map((w) => (
+          <div key={w.id} className={w.id === activeWs ? "h-full" : "hidden"}>
+            <ConnectionSession
+              connections={connections}
+              initialConnId={w.initialConnId}
+              onLabelChange={(label) => setLabel(w.id, label)}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
