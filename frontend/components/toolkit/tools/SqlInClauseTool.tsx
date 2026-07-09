@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseDelimitedValues, generateInClause, deduplicate, isNumeric } from "../lib/transformers";
-import { OptionLabel, OptionSelect, OptionCheckbox } from "../OptionField";
+import { OptionLabel, OptionCheckbox } from "../OptionField";
 import Select from "@/components/ui/Select";
 import Checkbox from "@/components/ui/Checkbox";
 

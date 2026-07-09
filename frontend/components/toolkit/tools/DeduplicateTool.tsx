@@ -3,6 +3,8 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseLines, deduplicate, deduplicatePreservingOrder, sortArray } from "../lib/transformers";
+import { OptionLabel, OptionCheckbox } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
 
@@ -73,58 +75,39 @@ export default function DeduplicateTool() {
       options={
         <>
           <div>
-            <label className="text-sm font-medium block mb-2">Deduplicate</label>
-            <select
+            <OptionLabel>Deduplicate</OptionLabel>
+            <Select
               value={deduplicateOpt}
-              onChange={(e) => setDeduplicate(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
+              onValueChange={(e) => setDeduplicate(e as any)}
+              className="w-full"
+              options={[
+                { value: "yes", label: "Yes" },
+                { value: "no", label: "No" },
+              ]}
+            />
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-2">Sort Order</label>
-            <select
+            <OptionLabel>Sort Order</OptionLabel>
+            <Select
               value={sortOpt}
-              onChange={(e) => setSortOpt(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="none">No sorting</option>
-              <option value="asc">Ascending (A-Z)</option>
-              <option value="desc">Descending (Z-A)</option>
-            </select>
+              onValueChange={(e) => setSortOpt(e as any)}
+              className="w-full"
+              options={[
+                { value: "none", label: "No sorting" },
+                { value: "asc", label: "Ascending (A-Z)" },
+                { value: "desc", label: "Descending (Z-A)" },
+              ]}
+            />
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="preserve-order"
-              checked={preserveOrder}
-              onChange={(e) => setPreserveOrder(e.target.checked)}
-              disabled={sortOpt !== "none"}
-              className="rounded disabled:opacity-50"
-            />
-            <label htmlFor="preserve-order" className="text-sm font-medium cursor-pointer">
-              Preserve order
-            </label>
-          </div>
+          <OptionCheckbox
+            checked={preserveOrder}
+            onChange={setPreserveOrder}
+            label="Preserve order"
+          />
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="ignore-case"
-              checked={ignoreCase}
-              onChange={(e) => setIgnoreCase(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="ignore-case" className="text-sm font-medium cursor-pointer">
-              Ignore case
-            </label>
-          </div>
+          <OptionCheckbox checked={ignoreCase} onChange={setIgnoreCase} label="Ignore case" />
         </>
       }
     />

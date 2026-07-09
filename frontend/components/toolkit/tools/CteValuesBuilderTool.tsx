@@ -3,6 +3,8 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseLines, isNumeric } from "../lib/transformers";
+import { OptionLabel, OptionInput } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
 
@@ -68,43 +70,29 @@ export default function CteValuesBuilderTool() {
       options={
         <>
           <div>
-            <label className="text-sm font-medium block mb-2">Build Type</label>
-            <select
+            <OptionLabel>Build Type</OptionLabel>
+            <Select
               value={buildType}
-              onChange={(e) => setBuildType(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="cte">CTE (WITH clause)</option>
-              <option value="values">VALUES clause</option>
-              <option value="temporary-table">Temporary table</option>
-            </select>
+              onValueChange={(e) => setBuildType(e as any)}
+              className="w-full"
+              options={[
+                { value: "cte", label: "CTE (WITH clause)" },
+                { value: "values", label: "VALUES clause" },
+                { value: "temporary-table", label: "Temporary table" },
+              ]}
+            />
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-2">
+            <OptionLabel>
               {buildType === "cte" ? "CTE Name" : buildType === "values" ? "Alias" : "Table Name"}
-            </label>
-            <input
-              type="text"
-              value={cteName}
-              onChange={(e) => setCteName(e.target.value)}
-              placeholder="ids"
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            />
+            </OptionLabel>
+            <OptionInput value={cteName} onChange={setCteName} placeholder="ids" />
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-2">Column Name</label>
-            <input
-              type="text"
-              value={columnName}
-              onChange={(e) => setColumnName(e.target.value)}
-              placeholder="id"
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            />
+            <OptionLabel>Column Name</OptionLabel>
+            <OptionInput value={columnName} onChange={setColumnName} placeholder="id" />
           </div>
         </>
       }

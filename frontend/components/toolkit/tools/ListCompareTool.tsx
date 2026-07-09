@@ -3,6 +3,8 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseLines, compareArrays } from "../lib/transformers";
+import { OptionLabel } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
 
@@ -59,19 +61,19 @@ export default function ListCompareTool() {
         <p className="mt-1 text-sm muted">Compare two lists: find missing items, common values, and differences.</p>
       </div>
 
-      <div>
-        <label className="text-sm font-medium block mb-2">Compare Mode</label>
-        <select
+      <div className="card card-pad">
+        <OptionLabel>Compare Mode</OptionLabel>
+        <Select
           value={compareMode}
-          onChange={(e) => setCompareMode(e.target.value as any)}
-          className="w-full rounded border p-2 text-sm"
-          style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-        >
-          <option value="all">Show all (missing in A, missing in B, common)</option>
-          <option value="missing-in-a">Only missing in A</option>
-          <option value="missing-in-b">Only missing in B</option>
-          <option value="common">Only common values</option>
-        </select>
+          onValueChange={(e) => setCompareMode(e as any)}
+          className="w-full"
+          options={[
+            { value: "all", label: "Show all (missing in A, missing in B, common)" },
+            { value: "missing-in-a", label: "Only missing in A" },
+            { value: "missing-in-b", label: "Only missing in B" },
+            { value: "common", label: "Only common values" },
+          ]}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -81,8 +83,8 @@ export default function ListCompareTool() {
             value={listA}
             onChange={(e) => setListA(e.target.value)}
             placeholder="Paste list A, one item per line..."
-            className="flex-1 rounded-lg border p-3 font-mono text-sm resize-none"
-            style={{ minHeight: "200px", borderColor: "var(--border)" }}
+            className="input flex-1 font-mono text-sm resize-none"
+            style={{ minHeight: "200px" }}
           />
         </div>
 
@@ -92,8 +94,8 @@ export default function ListCompareTool() {
             value={listB}
             onChange={(e) => setListB(e.target.value)}
             placeholder="Paste list B, one item per line..."
-            className="flex-1 rounded-lg border p-3 font-mono text-sm resize-none"
-            style={{ minHeight: "200px", borderColor: "var(--border)" }}
+            className="input flex-1 font-mono text-sm resize-none"
+            style={{ minHeight: "200px" }}
           />
         </div>
       </div>
@@ -104,8 +106,8 @@ export default function ListCompareTool() {
           value={output}
           readOnly
           placeholder="Comparison results will appear here..."
-          className="flex-1 rounded-lg border p-3 font-mono text-sm resize-none"
-          style={{ minHeight: "200px", borderColor: "var(--border)", background: "var(--surface-2)" }}
+          className="input flex-1 font-mono text-sm resize-none"
+          style={{ minHeight: "200px", background: "var(--surface-2)" }}
         />
         <button
           onClick={() => {

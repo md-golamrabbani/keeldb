@@ -3,6 +3,9 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseSimpleCSV } from "../lib/transformers";
+import { OptionLabel } from "../OptionField";
+import Select from "@/components/ui/Select";
+import Checkbox from "@/components/ui/Checkbox";
 
 const EMPTY_OPTIONS = {};
 
@@ -83,30 +86,25 @@ export default function ColumnMapperTool() {
       options={
         <>
           <div>
-            <label className="text-sm font-medium block mb-2">Output Format</label>
-            <select
+            <OptionLabel>Output Format</OptionLabel>
+            <Select
               value={format}
-              onChange={(e) => setFormat(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="csv">CSV</option>
-              <option value="json">JSON</option>
-            </select>
+              onValueChange={(e) => setFormat(e as any)}
+              className="w-full"
+              options={[
+                { value: "csv", label: "CSV" },
+                { value: "json", label: "JSON" },
+              ]}
+            />
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="include-headers"
-              checked={includeHeaders}
-              onChange={(e) => setIncludeHeaders(e.target.checked)}
-              disabled={format === "json"}
-              className="rounded disabled:opacity-50"
-            />
-            <label htmlFor="include-headers" className="text-sm font-medium cursor-pointer">
-              Include headers
-            </label>
+          <div
+            className="flex items-center gap-2"
+            style={{ opacity: format === "json" ? 0.5 : 1, pointerEvents: format === "json" ? "none" : "auto" }}
+            onClick={() => format !== "json" && setIncludeHeaders(!includeHeaders)}
+          >
+            <Checkbox checked={includeHeaders} onCheckedChange={setIncludeHeaders} disabled={format === "json"} />
+            <label className="text-sm font-medium cursor-pointer flex-1">Include headers</label>
           </div>
         </>
       }

@@ -3,6 +3,8 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseLines, toCamelCase, toSnakeCase, toKebabCase, toPascalCase, toTitleCase } from "../lib/transformers";
+import { OptionLabel } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
 
@@ -57,19 +59,19 @@ export default function TextCaseConverterTool() {
       onCopy={handleCopy}
       options={
         <div>
-          <label className="text-sm font-medium block mb-2">Convert To</label>
-          <select
+          <OptionLabel>Convert To</OptionLabel>
+          <Select
             value={caseType}
-            onChange={(e) => setCaseType(e.target.value as any)}
-            className="w-full rounded border p-2 text-sm"
-            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-          >
-            <option value="camel">camelCase</option>
-            <option value="snake">snake_case</option>
-            <option value="kebab">kebab-case</option>
-            <option value="pascal">PascalCase</option>
-            <option value="title">Title Case</option>
-          </select>
+            onValueChange={(e) => setCaseType(e as any)}
+            className="w-full"
+            options={[
+              { value: "camel", label: "camelCase" },
+              { value: "snake", label: "snake_case" },
+              { value: "kebab", label: "kebab-case" },
+              { value: "pascal", label: "PascalCase" },
+              { value: "title", label: "Title Case" },
+            ]}
+          />
         </div>
       }
     />

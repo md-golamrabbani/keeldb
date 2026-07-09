@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { cleanupText } from "../lib/transformers";
+import { OptionCheckbox } from "../OptionField";
 
 const EMPTY_OPTIONS = {};
 
@@ -83,70 +84,15 @@ export default function CopyPasteCleanupTool() {
       onCopy={handleCopy}
       options={
         <>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="trim-lines"
-              checked={trimLines_}
-              onChange={(e) => setTrimLines(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="trim-lines" className="text-sm font-medium cursor-pointer">
-              Trim lines
-            </label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="remove-bom"
-              checked={removeBOM_}
-              onChange={(e) => setRemoveBOM(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="remove-bom" className="text-sm font-medium cursor-pointer">
-              Remove BOM
-            </label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="normalize-spaces"
-              checked={normalizeSpaces_}
-              onChange={(e) => setNormalizeSpaces(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="normalize-spaces" className="text-sm font-medium cursor-pointer">
-              Normalize spaces
-            </label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="remove-markers"
-              checked={removeMarkers}
-              onChange={(e) => setRemoveMarkers(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="remove-markers" className="text-sm font-medium cursor-pointer">
-              Remove bullets/numbers
-            </label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="remove-trailing-commas"
-              checked={removeTrailingCommas_}
-              onChange={(e) => setRemoveTrailingCommas(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="remove-trailing-commas" className="text-sm font-medium cursor-pointer">
-              Remove trailing commas
-            </label>
-          </div>
+          <OptionCheckbox checked={trimLines_} onChange={setTrimLines} label="Trim lines" />
+          <OptionCheckbox checked={removeBOM_} onChange={setRemoveBOM} label="Remove BOM" />
+          <OptionCheckbox checked={normalizeSpaces_} onChange={setNormalizeSpaces} label="Normalize spaces" />
+          <OptionCheckbox checked={removeMarkers} onChange={setRemoveMarkers} label="Remove bullets/numbers" />
+          <OptionCheckbox
+            checked={removeTrailingCommas_}
+            onChange={setRemoveTrailingCommas}
+            label="Remove trailing commas"
+          />
         </>
       }
     />

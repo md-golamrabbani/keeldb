@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { wrapInQuotes, removeQuotes, parseLines, escapeQuotes } from "../lib/transformers";
-import { OptionLabel, OptionSelect, OptionCheckbox } from "../OptionField";
+import { OptionLabel, OptionCheckbox } from "../OptionField";
 import Select from "@/components/ui/Select";
 import Checkbox from "@/components/ui/Checkbox";
 
@@ -67,59 +67,51 @@ export default function QuoteUnquoteTool() {
       options={
         <>
           <div>
-            <label className="text-sm font-medium block mb-2">Mode</label>
-            <select
+            <OptionLabel>Mode</OptionLabel>
+            <Select
               value={mode}
-              onChange={(e) => setMode(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="quote">Add Quotes</option>
-              <option value="unquote">Remove Quotes</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium block mb-2">Quote Style</label>
-            <select
-              value={quoteStyle}
-              onChange={(e) => setQuoteStyle(e.target.value as any)}
-              disabled={mode === "unquote"}
-              className="w-full rounded border p-2 text-sm disabled:opacity-50"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="single">Single (')</option>
-              <option value="double">Double (")</option>
-              <option value="backtick">Backtick (`)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium block mb-2">Join With</label>
-            <select
-              value={delimiter}
-              onChange={(e) => setDelimiter(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="newline">Newline</option>
-              <option value="comma">Comma</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="escape-quotes"
-              checked={escapeQuotesInContent}
-              onChange={(e) => setEscapeQuotesInContent(e.target.checked)}
-              disabled={mode === "unquote"}
-              className="rounded disabled:opacity-50"
+              onValueChange={(e) => setMode(e as any)}
+              className="w-full"
+              options={[
+                { value: "quote", label: "Add Quotes" },
+                { value: "unquote", label: "Remove Quotes" },
+              ]}
             />
-            <label htmlFor="escape-quotes" className="text-sm font-medium cursor-pointer">
-              Escape embedded quotes
-            </label>
           </div>
+
+          <div>
+            <OptionLabel>Quote Style</OptionLabel>
+            <Select
+              value={quoteStyle}
+              onValueChange={(e) => setQuoteStyle(e as any)}
+              disabled={mode === "unquote"}
+              className="w-full"
+              options={[
+                { value: "single", label: "Single (')" },
+                { value: "double", label: 'Double (")' },
+                { value: "backtick", label: "Backtick (`)" },
+              ]}
+            />
+          </div>
+
+          <div>
+            <OptionLabel>Join With</OptionLabel>
+            <Select
+              value={delimiter}
+              onValueChange={(e) => setDelimiter(e as any)}
+              className="w-full"
+              options={[
+                { value: "newline", label: "Newline" },
+                { value: "comma", label: "Comma" },
+              ]}
+            />
+          </div>
+
+          <OptionCheckbox
+            checked={escapeQuotesInContent}
+            onChange={setEscapeQuotesInContent}
+            label="Escape embedded quotes"
+          />
         </>
       }
     />

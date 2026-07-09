@@ -3,6 +3,8 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { jsonToRows, generateInsertStatement } from "../lib/transformers";
+import { OptionLabel, OptionInput, OptionCheckbox } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
 
@@ -66,43 +68,25 @@ export default function JsonToSqlTool() {
       options={
         <>
           <div>
-            <label className="text-sm font-medium block mb-2">Table Name</label>
-            <input
-              type="text"
-              value={tableName}
-              onChange={(e) => setTableName(e.target.value)}
-              placeholder="table_name"
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            />
+            <OptionLabel>Table Name</OptionLabel>
+            <OptionInput value={tableName} onChange={setTableName} placeholder="table_name" />
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-2">Quote Style</label>
-            <select
+            <OptionLabel>Quote Style</OptionLabel>
+            <Select
               value={quoteStyle}
-              onChange={(e) => setQuoteStyle(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="single">Single (')</option>
-              <option value="double">Double (")</option>
-              <option value="backtick">Backtick (`)</option>
-            </select>
+              onValueChange={(e) => setQuoteStyle(e as any)}
+              className="w-full"
+              options={[
+                { value: "single", label: "Single (')" },
+                { value: "double", label: 'Double (")' },
+                { value: "backtick", label: "Backtick (`)" },
+              ]}
+            />
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="multi-row"
-              checked={multiRow}
-              onChange={(e) => setMultiRow(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="multi-row" className="text-sm font-medium cursor-pointer">
-              Multi-row statement
-            </label>
-          </div>
+          <OptionCheckbox checked={multiRow} onChange={setMultiRow} label="Multi-row statement" />
         </>
       }
     />

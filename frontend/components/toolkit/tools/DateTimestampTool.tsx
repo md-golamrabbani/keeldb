@@ -3,6 +3,8 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseLines } from "../lib/transformers";
+import { OptionLabel } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
 
@@ -74,31 +76,31 @@ export default function DateTimestampTool() {
       options={
         <>
           <div>
-            <label className="text-sm font-medium block mb-2">Convert Mode</label>
-            <select
+            <OptionLabel>Convert Mode</OptionLabel>
+            <Select
               value={convertMode}
-              onChange={(e) => setConvertMode(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="unix-to-date">Unix timestamp → Date</option>
-              <option value="date-to-unix">Date → Unix timestamp</option>
-              <option value="to-iso">→ ISO-8601</option>
-            </select>
+              onValueChange={(e) => setConvertMode(e as any)}
+              className="w-full"
+              options={[
+                { value: "unix-to-date", label: "Unix timestamp → Date" },
+                { value: "date-to-unix", label: "Date → Unix timestamp" },
+                { value: "to-iso", label: "→ ISO-8601" },
+              ]}
+            />
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-2">Timestamp Format</label>
-            <select
+            <OptionLabel>Timestamp Format</OptionLabel>
+            <Select
               value={format}
-              onChange={(e) => setFormat(e.target.value as any)}
+              onValueChange={(e) => setFormat(e as any)}
               disabled={convertMode === "to-iso"}
-              className="w-full rounded border p-2 text-sm disabled:opacity-50"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="seconds">Seconds</option>
-              <option value="milliseconds">Milliseconds</option>
-            </select>
+              className="w-full"
+              options={[
+                { value: "seconds", label: "Seconds" },
+                { value: "milliseconds", label: "Milliseconds" },
+              ]}
+            />
           </div>
         </>
       }

@@ -3,6 +3,8 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseLines } from "../lib/transformers";
+import { OptionLabel, OptionInput } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
 
@@ -62,29 +64,22 @@ export default function SqlPlaceholdersTool() {
       options={
         <>
           <div>
-            <label className="text-sm font-medium block mb-2">Placeholder Style</label>
-            <select
+            <OptionLabel>Placeholder Style</OptionLabel>
+            <Select
               value={placeholderStyle}
-              onChange={(e) => setPlaceholderStyle(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="?">? (MySQL, SQLite)</option>
-              <option value="$">$1, $2, ... (PostgreSQL)</option>
-              <option value=":">:id1, :id2, ... (Named)</option>
-            </select>
+              onValueChange={(e) => setPlaceholderStyle(e as any)}
+              className="w-full"
+              options={[
+                { value: "?", label: "? (MySQL, SQLite)" },
+                { value: "$", label: "$1, $2, ... (PostgreSQL)" },
+                { value: ":", label: ":id1, :id2, ... (Named)" },
+              ]}
+            />
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-2">Start Index</label>
-            <input
-              type="number"
-              value={startIndex}
-              onChange={(e) => setStartIndex(e.target.value)}
-              placeholder="1"
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            />
+            <OptionLabel>Start Index</OptionLabel>
+            <OptionInput type="number" value={startIndex} onChange={setStartIndex} placeholder="1" />
           </div>
         </>
       }

@@ -3,6 +3,8 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseSimpleCSV } from "../lib/transformers";
+import { OptionLabel, OptionInput } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
 
@@ -68,41 +70,27 @@ export default function CaseBuilderTool() {
       options={
         <>
           <div>
-            <label className="text-sm font-medium block mb-2">Column to Check</label>
-            <input
-              type="text"
-              value={columnName}
-              onChange={(e) => setColumnName(e.target.value)}
-              placeholder="status"
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            />
+            <OptionLabel>Column to Check</OptionLabel>
+            <OptionInput value={columnName} onChange={setColumnName} placeholder="status" />
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-2">Result Alias</label>
-            <input
-              type="text"
-              value={resultColumn}
-              onChange={(e) => setResultColumn(e.target.value)}
-              placeholder="result"
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            />
+            <OptionLabel>Result Alias</OptionLabel>
+            <OptionInput value={resultColumn} onChange={setResultColumn} placeholder="result" />
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-2">SQL Dialect</label>
-            <select
+            <OptionLabel>SQL Dialect</OptionLabel>
+            <Select
               value={dialect}
-              onChange={(e) => setDialect(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="sql">Standard SQL</option>
-              <option value="mysql">MySQL</option>
-              <option value="postgres">PostgreSQL</option>
-            </select>
+              onValueChange={(e) => setDialect(e as any)}
+              className="w-full"
+              options={[
+                { value: "sql", label: "Standard SQL" },
+                { value: "mysql", label: "MySQL" },
+                { value: "postgres", label: "PostgreSQL" },
+              ]}
+            />
           </div>
         </>
       }

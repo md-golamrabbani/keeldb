@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseSimpleCSV, parseLines, generateInsertStatement } from "../lib/transformers";
-import { OptionLabel, OptionInput, OptionSelect } from "../OptionField";
+import { OptionLabel, OptionInput, OptionCheckbox } from "../OptionField";
 import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
@@ -38,7 +38,7 @@ export default function BulkInsertTool() {
         rows = parseSimpleCSV(input.trim());
       }
 
-      const colArray = columns.split(",").map((c) => c.trim());
+      const colArray = columns.split(",").map((c: string) => c.trim());
 
       if (rows.length === 0) return "";
 
@@ -141,18 +141,7 @@ export default function BulkInsertTool() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="multi-row"
-              checked={multiRow}
-              onChange={(e) => setMultiRow(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="multi-row" className="text-sm font-medium cursor-pointer">
-              Multi-row statement
-            </label>
-          </div>
+          <OptionCheckbox checked={multiRow} onChange={setMultiRow} label="Multi-row statement" />
         </>
       }
     />

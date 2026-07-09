@@ -3,6 +3,8 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { expandRange, compressRange } from "../lib/transformers";
+import { OptionLabel } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
 
@@ -56,29 +58,29 @@ export default function RangeExpanderTool() {
       options={
         <>
           <div>
-            <label className="text-sm font-medium block mb-2">Mode</label>
-            <select
+            <OptionLabel>Mode</OptionLabel>
+            <Select
               value={mode}
-              onChange={(e) => setMode(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="expand">Expand ranges</option>
-              <option value="compress">Compress to ranges</option>
-            </select>
+              onValueChange={(e) => setMode(e as any)}
+              className="w-full"
+              options={[
+                { value: "expand", label: "Expand ranges" },
+                { value: "compress", label: "Compress to ranges" },
+              ]}
+            />
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-2">Output Format</label>
-            <select
+            <OptionLabel>Output Format</OptionLabel>
+            <Select
               value={delimiter}
-              onChange={(e) => setDelimiter(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="comma">Comma-separated</option>
-              <option value="newline">Newline-separated</option>
-            </select>
+              onValueChange={(e) => setDelimiter(e as any)}
+              className="w-full"
+              options={[
+                { value: "comma", label: "Comma-separated" },
+                { value: "newline", label: "Newline-separated" },
+              ]}
+            />
           </div>
         </>
       }

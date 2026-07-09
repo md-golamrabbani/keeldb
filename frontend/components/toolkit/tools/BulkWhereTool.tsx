@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseLines, generateInClause, isNumeric } from "../lib/transformers";
-import { OptionLabel, OptionInput, OptionSelect } from "../OptionField";
+import { OptionLabel, OptionInput } from "../OptionField";
 import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};

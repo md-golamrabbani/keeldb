@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseLines } from "../lib/transformers";
+import { OptionCheckbox } from "../OptionField";
 
 const EMPTY_OPTIONS = {};
 
@@ -87,57 +88,18 @@ export default function DataNormalizerTool() {
       onCopy={handleCopy}
       options={
         <>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="normalize-bool"
-              checked={normalizeBool}
-              onChange={(e) => setNormalizeBool(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="normalize-bool" className="text-sm font-medium cursor-pointer">
-              Convert to boolean (true/false)
-            </label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="normalize-null"
-              checked={normalizeNull}
-              onChange={(e) => setNormalizeNull(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="normalize-null" className="text-sm font-medium cursor-pointer">
-              Convert to NULL
-            </label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="trim-spaces"
-              checked={trimSpaces_}
-              onChange={(e) => setTrimSpaces(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="trim-spaces" className="text-sm font-medium cursor-pointer">
-              Trim spaces
-            </label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="normalize-numbers"
-              checked={normalizeNumbers_}
-              onChange={(e) => setNormalizeNumbers(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="normalize-numbers" className="text-sm font-medium cursor-pointer">
-              Normalize numbers
-            </label>
-          </div>
+          <OptionCheckbox
+            checked={normalizeBool}
+            onChange={setNormalizeBool}
+            label="Convert to boolean (true/false)"
+          />
+          <OptionCheckbox checked={normalizeNull} onChange={setNormalizeNull} label="Convert to NULL" />
+          <OptionCheckbox checked={trimSpaces_} onChange={setTrimSpaces} label="Trim spaces" />
+          <OptionCheckbox
+            checked={normalizeNumbers_}
+            onChange={setNormalizeNumbers}
+            label="Normalize numbers"
+          />
         </>
       }
     />

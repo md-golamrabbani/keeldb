@@ -1,7 +1,9 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
+import { OptionLabel } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 // Simple crypto functions (note: for production, use a proper crypto library)
 async function sha256(text: string): Promise<string> {
@@ -33,30 +35,36 @@ export default function HashEncodingTool() {
   const [hashType, setHashType] = useState<"base64-encode" | "base64-decode" | "url-encode" | "url-decode" | "hex-encode" | "sha256">(options.hashType || "base64-encode");
   const [output, setOutput] = useState("");
 
-  const handleInputChange = async (value: string) => {
-    updateInput(selectedTool, value);
-
+  const recompute = useCallback(async (value: string, type: typeof hashType) => {
     try {
       let result = "";
-      if (hashType === "base64-encode") {
+      if (type === "base64-encode") {
         result = btoa_(value);
-      } else if (hashType === "base64-decode") {
+      } else if (type === "base64-decode") {
         result = atob_(value);
-      } else if (hashType === "url-encode") {
+      } else if (type === "url-encode") {
         result = encodeURIComponent(value);
-      } else if (hashType === "url-decode") {
+      } else if (type === "url-decode") {
         result = decodeURIComponent(value);
-      } else if (hashType === "hex-encode") {
+      } else if (type === "hex-encode") {
         result = Array.from(value)
           .map((c) => c.charCodeAt(0).toString(16).padStart(2, "0"))
           .join("");
-      } else if (hashType === "sha256") {
+      } else if (type === "sha256") {
         result = await sha256(value);
       }
       setOutput(result);
     } catch (e) {
       setOutput("");
     }
+  }, []);
+
+  useEffect(() => {
+    recompute(input, hashType);
+  }, [input, hashType, recompute]);
+
+  const handleInputChange = (value: string) => {
+    updateInput(selectedTool, value);
   };
 
   const handleCopy = (text: string) => {
@@ -80,20 +88,20 @@ export default function HashEncodingTool() {
       onCopy={handleCopy}
       options={
         <div>
-          <label className="text-sm font-medium block mb-2">Operation</label>
-          <select
+          <OptionLabel>Operation</OptionLabel>
+          <Select
             value={hashType}
-            onChange={(e) => setHashType(e.target.value as any)}
-            className="w-full rounded border p-2 text-sm"
-            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-          >
-            <option value="base64-encode">Base64 Encode</option>
-            <option value="base64-decode">Base64 Decode</option>
-            <option value="url-encode">URL Encode</option>
-            <option value="url-decode">URL Decode</option>
-            <option value="hex-encode">Hex Encode</option>
-            <option value="sha256">SHA-256 Hash</option>
-          </select>
+            onValueChange={(e) => setHashType(e as any)}
+            className="w-full"
+            options={[
+              { value: "base64-encode", label: "Base64 Encode" },
+              { value: "base64-decode", label: "Base64 Decode" },
+              { value: "url-encode", label: "URL Encode" },
+              { value: "url-decode", label: "URL Decode" },
+              { value: "hex-encode", label: "Hex Encode" },
+              { value: "sha256", label: "SHA-256 Hash" },
+            ]}
+          />
         </div>
       }
     />

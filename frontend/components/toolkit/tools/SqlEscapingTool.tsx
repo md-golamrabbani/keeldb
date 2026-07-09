@@ -3,6 +3,8 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseLines, escapeQuotes } from "../lib/transformers";
+import { OptionLabel, OptionCheckbox } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
 
@@ -80,31 +82,20 @@ export default function SqlEscapingTool() {
       options={
         <>
           <div>
-            <label className="text-sm font-medium block mb-2">Escape Type</label>
-            <select
+            <OptionLabel>Escape Type</OptionLabel>
+            <Select
               value={escapeType}
-              onChange={(e) => setEscapeType(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="single-quote">Single quotes (SQL)</option>
-              <option value="backslash">Backslash (strings)</option>
-              <option value="both">Both</option>
-            </select>
+              onValueChange={(e) => setEscapeType(e as any)}
+              className="w-full"
+              options={[
+                { value: "single-quote", label: "Single quotes (SQL)" },
+                { value: "backslash", label: "Backslash (strings)" },
+                { value: "both", label: "Both" },
+              ]}
+            />
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="process-per-line"
-              checked={processPerLine}
-              onChange={(e) => setProcessPerLine(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="process-per-line" className="text-sm font-medium cursor-pointer">
-              Process per line
-            </label>
-          </div>
+          <OptionCheckbox checked={processPerLine} onChange={setProcessPerLine} label="Process per line" />
         </>
       }
     />

@@ -3,6 +3,8 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseLines, isUUID, isEmail, isNumeric } from "../lib/transformers";
+import { OptionLabel, OptionCheckbox } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
 
@@ -81,32 +83,21 @@ export default function IdValidatorTool() {
       options={
         <>
           <div>
-            <label className="text-sm font-medium block mb-2">Validation Type</label>
-            <select
+            <OptionLabel>Validation Type</OptionLabel>
+            <Select
               value={validationType}
-              onChange={(e) => setValidationType(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="auto">Auto-detect</option>
-              <option value="uuid">UUID format</option>
-              <option value="email">Email format</option>
-              <option value="integer">Integer only</option>
-            </select>
+              onValueChange={(e) => setValidationType(e as any)}
+              className="w-full"
+              options={[
+                { value: "auto", label: "Auto-detect" },
+                { value: "uuid", label: "UUID format" },
+                { value: "email", label: "Email format" },
+                { value: "integer", label: "Integer only" },
+              ]}
+            />
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="show-invalid"
-              checked={showInvalid}
-              onChange={(e) => setShowInvalid(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="show-invalid" className="text-sm font-medium cursor-pointer">
-              Show invalid items
-            </label>
-          </div>
+          <OptionCheckbox checked={showInvalid} onChange={setShowInvalid} label="Show invalid items" />
         </>
       }
     />

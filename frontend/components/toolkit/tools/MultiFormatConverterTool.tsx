@@ -3,6 +3,8 @@ import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
 import { parseLines, deduplicate } from "../lib/transformers";
+import { OptionLabel } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 const EMPTY_OPTIONS = {};
 
@@ -62,19 +64,19 @@ export default function MultiFormatConverterTool() {
       onCopy={handleCopy}
       options={
         <div>
-          <label className="text-sm font-medium block mb-2">Output Format</label>
-          <select
+          <OptionLabel>Output Format</OptionLabel>
+          <Select
             value={outputFormat}
-            onChange={(e) => setOutputFormat(e.target.value as any)}
-            className="w-full rounded border p-2 text-sm"
-            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-          >
-            <option value="plaintext">Plaintext (one per line)</option>
-            <option value="csv">CSV (comma-separated)</option>
-            <option value="json">JSON array</option>
-            <option value="sql-in">SQL IN clause</option>
-            <option value="sql-array">PostgreSQL array format</option>
-          </select>
+            onValueChange={(e) => setOutputFormat(e as any)}
+            className="w-full"
+            options={[
+              { value: "plaintext", label: "Plaintext (one per line)" },
+              { value: "csv", label: "CSV (comma-separated)" },
+              { value: "json", label: "JSON array" },
+              { value: "sql-in", label: "SQL IN clause" },
+              { value: "sql-array", label: "PostgreSQL array format" },
+            ]}
+          />
         </div>
       }
     />

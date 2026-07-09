@@ -2,6 +2,8 @@
 import { useState, useMemo } from "react";
 import ToolContainer from "../ToolContainer";
 import { useToolkitStore } from "@/lib/toolkitStore";
+import { OptionLabel, OptionInput } from "../OptionField";
+import Select from "@/components/ui/Select";
 
 // Simple fake data generators
 function generateId(): string {
@@ -97,8 +99,8 @@ export default function SampleDataTool() {
             columns
               .map((c) => {
                 const val = row[c.name];
-                if (col.type === "timestamp" || col.type === "date") return `'${val}'`;
-                if (col.type === "integer" || col.type === "id") return val;
+                if (c.type === "timestamp" || c.type === "date") return `'${val}'`;
+                if (c.type === "integer" || c.type === "id") return val;
                 return `'${val.replace(/'/g, "''")}'`;
               })
               .join(", ") +
@@ -137,30 +139,26 @@ export default function SampleDataTool() {
       options={
         <>
           <div>
-            <label className="text-sm font-medium block mb-2">Number of Rows</label>
-            <input
+            <OptionLabel>Number of Rows</OptionLabel>
+            <OptionInput
               type="number"
               value={rowCount}
-              onChange={(e) => setRowCount(e.target.value)}
-              min="1"
-              max="1000"
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+              onChange={setRowCount}
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-2">Output Format</label>
-            <select
+            <OptionLabel>Output Format</OptionLabel>
+            <Select
               value={outputFormat}
-              onChange={(e) => setOutputFormat(e.target.value as any)}
-              className="w-full rounded border p-2 text-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <option value="csv">CSV</option>
-              <option value="json">JSON</option>
-              <option value="sql">SQL</option>
-            </select>
+              onValueChange={(e) => setOutputFormat(e as any)}
+              className="w-full"
+              options={[
+                { value: "csv", label: "CSV" },
+                { value: "json", label: "JSON" },
+                { value: "sql", label: "SQL" },
+              ]}
+            />
           </div>
         </>
       }
