@@ -5,7 +5,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-Flavor = Literal["mysql", "postgresql", "supabase", "neon", "sqlfile"]
+Flavor = Literal["mysql", "postgresql", "supabase", "neon", "sqlfile", "sqlite"]
 ConflictStrategy = Literal["insert", "upsert", "skip"]
 OutputMode = Literal["push", "sql", "csv", "json"]
 Environment = Literal["dev", "staging", "prod"]
@@ -17,6 +17,7 @@ ENGINE_FOR_FLAVOR: dict[str, str] = {
     "supabase": "postgres",
     "neon": "postgres",
     "sqlfile": "sqlfile",
+    "sqlite": "sqlite",
 }
 
 
@@ -33,6 +34,8 @@ class ConnectionProfileIn(BaseModel):
     connection_string: str = ""
     service_role_key: str = ""
     extra_params: dict[str, str] = Field(default_factory=dict)
+    # SQLite flavor: path to a local .db/.sqlite file.
+    sqlite_path: str = ""
     # Optional SSH tunnel (bastion host) — applies to host/port style connections.
     ssh_enabled: bool = False
     ssh_host: str = ""

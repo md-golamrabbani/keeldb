@@ -313,6 +313,26 @@ def kill_session(conn_id: str, req: KillRequest):
         c.dispose()
 
 
+class AiExplainErrorRequest(BaseModel):
+    schema_name: str = ""
+    sql: str
+    error: str
+
+
+@router.post("/{conn_id}/ai/explain-error")
+def ai_explain_error(conn_id: str, req: AiExplainErrorRequest):
+    """Explain a failed query in plain language (uses the shared AI settings)."""
+    c = _connector(conn_id)
+    try:
+        return ai.explain_error(c, req.schema_name, req.sql, req.error)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
 @router.post("/{conn_id}/ai/sql")
 def ai_sql(conn_id: str, req: AiSqlRequest):
     """Natural-language → SQL (returns SQL for review; never executes)."""

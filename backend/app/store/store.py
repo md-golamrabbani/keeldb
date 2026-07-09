@@ -136,9 +136,10 @@ class ConnectionStore(_JsonStore):
         items = self._load()
         if conn_id not in items:
             return False
-        # Clean up an imported SQL file's SQLite database.
+        # Clean up an imported SQL file's SQLite database. Never delete the
+        # file behind a user's own "sqlite" connection — that's their data.
         record = items[conn_id]
-        sqlite_path = record.get("sqlite_path")
+        sqlite_path = record.get("sqlite_path") if record.get("flavor") == "sqlfile" else None
         if sqlite_path:
             try:
                 Path(sqlite_path).unlink()

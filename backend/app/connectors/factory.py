@@ -5,6 +5,7 @@ from .base import Connector
 from .mysql import MySQLConnector
 from .postgres import PostgresConnector
 from .sqlfile import SQLFileConnector
+from .sqlite import SQLiteConnector
 
 
 def connector_for(profile: SavedConnection) -> Connector:
@@ -13,4 +14,6 @@ def connector_for(profile: SavedConnection) -> Connector:
         return MySQLConnector(profile)
     if engine == "sqlfile":
         return SQLFileConnector(profile)
+    if engine == "sqlite":
+        return SQLiteConnector(profile)
     return PostgresConnector(profile)

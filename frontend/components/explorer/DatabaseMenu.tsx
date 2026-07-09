@@ -10,9 +10,10 @@ import IntegrityModal from "./IntegrityModal";
 import Modal from "./Modal";
 import TypeSelect from "./TypeSelect";
 import UsersModal from "./UsersModal";
+import SnapshotsModal from "./SnapshotsModal";
 import { IconChevronDown, IconPlus, IconTrash } from "@/components/icons";
 
-type Dialog = null | "createTable" | "createDb" | "renameDb" | "dropDb" | "privileges" | "integrity" | "users";
+type Dialog = null | "createTable" | "createDb" | "renameDb" | "dropDb" | "privileges" | "integrity" | "users" | "snapshots";
 
 export default function DatabaseMenu({
   connId, schema, database, onTableCreated,
@@ -63,6 +64,7 @@ export default function DatabaseMenu({
             {item("Rename database", "renameDb")}
             {item("Privileges", "privileges")}
             {item("Users & privileges", "users")}
+            {item("Snapshots (undo history)", "snapshots")}
             {item("Check integrity (FK orphans)", "integrity")}
             <div className="my-1 border-t" />
             <button className="block w-full px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-2)]"
@@ -106,6 +108,9 @@ export default function DatabaseMenu({
       )}
       {dialog === "users" && (
         <UsersModal connId={connId} schema={schema} onClose={() => setDialog(null)} />
+      )}
+      {dialog === "snapshots" && (
+        <SnapshotsModal connId={connId} onClose={() => setDialog(null)} />
       )}
     </div>
   );

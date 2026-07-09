@@ -147,6 +147,10 @@ export const api = {
     req<TableProfile>(`/db/${connId}/profile`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
   explainQuery: (connId: string, sql: string, schema = "") =>
     req<QueryPlan>(`/db/${connId}/explain`, { method: "POST", body: JSON.stringify({ sql, schema_name: schema }) }),
+  aiExplainError: (connId: string, schema: string, sql: string, error: string) =>
+    req<{ available: boolean; explanation: string; suggested_sql?: string; message?: string }>(
+      `/db/${connId}/ai/explain-error`,
+      { method: "POST", body: JSON.stringify({ schema_name: schema, sql, error }) }),
   aiSql: (connId: string, schema: string, question: string) =>
     req<{ available: boolean; sql: string; message?: string; model?: string }>(`/db/${connId}/ai/sql`, { method: "POST", body: JSON.stringify({ schema_name: schema, question }) }),
   aiSettings: () => req<AiSettingsPublic>("/ai/settings"),

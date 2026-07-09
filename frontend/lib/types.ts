@@ -1,4 +1,4 @@
-export type Flavor = "mysql" | "postgresql" | "supabase" | "neon" | "sqlfile";
+export type Flavor = "mysql" | "postgresql" | "supabase" | "neon" | "sqlfile" | "sqlite";
 export type ConflictStrategy = "insert" | "upsert" | "skip";
 export type OutputMode = "push" | "sql" | "csv" | "json";
 export type Environment = "dev" | "staging" | "prod";
@@ -15,6 +15,7 @@ export interface ConnectionProfileIn {
   connection_string: string;
   service_role_key: string;
   extra_params: Record<string, string>;
+  sqlite_path?: string; // sqlite flavor: local .db file path
   ssh_enabled: boolean;
   ssh_host: string;
   ssh_port: number;

@@ -126,6 +126,46 @@ def edit_dbml(dbml: str, instruction: str) -> dict:
     return {"available": True, "dbml": out, "model": model, "provider": provider}
 
 
+def explain_error(connector: Connector, schema: str, sql: str, error: str) -> dict:
+    """Explain a failed query in plain language, with the user's actual schema
+    for context, and suggest a corrected statement when possible."""
+    if not error.strip():
+        raise ValueError("no error to explain")
+    provider, key, model = _resolve()
+    if not key:
+        return {"available": False, "explanation": "",
+                "message": "AI assist is not configured. Choose a provider and add an API key in AI settings."}
+    dialect = connector.engine.dialect.name
+    system = (
+        f"You are a {dialect} expert helping a developer debug a failed SQL statement. "
+        "Explain in 2-4 short sentences what went wrong and how to fix it, referring to the "
+        "schema when relevant. If a corrected statement is possible, end with it in a ```sql fence. "
+        "Be direct and practical — no preamble."
+    )
+    prompt = (
+        f"Schema:\n{_describe_schema(connector, schema)}\n\n"
+        f"SQL that failed:\n{sql.strip()[:2000]}\n\n"
+        f"Error message:\n{error.strip()[:1000]}"
+    )
+    try:
+        text = _call_llm(provider, key, model, system, prompt)
+    except Exception as exc:
+        detail = str(exc)
+        if isinstance(exc, urllib.error.HTTPError):
+            try:
+                detail = exc.read().decode()[:300]
+            except Exception:
+                pass
+        return {"available": True, "explanation": "", "message": f"{PROVIDER_LABELS.get(provider, provider)} error: {detail}"}
+    m = re.search(r"```sql\s*(.+?)```", text, re.DOTALL | re.IGNORECASE)
+    return {
+        "available": True,
+        "explanation": re.sub(r"```sql.*?```", "", text, flags=re.DOTALL | re.IGNORECASE).strip(),
+        "suggested_sql": (m.group(1).strip() if m else ""),
+        "model": model,
+    }
+
+
 def nl_to_sql(connector: Connector, schema: str, question: str) -> dict:
     if not question.strip():
         raise ValueError("ask a question")

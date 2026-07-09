@@ -18,7 +18,7 @@ import { toPng } from "html-to-image";
 import dagre from "dagre";
 import { api } from "@/lib/api";
 import {
-  parseDbml, exportSql, importSql, graphToDbml, diffGraphs, STARTER_DBML,
+  parseDbml, exportSql, importSql, graphToDbml, diffGraphs, buildSyncScript, STARTER_DBML,
   type DbmlGraph, type DbmlError, type DbmlEnum, type DbmlTable,
 } from "@/lib/dbml";
 import type { ConnectionProfile } from "@/lib/types";
@@ -329,25 +329,49 @@ export default function DiagramsPage() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const doExport = async (kind: "mysql" | "postgres" | "dbml" | "png") => {
+  const renderPng = async (): Promise<string | null> => {
+    const el = flowRef.current?.querySelector<HTMLElement>(".react-flow__viewport");
+    if (!el) return null;
+    const rect = getRectOfNodes(nodes);
+    const W = Math.min(4096, Math.max(800, Math.ceil(rect.width + 80)));
+    const H = Math.min(4096, Math.max(600, Math.ceil(rect.height + 80)));
+    const [tx, ty, zoom] = getTransformForBounds(rect, W, H, 0.2, 2);
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#fff";
+    return toPng(el, {
+      width: W, height: H, backgroundColor: bg,
+      style: { width: `${W}px`, height: `${H}px`, transform: `translate(${tx}px, ${ty}px) scale(${zoom})` },
+    });
+  };
+
+  const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const doExport = async (kind: "mysql" | "postgres" | "dbml" | "png" | "html") => {
     setExportMenu(false); setError("");
     try {
       if (kind === "dbml") return download(src, `${name || "diagram"}.dbml`);
       if (kind === "png") {
-        const el = flowRef.current?.querySelector<HTMLElement>(".react-flow__viewport");
-        if (!el) return;
-        const rect = getRectOfNodes(nodes);
-        const W = Math.min(4096, Math.max(800, Math.ceil(rect.width + 80)));
-        const H = Math.min(4096, Math.max(600, Math.ceil(rect.height + 80)));
-        const [tx, ty, zoom] = getTransformForBounds(rect, W, H, 0.2, 2);
-        const bg = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#fff";
-        const url = await toPng(el, {
-          width: W, height: H, backgroundColor: bg,
-          style: { width: `${W}px`, height: `${H}px`, transform: `translate(${tx}px, ${ty}px) scale(${zoom})` },
-        });
+        const url = await renderPng();
+        if (!url) return;
         const a = document.createElement("a");
         a.href = url; a.download = `${name || "diagram"}.png`; a.click();
         return;
+      }
+      if (kind === "html") {
+        // Single self-contained file: diagram image + DBML source — mail it,
+        // drop it in a wiki, no KeelDB needed to view it.
+        const url = await renderPng();
+        if (!url) return;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(name)} — ER diagram</title>
+<style>body{font-family:system-ui,sans-serif;margin:2rem auto;max-width:1100px;padding:0 1rem;color:#1f2937}
+img{max-width:100%;border:1px solid #e5e7eb;border-radius:12px}
+details{margin-top:1.5rem}pre{background:#f3f4f6;border-radius:8px;padding:1rem;overflow:auto;font-size:13px}
+.meta{color:#6b7280;font-size:14px}</style></head><body>
+<h1>${escapeHtml(name)}</h1>
+<p class="meta">${graph.tables.length} tables · ${graph.refs.length} relationships · exported ${new Date().toLocaleString()} · made with KeelDB</p>
+<img src="${url}" alt="ER diagram">
+<details><summary>DBML source</summary><pre>${escapeHtml(src)}</pre></details>
+</body></html>`;
+        return download(html, `${name || "diagram"}.html`);
       }
       download(await exportSql(src, kind), `${name || "diagram"}.${kind === "mysql" ? "mysql" : "pg"}.sql`);
     } catch (e) {
@@ -458,6 +482,7 @@ export default function DiagramsPage() {
                   <button className={menuBtn} onClick={() => doExport("postgres")}>PostgreSQL DDL (.sql)</button>
                   <button className={menuBtn} onClick={() => doExport("dbml")}>DBML source (.dbml)</button>
                   <button className={menuBtn} onClick={() => doExport("png")}>PNG image</button>
+                  <button className={menuBtn} onClick={() => doExport("html")}>Standalone HTML (shareable)</button>
                 </div>
               </>
             )}
@@ -695,13 +720,17 @@ export default function DiagramsPage() {
 }
 
 /** Generate DDL for a chosen connection's dialect, preview it, then run it
- * through the normal query endpoint (read-only connections are refused there). */
+ * through the normal query endpoint. Two modes: Create (full DDL for a fresh
+ * schema) and Sync (diff the diagram against the live schema → ALTER script,
+ * destructive changes commented out). */
 function ApplyToDbModal({ dbml, onClose }: { dbml: string; onClose: () => void }) {
   const [connections, setConnections] = useState<ConnectionProfile[]>([]);
   const [connId, setConnId] = useState("");
   const [schemas, setSchemas] = useState<string[]>([]);
   const [schema, setSchema] = useState("");
+  const [mode, setMode] = useState<"create" | "sync">("sync");
   const [sql, setSql] = useState("");
+  const [building, setBuilding] = useState(false);
   const [running, setRunning] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [result, setResult] = useState("");
@@ -717,11 +746,37 @@ function ApplyToDbModal({ dbml, onClose }: { dbml: string; onClose: () => void }
   }, [connId]);
 
   useEffect(() => {
-    setError(""); setSql("");
+    setError(""); setSql(""); setResult("");
     if (!conn) return;
-    const dialect = conn.flavor === "mysql" || conn.flavor === "sqlfile" ? "mysql" : "postgres";
-    exportSql(dbml, dialect).then(setSql).catch((e) => setError(`Could not generate DDL: ${String((e as { diags?: { message: string }[] })?.diags?.[0]?.message ?? e)}`));
-  }, [conn, dbml]); // eslint-disable-line react-hooks/exhaustive-deps
+    const dialect: "mysql" | "postgres" = conn.flavor === "mysql" || conn.flavor === "sqlfile" || conn.flavor === "sqlite" ? "mysql" : "postgres";
+    let cancel = false;
+    const build = async () => {
+      setBuilding(true);
+      try {
+        if (mode === "create") {
+          setSql(await exportSql(dbml, dialect));
+        } else {
+          if (!schema) return;
+          const { graph: g, error: pe } = await parseDbml(dbml);
+          if (!g) throw new Error(pe?.message ?? "diagram does not parse");
+          const tables = await api.listTables(connId, schema);
+          const live: Record<string, { name: string; data_type: string; nullable: boolean }[]> = {};
+          await Promise.all(
+            tables.map(async (t) => {
+              try { live[t.name] = await api.listColumns(connId, schema, t.name); } catch { /* skip unreadable */ }
+            }),
+          );
+          if (!cancel) setSql(buildSyncScript(g, live, dialect));
+        }
+      } catch (e) {
+        if (!cancel) setError(`Could not generate SQL: ${String((e as { diags?: { message: string }[] })?.diags?.[0]?.message ?? e)}`);
+      } finally {
+        if (!cancel) setBuilding(false);
+      }
+    };
+    build();
+    return () => { cancel = true; };
+  }, [conn, dbml, mode, schema, connId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isProd = conn?.environment === "prod";
   const canRun = !!conn && !!schema && !!sql && !running && (!isProd || confirmText === "CONFIRM");
@@ -753,14 +808,38 @@ function ApplyToDbModal({ dbml, onClose }: { dbml: string; onClose: () => void }
           )}
         </div>
 
+        {conn && (
+          <div className="flex gap-1 rounded-lg p-1" style={{ background: "var(--surface-2)" }}>
+            {([
+              { id: "sync", label: "Sync (diff → ALTER script)", hint: "compare with the live schema" },
+              { id: "create", label: "Create (full DDL)", hint: "for an empty schema" },
+            ] as const).map((m) => (
+              <button key={m.id} onClick={() => setMode(m.id)}
+                className="flex-1 rounded-md py-1.5 text-sm font-medium transition-colors"
+                style={mode === m.id ? { background: "var(--surface)", color: "var(--text)", boxShadow: "var(--shadow-sm)" } : { color: "var(--text-muted)" }}
+                title={m.hint}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {conn?.read_only && (
           <p className="alert-danger">This connection is read-only — pick another or disable read-only mode.</p>
         )}
 
-        {sql && (
+        {building && <p className="text-sm muted">Comparing with the live schema…</p>}
+        {sql && !building && (
           <>
-            <label className="label">Generated DDL ({conn?.flavor === "mysql" ? "MySQL" : "PostgreSQL"}) — review before running</label>
+            <label className="label">
+              {mode === "sync" ? "Migration script" : "Generated DDL"} ({conn?.flavor === "mysql" || conn?.flavor === "sqlite" ? "MySQL" : "PostgreSQL"}) — review before running
+            </label>
             <pre className="max-h-64 overflow-auto rounded-lg p-3 font-mono text-xs" style={{ background: "var(--surface-2)" }}>{sql}</pre>
+            {mode === "sync" && (
+              <p className="text-xs faint">
+                Destructive changes (DROP table/column, type changes) are commented out — edit the diagram or copy the script to the SQL editor if you need them.
+              </p>
+            )}
           </>
         )}
 

@@ -207,8 +207,37 @@ export default function SampleDataTool() {
     setPushErr(""); setPushMsg("");
     try {
       const cols = await api.listColumns(connId, schema, table);
-      setColumns(cols.map(inferGenType));
-      setPushMsg(`Loaded ${cols.length} columns from ${table} — tweak the generator types, then Push.`);
+      // FK columns pull real parent-key values, so generated rows reference
+      // rows that actually exist (no orphaned foreign keys).
+      const defs = await Promise.all(
+        cols.map(async (col) => {
+          if (col.is_fk && col.fk_target) {
+            const m = col.fk_target.match(/^(.+?)\(([^)]*)\)$/);
+            if (m) {
+              const refTable = m[1].trim();
+              const refCol = (m[2].split(",")[0] || "").trim();
+              try {
+                const d = await api.tableData(connId, {
+                  schema, table: refTable, limit: 500, offset: 0, order_by: refCol,
+                });
+                const idx = d.colnames.indexOf(refCol);
+                const values = idx >= 0
+                  ? d.rows.map((r) => r[idx]).filter((v) => v != null).map(String)
+                  : [];
+                if (values.length) return { name: col.name, type: "enum", options: values };
+              } catch { /* fall through to type inference */ }
+            }
+          }
+          return inferGenType(col);
+        }),
+      );
+      setColumns(defs);
+      const fkCount = defs.filter((d, i) => cols[i].is_fk && d.type === "enum").length;
+      setPushMsg(
+        `Loaded ${cols.length} columns from ${table}` +
+        (fkCount ? ` — ${fkCount} FK column(s) will use real parent ids` : "") +
+        ". Tweak the generator types, then Push.",
+      );
     } catch (e) { setPushErr(String(e)); }
   };
 

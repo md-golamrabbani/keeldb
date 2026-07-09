@@ -10,6 +10,7 @@ import Checkbox from "@/components/ui/Checkbox";
 const DB_FLAVORS: { id: Flavor; label: string; hint: string }[] = [
   { id: "mysql", label: "MySQL", hint: "MySQL / MariaDB server" },
   { id: "postgresql", label: "PostgreSQL", hint: "Self-hosted or managed PG" },
+  { id: "sqlite", label: "SQLite", hint: "Local .db / .sqlite file" },
   { id: "supabase", label: "Supabase", hint: "Connection string + SSL" },
   { id: "neon", label: "Neon", hint: "Serverless Postgres" },
 ];
@@ -39,6 +40,7 @@ const empty = (flavor: Flavor = "mysql"): ConnectionProfileIn => ({
   connection_string: "",
   service_role_key: "",
   extra_params: {},
+  sqlite_path: "",
   ssh_enabled: false,
   ssh_host: "",
   ssh_port: 22,
@@ -218,7 +220,18 @@ export default function ConnectionForm({
           {/* Column 2 — connection details + SSH tunnel */}
           <div className="space-y-5">
             <Section title="Connection details" hint="Where and how to reach the server.">
-            {isPreset ? (
+            {form.flavor === "sqlite" ? (
+              <div>
+                <label className="label">Database file path</label>
+                <input className="input font-mono text-xs" value={form.sqlite_path ?? ""}
+                  placeholder="/home/you/data/app.db"
+                  onChange={(e) => set({ sqlite_path: e.target.value })} />
+                <p className="mt-1.5 text-xs faint">
+                  Full path to a local .db / .sqlite / .sqlite3 file. Reads AND writes —
+                  tick Read-only above if you only want to browse it.
+                </p>
+              </div>
+            ) : isPreset ? (
               <>
                 <div>
                   <label className="label">Connection string</label>
@@ -277,7 +290,8 @@ export default function ConnectionForm({
             )}
             </Section>
 
-            {/* SSH tunnel */}
+            {/* SSH tunnel (not applicable to local SQLite files) */}
+            {form.flavor !== "sqlite" && (
             <div className="rounded-xl border p-4" style={{ borderColor: "var(--border)" }}>
               <label className="flex items-center gap-2 text-sm font-medium">
                 <Checkbox checked={form.ssh_enabled} onCheckedChange={(v) => set({ ssh_enabled: v })} />
@@ -319,6 +333,7 @@ export default function ConnectionForm({
                 </div>
               )}
             </div>
+            )}
           </div>
           </div>
         </div>

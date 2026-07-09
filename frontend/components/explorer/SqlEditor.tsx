@@ -45,6 +45,7 @@ const DB_FOR: Record<Flavor, string> = {
   supabase: "PostgreSQL",
   neon: "PostgreSQL",
   sqlfile: "MySQL",
+  sqlite: "Sqlite",
 };
 
 // Common clause keywords surfaced first, since the parser lists expectations
@@ -218,6 +219,22 @@ export default function SqlEditor({
   const [gridScroll, setGridScroll] = useState(0);
   const [gridHeight, setGridHeight] = useState(480);
   const [resultTab, setResultTab] = useState(0);
+  const [explaining, setExplaining] = useState(false);
+  const [errorHelp, setErrorHelp] = useState<{ explanation: string; suggested_sql?: string } | null>(null);
+
+  const explainError = async () => {
+    if (!result?.error) return;
+    setExplaining(true); setErrorHelp(null);
+    try {
+      const r = await api.aiExplainError(connId, schema, sql, result.error);
+      if (r.available && r.explanation) setErrorHelp({ explanation: r.explanation, suggested_sql: r.suggested_sql });
+      else setErrorHelp({ explanation: r.message || "AI assist is not configured — add a provider & key in AI settings." });
+    } catch (e) {
+      setErrorHelp({ explanation: String(e) });
+    } finally {
+      setExplaining(false);
+    }
+  };
   const gridRef = useRef<HTMLDivElement | null>(null);
 
   // Multi-statement runs return one result set per SELECT; show them as tabs.
@@ -442,6 +459,7 @@ export default function SqlEditor({
     setUndoMsg("");
     setGridScroll(0);
     setResultTab(0);
+    setErrorHelp(null);
     try {
       const res = sandboxId
         ? await api.sandboxRun(connId, sandboxId, sql, rowLimit)
@@ -696,7 +714,32 @@ export default function SqlEditor({
       )}
 
       {result && !result.ok && (
-        <p className="alert-danger whitespace-pre-wrap">{result.error}</p>
+        <div className="space-y-2">
+          <div className="alert-danger flex flex-wrap items-start gap-2 whitespace-pre-wrap">
+            <span className="min-w-0 flex-1">{result.error}</span>
+            <button className="btn btn-secondary btn-sm !h-7 shrink-0" onClick={explainError} disabled={explaining}
+              title="Ask the AI to explain this error using your schema">
+              <IconSparkles width={12} height={12} /> {explaining ? "Explaining…" : "Explain"}
+            </button>
+          </div>
+          {errorHelp && (
+            <div className="card card-pad space-y-2 text-sm">
+              <p className="flex items-start gap-1.5">
+                <IconSparkles width={14} height={14} className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }} />
+                <span className="whitespace-pre-wrap">{errorHelp.explanation}</span>
+              </p>
+              {errorHelp.suggested_sql && (
+                <div className="space-y-1.5">
+                  <pre className="overflow-x-auto rounded-lg p-2.5 font-mono text-xs" style={{ background: "var(--surface-2)" }}>{errorHelp.suggested_sql}</pre>
+                  <button className="btn btn-secondary btn-sm !h-7"
+                    onClick={() => { setSql(errorHelp.suggested_sql!); setErrorHelp(null); }}>
+                    Use suggested SQL
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {result && result.ok && (

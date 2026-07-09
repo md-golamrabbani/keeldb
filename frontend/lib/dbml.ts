@@ -177,6 +177,96 @@ export function graphToDbml(graph: {
   return lines.join("\n") + "\n";
 }
 
+// ---- schema sync: diagram vs live database → ALTER script -------------------
+export interface LiveColumn { name: string; data_type: string; nullable: boolean }
+
+function normType(t: string): string {
+  return t.toLowerCase().replace(/\s+/g, "").replace(/^integer/, "int").replace(/^bool(ean)?/, "bool");
+}
+
+/** Build a reviewable migration script that makes the live schema match the
+ * diagram. Additions are real statements; destructive ops (drop table/column,
+ * type changes) are emitted COMMENTED OUT so nothing dangerous runs unseen. */
+export function buildSyncScript(
+  graph: DbmlGraph,
+  live: Record<string, LiveColumn[]>, // live table -> columns
+  dialect: "mysql" | "postgres",
+): string {
+  const q = (n: string) => (dialect === "mysql" ? `\`${n}\`` : `"${n}"`);
+  const lines: string[] = [`-- Sync script: make the live schema match the diagram (${dialect})`,
+    "-- Review carefully. Destructive changes are commented out — uncomment to apply.", ""];
+
+  const liveNames = new Set(Object.keys(live));
+  const diagNames = new Set(graph.tables.map((t) => t.name));
+
+  // 1) tables missing from the live DB → CREATE TABLE
+  for (const t of graph.tables) {
+    if (liveNames.has(t.name)) continue;
+    const cols = t.columns.map((c) => {
+      let piece = `  ${q(c.name)} ${c.type || "text"}`;
+      if (c.notNull || c.pk) piece += " NOT NULL";
+      if (c.unique && !c.pk) piece += " UNIQUE";
+      return piece;
+    });
+    const pks = t.columns.filter((c) => c.pk).map((c) => q(c.name));
+    if (pks.length) cols.push(`  PRIMARY KEY (${pks.join(", ")})`);
+    lines.push(`CREATE TABLE ${q(t.name)} (`, cols.join(",\n"), ");", "");
+  }
+
+  // 2) FKs for newly created tables
+  for (const r of graph.refs) {
+    if (liveNames.has(r.fromTable)) continue; // only for new tables
+    if (!diagNames.has(r.toTable)) continue;
+    lines.push(
+      `ALTER TABLE ${q(r.fromTable)} ADD FOREIGN KEY (${q(r.fromCol)}) REFERENCES ${q(r.toTable)} (${q(r.toCol)});`,
+    );
+  }
+  if (lines[lines.length - 1] !== "") lines.push("");
+
+  // 3) existing tables: column-level diff
+  for (const t of graph.tables) {
+    const liveCols = live[t.name];
+    if (!liveCols) continue;
+    const liveBy = new Map(liveCols.map((c) => [c.name, c]));
+    const diagBy = new Map(t.columns.map((c) => [c.name, c]));
+    for (const c of t.columns) {
+      if (!liveBy.has(c.name)) {
+        let piece = `ALTER TABLE ${q(t.name)} ADD COLUMN ${q(c.name)} ${c.type || "text"}`;
+        if (c.notNull) piece += " NOT NULL";
+        lines.push(piece + ";");
+      }
+    }
+    for (const lc of liveCols) {
+      if (!diagBy.has(lc.name)) {
+        lines.push(`-- ${q(lc.name)} exists in the database but not in the diagram:`);
+        lines.push(`-- ALTER TABLE ${q(t.name)} DROP COLUMN ${q(lc.name)};`);
+      }
+    }
+    for (const c of t.columns) {
+      const lc = liveBy.get(c.name);
+      if (lc && normType(lc.data_type) !== normType(c.type) && c.type) {
+        lines.push(`-- type differs for ${t.name}.${c.name}: DB has ${lc.data_type}, diagram says ${c.type}:`);
+        lines.push(dialect === "mysql"
+          ? `-- ALTER TABLE ${q(t.name)} MODIFY COLUMN ${q(c.name)} ${c.type};`
+          : `-- ALTER TABLE ${q(t.name)} ALTER COLUMN ${q(c.name)} TYPE ${c.type};`);
+      }
+    }
+  }
+  if (lines[lines.length - 1] !== "") lines.push("");
+
+  // 4) live tables not in the diagram → commented DROP
+  for (const name of liveNames) {
+    if (!diagNames.has(name)) {
+      lines.push(`-- ${name} exists in the database but not in the diagram:`);
+      lines.push(`-- DROP TABLE ${q(name)};`);
+    }
+  }
+
+  const body = lines.slice(3).some((l) => l.trim());
+  if (!body) lines.push("-- Nothing to do: the live schema already matches the diagram.");
+  return lines.join("\n") + "\n";
+}
+
 export const STARTER_DBML = `// Welcome to the diagram designer — DBML, like dbdiagram.io.
 // Edit here (or ask the AI) and the canvas updates live.
 
