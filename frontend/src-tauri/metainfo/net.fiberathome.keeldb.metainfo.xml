@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>net.fiberathome.keeldb</id>
+  <id>com.keeldb.user</id>
   <name>KeelDB</name>
   <summary>Visual database studio — explore, migrate, and diagram your databases</summary>
   <metadata_license>MIT</metadata_license>
