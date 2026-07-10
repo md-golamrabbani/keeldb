@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import TopNav from "@/components/TopNav";
+import Toaster from "@/components/Toaster";
 import BackendProvider from "@/components/BackendProvider";
 import CommandPalette from "@/components/CommandPalette";
 import AuthGate from "@/components/AuthGate";
@@ -38,6 +39,7 @@ export default function RootLayout({
             </div>
           </main>
           <CommandPalette />
+          <Toaster />
         </AuthGate>
       </body>
     </html>

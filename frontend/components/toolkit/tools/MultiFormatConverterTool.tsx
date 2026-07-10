@@ -6,6 +6,7 @@ import { parseLines, deduplicate } from "../lib/transformers";
 import { OptionLabel } from "../OptionField";
 import Select from "@/components/ui/Select";
 import { IconDownload, IconUpload } from "@/components/icons";
+import { downloadFile } from "@/lib/toast";
 
 const OUT_EXT: Record<string, string> = {
   csv: "csv", json: "json", "sql-in": "sql", "sql-array": "txt", plaintext: "txt",
@@ -62,13 +63,7 @@ export default function MultiFormatConverterTool() {
   };
   const downloadOutput = () => {
     if (!output) return;
-    const blob = new Blob([output], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `converted.${OUT_EXT[outputFormat] ?? "txt"}`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadFile(output, `converted.${OUT_EXT[outputFormat] ?? "txt"}`);
   };
 
   return (

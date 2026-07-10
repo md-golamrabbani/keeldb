@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useCallback } from "react";
 import { IconCopy, IconTrash } from "@/components/icons";
+import { downloadFile } from "@/lib/toast";
 
 export interface ToolContainerProps {
   title: string;
@@ -51,14 +52,9 @@ export default function ToolContainer({
 
   const handleDownload = useCallback(() => {
     if (output) {
-      const element = document.createElement("a");
-      const file = new Blob([output], { type: "text/plain" });
-      element.href = URL.createObjectURL(file);
-      element.download = `output-${Date.now()}.txt`;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-      onDownload?.(element.download, output);
+      const filename = `output-${Date.now()}.txt`;
+      downloadFile(output, filename);
+      onDownload?.(filename, output);
     }
   }, [output, onDownload]);
 

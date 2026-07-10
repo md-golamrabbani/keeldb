@@ -13,6 +13,7 @@ import ImportCsvModal from "./ImportCsvModal";
 import Modal from "./Modal";
 import Checkbox from "@/components/ui/Checkbox";
 import Select from "@/components/ui/Select";
+import { toast } from "@/lib/toast";
 import {
   IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
 } from "@/components/icons";
@@ -148,7 +149,11 @@ export default function DataGrid({
   };
 
   const doExport = async (fmt: string) => {
-    try { const r = await api.exportTable(connId, schema, table, fmt); window.open(api.exportUrl(r.export_id, r.mode), "_blank"); }
+    try {
+      const r = await api.exportTable(connId, schema, table, fmt);
+      window.open(api.exportUrl(r.export_id, r.mode), "_blank");
+      toast(`Exported ${r.rows.toLocaleString()} row(s) as ${fmt.toUpperCase()} — download started`);
+    }
     catch (e) { setError(String(e)); }
   };
 

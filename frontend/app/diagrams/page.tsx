@@ -26,6 +26,8 @@ import Modal from "@/components/explorer/Modal";
 import AiSettingsModal from "@/components/explorer/AiSettingsModal";
 import DbmlCodeEditor from "@/components/diagrams/DbmlCodeEditor";
 import Select from "@/components/ui/Select";
+import { downloadFile, toast } from "@/lib/toast";
+import { useUiStore } from "@/lib/uiStore";
 import {
   IconBolt, IconChevronDown, IconDownload, IconLayers, IconMaximize, IconMinimize, IconPlay, IconPlus, IconRefresh, IconSearch, IconSettings, IconSparkles, IconTrash, IconUpload, IconWarning,
 } from "@/components/icons";
@@ -135,12 +137,25 @@ function dagreLayout(graph: DbmlGraph): Positions {
 interface ChatMsg { role: "user" | "assistant"; text: string }
 
 export default function DiagramsPage() {
-  const [name, setName] = useState("Untitled diagram");
-  const [diagramId, setDiagramId] = useState<string>("");
-  const [src, setSrc] = useState(STARTER_DBML);
+  // Rehydrate from the UI store so navigating away and back keeps the draft.
+  const draft = useUiStore.getState().diagram;
+  const setDraft = useUiStore((s) => s.setDiagram);
+
+  const [name, setName] = useState(draft?.name ?? "Untitled diagram");
+  const [diagramId, setDiagramId] = useState<string>(draft?.diagramId ?? "");
+  const [src, setSrc] = useState(draft?.src ?? STARTER_DBML);
   const [graph, setGraph] = useState<DbmlGraph>({ tables: [], refs: [], enums: [] });
   const [parseError, setParseError] = useState<DbmlError | null>(null);
-  const [positions, setPositions] = useState<Positions>({});
+  const [positions, setPositions] = useState<Positions>(draft?.positions ?? {});
+
+  // Persist the draft on every meaningful change (in-memory across navigation).
+  useEffect(() => {
+    setDraft({
+      diagramId, name, src, positions,
+      savedName: savedRef.current?.name ?? null,
+      savedDbml: savedRef.current?.dbml ?? null,
+    });
+  }, [diagramId, name, src, positions, setDraft]);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -154,7 +169,11 @@ export default function DiagramsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [fullscreen]);
   // what was last persisted — powers the unsaved-changes indicator
-  const savedRef = useRef<{ name: string; dbml: string } | null>(null);
+  const savedRef = useRef<{ name: string; dbml: string } | null>(
+    draft?.savedName != null && draft?.savedDbml != null
+      ? { name: draft.savedName, dbml: draft.savedDbml }
+      : null,
+  );
   const dirty = !savedRef.current || savedRef.current.dbml !== src || savedRef.current.name !== name;
 
   const [openList, setOpenList] = useState<{ id: string; name: string; updated_at: string }[] | null>(null);
@@ -322,12 +341,7 @@ export default function DiagramsPage() {
     } catch (e) { setError(`Import failed: ${String((e as { diags?: { message: string }[] })?.diags?.[0]?.message ?? e)}`); }
   };
 
-  const download = (content: string, filename: string) => {
-    const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
-    const a = document.createElement("a");
-    a.href = url; a.download = filename; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
+  const download = (content: string, filename: string) => downloadFile(content, filename);
 
   const renderPng = async (): Promise<string | null> => {
     const el = flowRef.current?.querySelector<HTMLElement>(".react-flow__viewport");
@@ -354,6 +368,7 @@ export default function DiagramsPage() {
         if (!url) return;
         const a = document.createElement("a");
         a.href = url; a.download = `${name || "diagram"}.png`; a.click();
+        toast(`Downloaded ${a.download}`);
         return;
       }
       if (kind === "html") {

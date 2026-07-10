@@ -7,6 +7,7 @@ import { OptionLabel, OptionInput } from "../OptionField";
 import Select from "@/components/ui/Select";
 import Combobox from "@/components/ui/Combobox";
 import { IconCopy, IconDownload, IconPlus, IconTrash, IconUpload } from "@/components/icons";
+import { downloadFile } from "@/lib/toast";
 
 // Rendering a huge string into the textarea freezes the DOM, so the live
 // preview is capped; the full dataset is only materialized for Copy/Download.
@@ -345,13 +346,8 @@ export default function SampleDataTool() {
   const handleDownload = useCallback(() => {
     const full = buildOutput(totalCount);
     if (!full) return;
-    const blob = new Blob([full], { type: MIME[outputFormat] ?? "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `sample-data-${totalCount}.${outputFormat === "sql" ? "sql" : outputFormat}`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadFile(full, `sample-data-${totalCount}.${outputFormat === "sql" ? "sql" : outputFormat}`,
+      MIME[outputFormat] ?? "text/plain");
   }, [buildOutput, totalCount, outputFormat]);
 
   return (

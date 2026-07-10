@@ -12,6 +12,7 @@ import AiSettingsModal from "./AiSettingsModal";
 import {
   IconCamera, IconCheck, IconDownload, IconFlask, IconPlay, IconSettings, IconSparkles, IconWarning,
 } from "@/components/icons";
+import { downloadFile } from "@/lib/toast";
 
 interface LintError {
   line?: number;
@@ -514,16 +515,8 @@ export default function SqlEditor({
   };
 
   const downloadCsv = () => {
-    if (!result?.columns || !result.rows) return;
-    const blob = new Blob([toCsv(result.columns, result.rows)], {
-      type: "text/csv",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "query-result.csv";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (!shownColumns || !shownRows) return;
+    downloadFile(toCsv(shownColumns, shownRows), "query-result.csv", "text/csv");
   };
 
   return (

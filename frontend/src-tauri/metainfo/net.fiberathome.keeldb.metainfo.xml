@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>net.fiberathome.keeldb</id>
+  <name>KeelDB</name>
+  <summary>Visual database studio — explore, migrate, and diagram your databases</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer_name>Md. Golam Rabbani</developer_name>
+  <description>
+    <p>
+      KeelDB is a desktop database studio for MySQL, PostgreSQL, SQLite,
+      Supabase and Neon. Browse and edit data, manage structure, indexes and
+      foreign keys, run SQL with a safety guard (affected-row preview,
+      transaction sandbox, automatic pre-write snapshots with undo), and
+      monitor database health.
+    </p>
+    <p>
+      It also includes a full data-migration wizard with column mapping,
+      transforms and checkpoint/resume, a dbdiagram-style ER diagram designer
+      with DBML, AI assistance, and SQL import/export, plus a toolkit of 25+
+      developer utilities.
+    </p>
+  </description>
+  <launchable type="desktop-id">KeelDB.desktop</launchable>
+  <url type="homepage">https://github.com/md-golamrabbani/MigrationStudio</url>
+  <url type="bugtracker">https://github.com/md-golamrabbani/MigrationStudio/issues</url>
+  <categories>
+    <category>Development</category>
+    <category>Database</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-07-10"/>
+  </releases>
+</component>

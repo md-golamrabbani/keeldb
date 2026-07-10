@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
+import { downloadFile } from "@/lib/toast";
 
 export default function OperationsPanel({
   connId, schema, table, onChanged,
@@ -29,11 +30,7 @@ export default function OperationsPanel({
     setError("");
     try {
       const res = await api.backupTable(connId, schema, table);
-      const blob = new Blob([res.sql], { type: "application/sql" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = `${table}-backup.sql`; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadFile(res.sql, `${table}-backup.sql`, "application/sql");
       flash(`Backed up ${res.rows.toLocaleString()} row(s)`);
     } catch (e) { setError(String(e)); }
   };

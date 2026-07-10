@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { handleCommentShortcut } from "@/lib/editorUtils";
 
 const KEYWORDS = new Set([
   "select", "from", "where", "insert", "into", "values", "update", "set", "delete", "create", "table",
@@ -167,6 +168,7 @@ export default function SqlCodeEditor({
       if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); accept(ac.items[ac.index]); return; }
       if (e.key === "Escape") { e.preventDefault(); setAc(null); return; }
     }
+    if (handleCommentShortcut(e, "-- ", onChange)) return; // Ctrl/⌘+/ toggles line comments
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); onRun?.(); }
   };
 

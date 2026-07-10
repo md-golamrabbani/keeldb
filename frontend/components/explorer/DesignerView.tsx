@@ -19,6 +19,7 @@ import { toPng, toJpeg } from "html-to-image";
 import { api } from "@/lib/api";
 import type { SchemaGraph, SchemaGraphTable } from "@/lib/types";
 import { IconDownload, IconRefresh } from "@/components/icons";
+import { toast } from "@/lib/toast";
 
 const NODE_W = 230;
 const HEADER_H = 34;
@@ -146,6 +147,7 @@ export default function DesignerView({ connId, schema }: { connId: string; schem
       a.href = url;
       a.download = `erd-${schema || "schema"}.${type === "jpeg" ? "jpg" : "png"}`;
       a.click();
+      toast(`Downloaded ${a.download}`);
     } catch {
       setError("Could not export the diagram image.");
     }

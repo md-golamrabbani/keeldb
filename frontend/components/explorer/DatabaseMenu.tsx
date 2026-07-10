@@ -11,6 +11,7 @@ import Modal from "./Modal";
 import TypeSelect from "./TypeSelect";
 import UsersModal from "./UsersModal";
 import SnapshotsModal from "./SnapshotsModal";
+import { downloadFile } from "@/lib/toast";
 import { IconChevronDown, IconPlus, IconTrash } from "@/components/icons";
 
 type Dialog = null | "createTable" | "createDb" | "renameDb" | "dropDb" | "privileges" | "integrity" | "users" | "snapshots";
@@ -37,11 +38,7 @@ export default function DatabaseMenu({
     setOpen(false); setError("");
     try {
       const res = await api.backupDatabase(connId, schema);
-      const blob = new Blob([res.sql], { type: "application/sql" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = `${database || schema || "database"}.sql`; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadFile(res.sql, `${database || schema || "database"}.sql`, "application/sql");
     } catch (e) { setError(String(e)); }
   };
 

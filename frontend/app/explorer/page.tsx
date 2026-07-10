@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
+import { useUiStore } from "@/lib/uiStore";
 import type { ConnectionProfile, TableInfo } from "@/lib/types";
 import TableDocument from "@/components/explorer/TableDocument";
 import ViewDocument from "@/components/explorer/ViewDocument";
@@ -57,26 +58,43 @@ const KIND_ICON = {
  * hides inactive ones so their state (open tabs, grids, editors) survives.
  */
 function ConnectionSession({
+  wsId,
   connections,
   initialConnId,
   onLabelChange,
 }: {
+  wsId: string;
   connections: ConnectionProfile[];
   initialConnId?: string;
   onLabelChange: (label: string) => void;
 }) {
-  const [connId, setConnId] = useState(initialConnId ?? "");
-  const [schema, setSchema] = useState("");
+  // Rehydrate from the UI store so leaving the page and coming back doesn't
+  // lose the connection, schema, or open tabs.
+  const saved = useUiStore.getState().explorer?.sessions[wsId];
+  const setExplorerSession = useUiStore((s) => s.setExplorerSession);
+
+  const [connId, setConnId] = useState(saved?.connId ?? initialConnId ?? "");
+  const [schema, setSchema] = useState(saved?.schema ?? "");
   const [schemas, setSchemas] = useState<string[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [views, setViews] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
 
-  const [tabs, setTabs] = useState<OpenTab[]>([]);
-  const [activeId, setActiveId] = useState("");
-  const idRef = useRef(0);
+  const [tabs, setTabs] = useState<OpenTab[]>((saved?.tabs as OpenTab[]) ?? []);
+  const [activeId, setActiveId] = useState(saved?.activeId ?? "");
+  const idRef = useRef(saved ? Math.max(0, ...saved.tabs.map((t) => Number(t.id.slice(1)) || 0)) : 0);
   const uid = () => `t${++idRef.current}`;
+  // Skip the "connection changed → reset" effects on the restore render.
+  const restoring = useRef(!!saved);
+
+  // Persist this session's shape whenever it changes.
+  useEffect(() => {
+    setExplorerSession(wsId, {
+      connId, schema, activeId,
+      tabs: tabs.map(({ id, kind, title, table, initialSub, nonce }) => ({ id, kind, title, table, initialSub, nonce })),
+    });
+  }, [wsId, connId, schema, tabs, activeId, setExplorerSession]);
 
   const conn = connections.find((c) => c.id === connId);
   const activeTab = tabs.find((t) => t.id === activeId);
@@ -105,7 +123,7 @@ function ConnectionSession({
 
   useEffect(() => {
     setSchemas([]);
-    setSchema("");
+    if (!restoring.current) setSchema(""); // keep the restored schema on first run
     setTables([]);
     setError("");
     if (!connId) return;
@@ -118,8 +136,14 @@ function ConnectionSession({
       .catch((e) => setError(String(e)));
   }, [connId]);
 
-  // New schema/connection ⇒ close all open documents (they belong to the old one).
+  // New schema/connection ⇒ close all open documents (they belong to the old
+  // one) — except on the restore render, where the tabs ARE the point.
   useEffect(() => {
+    if (restoring.current) {
+      restoring.current = false;
+      loadTables();
+      return;
+    }
     setTabs([]);
     setActiveId("");
     loadTables();
@@ -526,16 +550,31 @@ function Explorer() {
   const [connections, setConnections] = useState<ConnectionProfile[]>([]);
   const [error, setError] = useState("");
 
-  const wsIdRef = useRef(0);
+  // Rehydrate the workspace strip from the UI store (survives navigation).
+  const savedExplorer = useUiStore.getState().explorer;
+  const setExplorer = useUiStore((s) => s.setExplorer);
+  const dropExplorerSession = useUiStore((s) => s.dropExplorerSession);
+
+  const wsIdRef = useRef(savedExplorer?.wsCounter ?? 0);
   const newWsId = () => `ws${++wsIdRef.current}`;
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [activeWs, setActiveWs] = useState("");
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(savedExplorer?.workspaces ?? []);
+  const [activeWs, setActiveWs] = useState(savedExplorer?.activeWs ?? "");
+
+  // Persist the strip shape (session contents persist from inside each session).
+  useEffect(() => {
+    setExplorer({
+      workspaces: workspaces.map(({ id, label }) => ({ id, label })),
+      activeWs,
+      wsCounter: wsIdRef.current,
+    });
+  }, [workspaces, activeWs, setExplorer]);
 
   useEffect(() => {
     api
       .listConnections()
       .then((cs) => {
         setConnections(cs);
+        if (savedExplorer?.workspaces.length) return; // restored — don't reset
         const initial = params.get("conn");
         const id = newWsId();
         setWorkspaces([
@@ -558,6 +597,7 @@ function Explorer() {
   };
 
   const closeWorkspace = (id: string) => {
+    dropExplorerSession(id);
     setWorkspaces((prev) => {
       const idx = prev.findIndex((w) => w.id === id);
       const next = prev.filter((w) => w.id !== id);
@@ -637,6 +677,7 @@ function Explorer() {
         {workspaces.map((w) => (
           <div key={w.id} className={w.id === activeWs ? "h-full" : "hidden"}>
             <ConnectionSession
+              wsId={w.id}
               connections={connections}
               initialConnId={w.initialConnId}
               onLabelChange={(label) => setLabel(w.id, label)}

@@ -1,5 +1,6 @@
 "use client";
 import { useRef } from "react";
+import { handleCommentShortcut } from "@/lib/editorUtils";
 
 // DBML editor: transparent textarea over a highlighted layer (same approach as
 // the SQL editor). The two layers MUST share identical text metrics and both
@@ -116,7 +117,8 @@ export default function DbmlCodeEditor({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onScroll={sync}
-          placeholder="Write DBML… e.g.  Table users { id int [pk] }"
+          onKeyDown={(e) => handleCommentShortcut(e, "// ", onChange)}
+          placeholder="Write DBML… e.g.  Table users { id int [pk] } · Ctrl+/ to comment"
         />
       </div>
     </div>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import ErrorBanner from "./ErrorBanner";
 import { IconRefresh, IconDownload } from "@/components/icons";
+import { downloadFile } from "@/lib/toast";
 
 // The reconstructed CREATE TABLE for this table — its own tab alongside
 // Data / Structure / Operations.
@@ -19,12 +20,7 @@ export default function DDLView({ connId, schema, table }: { connId: string; sch
   useEffect(load, [connId, schema, table]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const copy = async () => { await navigator.clipboard.writeText(ddl); setCopied(true); setTimeout(() => setCopied(false), 1500); };
-  const download = () => {
-    const blob = new Blob([ddl], { type: "application/sql" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `${table}.sql`; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
+  const download = () => downloadFile(ddl, `${table}.sql`, "application/sql");
 
   return (
     <div className="space-y-3">

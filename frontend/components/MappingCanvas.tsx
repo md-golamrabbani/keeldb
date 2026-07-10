@@ -8,6 +8,12 @@ import Select from "@/components/ui/Select";
 // Radix Select can't use "" as an item value, so map the "empty" choices to sentinels.
 const SKIP = "__skip__";      // target column: — skip —
 const NOCAST = "__none__";    // cast type: — (no cast)
+
+// Column labels stay one-line: drop COLLATE/CHARACTER SET noise, cap length.
+function shortType(t: string): string {
+  const clean = t.replace(/\s+(COLLATE|CHARACTER SET)\s+\S+/gi, "").trim();
+  return clean.length > 18 ? clean.slice(0, 17) + "…" : clean;
+}
 import { IconBolt, IconWarning } from "./icons";
 
 function ColBadges({ c }: { c: ColumnInfo }) {
@@ -89,14 +95,14 @@ export default function MappingCanvas() {
                   </td>
                   <td className="whitespace-nowrap px-3 py-1.5">
                     <span className="font-mono font-medium">{m.source_col}</span>
-                    <span className="ml-1.5 text-xs faint">{sc?.data_type}</span>
+                    <span className="ml-1.5 text-xs faint" title={sc?.data_type}>{sc ? shortType(sc.data_type) : ""}</span>
                     {sc && <ColBadges c={sc} />}
                   </td>
                   <td className="px-3 py-1.5">
                     <Select className="w-44" value={m.target_col || SKIP} disabled={!m.enabled}
                       onValueChange={(v) => patchColumnMap(m.source_col, { target_col: v === SKIP ? "" : v })}
                       options={[{ value: SKIP, label: "— skip —" },
-                        ...targetColumns.map((c) => ({ value: c.name, label: `${c.name} (${c.data_type})${!c.nullable ? " *" : ""}` }))]} />
+                        ...targetColumns.map((c) => ({ value: c.name, label: `${c.name} (${shortType(c.data_type)})${!c.nullable ? " *" : ""}` }))]} />
                     {mismatch && <span className="ml-1 inline-flex align-middle" style={{ color: "var(--warning)" }} title={`Type mismatch: ${sc?.data_type} → ${tc?.data_type}. Add a cast or transform.`}><IconWarning width={13} height={13} /></span>}
                   </td>
                   <td className="px-3 py-1.5">

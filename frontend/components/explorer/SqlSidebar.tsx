@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import type { HistoryEntry, Snippet } from "@/lib/types";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
 import { IconBookmark, IconCheck, IconClose, IconEdit, IconPlus, IconSave, IconTrash } from "@/components/icons";
+import { downloadFile } from "@/lib/toast";
 
 export type SaveState = "idle" | "saving" | "saved";
 
@@ -75,12 +76,7 @@ export default function SqlSidebar({
             onClick={async () => {
               try {
                 const blob = await api.exportHistoryCsv(connId);
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "query-audit-log.csv";
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                downloadFile(blob, "query-audit-log.csv", "text/csv");
               } catch { /* history export is best-effort */ }
             }}
           >

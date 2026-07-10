@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { IconDownload, IconUpload } from "./icons";
+import { downloadFile } from "@/lib/toast";
 
 // Export/import connections (without secrets) + mappings/projects/snippets/alerts
 // as a portable JSON bundle, for sharing setups between machines.
@@ -14,13 +15,8 @@ export default function PortabilityBar({ onImported }: { onImported: () => void 
     setError(""); setMsg("");
     try {
       const bundle = await api.exportPortable();
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `migration-studio-bundle-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadFile(JSON.stringify(bundle, null, 2),
+        `migration-studio-bundle-${new Date().toISOString().slice(0, 10)}.json`, "application/json");
     } catch (e) { setError(String(e)); }
   };
 

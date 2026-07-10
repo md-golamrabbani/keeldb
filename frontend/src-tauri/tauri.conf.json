@@ -27,13 +27,35 @@
   "bundle": {
     "active": true,
     "targets": ["deb", "rpm", "nsis", "msi", "dmg", "app"],
+    "publisher": "Md. Golam Rabbani",
+    "homepage": "https://github.com/md-golamrabbani/MigrationStudio",
+    "category": "DeveloperTool",
+    "shortDescription": "Visual database studio — explore, migrate, and diagram your databases",
+    "longDescription": "KeelDB is a desktop database studio for MySQL, PostgreSQL, SQLite, Supabase and Neon: browse and edit data, manage structure and foreign keys, run SQL with safety guards (affected-row preview, transaction sandbox, automatic snapshots with undo), migrate data between engines with column mapping and checkpoint/resume, design schemas in a dbdiagram-style DBML editor with AI assistance, and monitor database health.",
+    "license": "MIT",
+    "licenseFile": "../../LICENSE",
     "icon": [
       "icons/32x32.png",
+      "icons/64x64.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
+      "icons/icon.png",
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/keeldb-backend"]
+    "externalBin": ["binaries/keeldb-backend"],
+    "linux": {
+      "deb": {
+        "section": "database",
+        "files": {
+          "/usr/share/metainfo/net.fiberathome.keeldb.metainfo.xml": "metainfo/net.fiberathome.keeldb.metainfo.xml"
+        }
+      },
+      "rpm": {
+        "files": {
+          "/usr/share/metainfo/net.fiberathome.keeldb.metainfo.xml": "metainfo/net.fiberathome.keeldb.metainfo.xml"
+        }
+      }
+    }
   }
 }

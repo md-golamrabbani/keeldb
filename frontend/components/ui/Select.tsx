@@ -32,7 +32,8 @@ export default function Select({
         )}
         style={{ background: "var(--surface)", borderColor: "var(--border-strong)", color: "var(--text)" }}
       >
-        <RS.Value placeholder={placeholder} />
+        {/* min-w-0 + truncate: long option labels ellipsize instead of wrapping the trigger */}
+        <span className="min-w-0 flex-1 truncate text-left"><RS.Value placeholder={placeholder} /></span>
         <RS.Icon><ChevronDown size={15} style={{ color: "var(--text-faint)" }} /></RS.Icon>
       </RS.Trigger>
       <RS.Portal>
