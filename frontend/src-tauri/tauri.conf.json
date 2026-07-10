@@ -47,12 +47,12 @@
       "deb": {
         "section": "database",
         "files": {
-          "/usr/share/metainfo/net.fiberathome.keeldb.metainfo.xml": "metainfo/net.fiberathome.keeldb.metainfo.xml"
+          "/usr/share/metainfo/com.keeldb.user.metainfo.xml": "metainfo/com.keeldb.user.metainfo.xml"
         }
       },
       "rpm": {
         "files": {
-          "/usr/share/metainfo/net.fiberathome.keeldb.metainfo.xml": "metainfo/net.fiberathome.keeldb.metainfo.xml"
+          "/usr/share/metainfo/com.keeldb.user.metainfo.xml": "metainfo/com.keeldb.user.metainfo.xml"
         }
       }
     }

@@ -6,6 +6,9 @@
   <metadata_license>MIT</metadata_license>
   <project_license>MIT</project_license>
   <developer_name>Md. Golam Rabbani</developer_name>
+  <developer id="com.keeldb">
+    <name>Md. Golam Rabbani</name>
+  </developer>
   <description>
     <p>
       KeelDB is a desktop database studio for MySQL, PostgreSQL, SQLite,
@@ -33,8 +36,12 @@
       <image>https://raw.githubusercontent.com/md-golamrabbani/MigrationStudio/main/screenshots/diagrams.png</image>
     </screenshot>
     <screenshot>
-      <caption>Data migration wizard with column mapping</caption>
-      <image>https://raw.githubusercontent.com/md-golamrabbani/MigrationStudio/main/screenshots/migrate.png</image>
+      <caption>Schema diagram (ERD) of a live database</caption>
+      <image>https://raw.githubusercontent.com/md-golamrabbani/MigrationStudio/main/screenshots/erd.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>SQL editor with safety guard, AI assist and query plan analysis</caption>
+      <image>https://raw.githubusercontent.com/md-golamrabbani/MigrationStudio/main/screenshots/sqleditor.png</image>
     </screenshot>
   </screenshots>
   <url type="homepage">https://github.com/md-golamrabbani/MigrationStudio</url>
