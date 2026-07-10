@@ -22,6 +22,21 @@
     </p>
   </description>
   <launchable type="desktop-id">KeelDB.desktop</launchable>
+  <icon type="stock">keeldb</icon>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Database explorer — browse and edit data with safety guards</caption>
+      <image>https://raw.githubusercontent.com/md-golamrabbani/MigrationStudio/main/screenshots/explorer.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>ER diagram designer with DBML and AI assistance</caption>
+      <image>https://raw.githubusercontent.com/md-golamrabbani/MigrationStudio/main/screenshots/diagrams.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Data migration wizard with column mapping</caption>
+      <image>https://raw.githubusercontent.com/md-golamrabbani/MigrationStudio/main/screenshots/migrate.png</image>
+    </screenshot>
+  </screenshots>
   <url type="homepage">https://github.com/md-golamrabbani/MigrationStudio</url>
   <url type="bugtracker">https://github.com/md-golamrabbani/MigrationStudio/issues</url>
   <categories>

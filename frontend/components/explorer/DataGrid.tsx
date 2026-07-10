@@ -377,9 +377,21 @@ export default function DataGrid({
                     const base = "max-w-[20rem] truncate border-b px-2 py-1 font-mono";
                     return (
                       <td key={c} className={base} style={c === 0 ? stCell(firstLeft, rowBg) : undefined}
-                        onDoubleClick={() => { if (editable && !fk) { setEditValue(cell == null ? "" : String(cell)); setEditing({ r, c }); } }}
-                        title={fk ? `View ${fk.table} where ${fk.column} = ${cell}` : editable ? "Double-click to edit" : String(cell ?? "")}>
+                        onDoubleClick={() => { if (editable) { setEditValue(cell == null ? "" : String(cell)); setEditing({ r, c }); } }}
+                        title={fk ? `Click value to peek at ${fk.table} · double-click to change` : editable ? "Double-click to edit" : String(cell ?? "")}>
                         {isEditing && colInfo ? (
+                          fk && colInfo.fk_target ? (
+                            // FK cells edit via a searchable dropdown of real parent keys
+                            <FkValueSelect
+                              connId={connId}
+                              schema={schema}
+                              fkTarget={colInfo.fk_target}
+                              nullable={colInfo.nullable}
+                              className="!h-7 !py-0 !text-xs min-w-[10rem]"
+                              value={editValue}
+                              onChange={(v) => commitEdit(r, c, v)}
+                            />
+                          ) : (
                           <CellEditor
                             col={colInfo}
                             autoFocus
@@ -393,6 +405,7 @@ export default function DataGrid({
                               if (e.key === "Escape") setEditing(null);
                             }}
                           />
+                          )
                         ) : cell == null ? <span className="faint">null</span>
                           : fk ? (
                             <button className="inline-flex items-center gap-1 underline decoration-dotted underline-offset-2" style={{ color: "var(--accent)" }}
