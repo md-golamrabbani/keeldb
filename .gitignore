@@ -26,3 +26,5 @@ frontend/src-tauri/icons/*
 *.spec.bak
 
 .DS_Store
+
+keeldb-builds
