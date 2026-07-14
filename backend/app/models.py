@@ -112,6 +112,21 @@ class ColumnMap(BaseModel):
     is_conflict_key: bool = False
 
 
+class SupabaseAuthConfig(BaseModel):
+    """Opt-in enrichment for pushing users into Supabase's `auth.users` table.
+
+    Completely separate from normal migrations: nothing here runs unless
+    `enabled` is True. When on, each row is filled with the fields Supabase Auth
+    requires but a plain source table doesn't carry — a generated UUID `id`, a
+    bcrypt-hashed common password every user shares, and a confirmed-email
+    timestamp so they can log in. Every other `auth.users` column is left to
+    Supabase's own defaults. See transform/../supabase_auth.py."""
+    enabled: bool = False
+    common_password: str = ""      # applied (bcrypt-hashed) to every migrated user
+    email_column: str = "email"    # target column holding the email (id is derived from it)
+    confirm_email: bool = True     # set email_confirmed_at so users can sign in immediately
+
+
 class MappingProfile(BaseModel):
     id: str = ""
     name: str
@@ -129,6 +144,8 @@ class MappingProfile(BaseModel):
     # Where the transformed rows go: push to the target DB, or download a file.
     output_mode: OutputMode = "push"
     include_ddl: bool = True  # SQL export: emit CREATE TABLE before the INSERTs
+    # Opt-in Supabase Auth (auth.users) enrichment — inert unless enabled.
+    supabase_auth: SupabaseAuthConfig = Field(default_factory=SupabaseAuthConfig)
 
 
 class MigrationProject(BaseModel):

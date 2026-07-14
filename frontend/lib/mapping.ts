@@ -21,5 +21,11 @@ export function buildMapping(w: WizardSnapshot): MappingProfile {
     stop_on_error: w.stopOnError,
     output_mode: w.outputMode,
     include_ddl: w.includeDdl,
+    supabase_auth: {
+      enabled: w.supabaseAuthEnabled,
+      common_password: w.supabaseAuthPassword,
+      email_column: "email",
+      confirm_email: w.supabaseAuthConfirm,
+    },
   };
 }

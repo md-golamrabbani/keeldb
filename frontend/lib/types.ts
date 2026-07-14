@@ -318,6 +318,33 @@ export interface ColumnMap {
   is_conflict_key: boolean;
 }
 
+export interface SupabaseAuthConfig {
+  enabled: boolean;
+  common_password: string;
+  email_column: string;
+  confirm_email: boolean;
+}
+
+export interface CreateAuthUsersParams {
+  source_conn_id: string;
+  source_schema: string;
+  source_table: string;
+  email_column: string;
+  supabase_url: string;
+  service_role_key: string;
+  password_mode: "email_prefix" | "common";
+  common_password: string;
+  confirm_email: boolean;
+  dry_run: boolean;
+}
+
+export type SupabaseAuthEvent =
+  | { event: "start"; total: number; dry_run: boolean }
+  | { event: "preview"; email: string; password: string }
+  | { event: "user_error"; email: string; status: number; message: string }
+  | { event: "progress"; processed: number; total: number; created: number; skipped: number; failed: number }
+  | { event: "done"; total: number; created: number; skipped: number; failed: number; dry_run: boolean };
+
 export interface MappingProfile {
   id: string;
   name: string;
@@ -334,6 +361,7 @@ export interface MappingProfile {
   stop_on_error: boolean;
   output_mode: OutputMode;
   include_ddl: boolean;
+  supabase_auth?: SupabaseAuthConfig;
 }
 
 export interface TransformedPreviewRow {

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
-import { IconArrows, IconBookmark, IconColumns, IconDatabase, IconDownload, IconTable, IconWrench } from "./icons";
+import { IconArrows, IconBookmark, IconColumns, IconDatabase, IconDownload, IconLock, IconTable, IconWrench } from "./icons";
 
 export const APP_VERSION = "0.1.0";
 const RELEASES_API = "https://api.github.com/repos/md-golamrabbani/MigrationStudio/releases/latest";
@@ -42,6 +42,7 @@ const LINKS = [
   { href: "/diagrams", label: "Diagrams", icon: IconColumns, match: (p: string) => p.startsWith("/diagrams") },
   { href: "/toolkit", label: "Toolkit", icon: IconWrench, match: (p: string) => p.startsWith("/toolkit") },
   { href: "/profiles", label: "Saved Migrations", icon: IconBookmark, match: (p: string) => p.startsWith("/profiles") },
+  { href: "/supabase-auth", label: "Supabase Auth", icon: IconLock, match: (p: string) => p.startsWith("/supabase-auth") },
 ];
 
 export default function TopNav() {

@@ -25,12 +25,54 @@ _ZERO_DATE_PREFIX = "0000-00-00"
 _BOOL_TRUE = {"1", "true", "t", "yes", "y", "on"}
 _BOOL_FALSE = {"0", "false", "f", "no", "n", "off"}
 
+# Formats tried when normalising a legacy date/timestamp string to a native
+# object. Order mirrors transform.registry so ambiguous dash/slash dates get
+# the same day-first interpretation the manual cast uses. Separators are
+# distinct, so e.g. '17-09-1968' (DD-MM-YYYY) can never be read as month 17.
+_DATETIME_FORMATS = (
+    "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M",
+    "%d/%m/%Y %H:%M:%S", "%m/%d/%Y %H:%M:%S",
+    "%d-%m-%Y %H:%M:%S", "%d.%m.%Y %H:%M:%S",
+)
+_DATE_FORMATS = ("%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%d.%m.%Y")
+
 
 def _python_type(coltype: Any):
     try:
         return coltype.python_type
     except (NotImplementedError, AttributeError):
         return None
+
+
+def _wants_time_component(py: Any, type_name: str) -> Any:
+    """True → timestamp, False → date, None → time-only/unknown (leave as-is)."""
+    if py is datetime:
+        return True
+    if py is date:
+        return False
+    if py is time:
+        return None
+    if "timestamp" in type_name or "datetime" in type_name:
+        return True
+    if "date" in type_name:
+        return False
+    return None  # pure TIME columns are unambiguous; don't touch them
+
+
+def _normalize_date_string(s: str, py: Any, type_name: str) -> Any:
+    """Parse a legacy date/timestamp string into a native object so the value
+    no longer depends on the server's datestyle. Returns None if unparseable,
+    leaving the original string for Postgres to interpret as before."""
+    want_time = _wants_time_component(py, type_name)
+    if want_time is None:
+        return None
+    for fmt in _DATETIME_FORMATS + _DATE_FORMATS:
+        try:
+            dt = datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+        return dt if want_time else dt.date()
+    return None
 
 
 def coerce_value(value: Any, coltype: Any) -> Any:
@@ -50,7 +92,8 @@ def coerce_value(value: Any, coltype: Any) -> Any:
     if py in (date, datetime, time) or any(k in type_name for k in ("date", "time")):
         if s == "" or s.startswith(_ZERO_DATE_PREFIX) or set(s) <= {"0", "-", ":", " "}:
             return None
-        return value
+        parsed = _normalize_date_string(s, py, type_name)
+        return parsed if parsed is not None else value
 
     if py in (int, float, Decimal) or any(k in type_name for k in ("int", "numeric", "decimal", "float", "real", "double", "money")):
         return None if s == "" else value

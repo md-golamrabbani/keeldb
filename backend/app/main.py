@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import auth
-from .api import admin, ai, alerts, auth as auth_api, connections, diagrams, explorer, introspect, mappings, migrate, portable, preview, projects, snippets
+from .api import admin, ai, alerts, auth as auth_api, connections, diagrams, explorer, introspect, mappings, migrate, portable, preview, projects, snippets, supabase_users
 
 app = FastAPI(title="KeelDB", version="0.1.0")
 
@@ -52,6 +52,7 @@ app.include_router(alerts.router)
 app.include_router(portable.router)
 app.include_router(ai.router)
 app.include_router(diagrams.router)
+app.include_router(supabase_users.router)
 
 
 @app.get("/health")

@@ -1,5 +1,5 @@
 """MySQL -> PostgreSQL value sanitization (zero-dates, empty strings, bools)."""
-from datetime import date
+from datetime import date, datetime
 
 import sqlalchemy as sa
 
@@ -14,8 +14,20 @@ def test_zero_date_and_empty_to_null():
     assert coerce_value("", sa.Numeric()) is None
 
 
+def test_date_strings_normalized_to_native_objects():
+    # ISO stays correct, but is now a native date so it can't depend on datestyle.
+    assert coerce_value("2020-03-17", sa.Date()) == date(2020, 3, 17)
+    # DD-MM-YYYY is read day-first, not as an invalid month 17 (the bug fixed here).
+    assert coerce_value("17-09-1968", sa.Date()) == date(1968, 9, 17)
+    assert coerce_value("17/09/1968", sa.Date()) == date(1968, 9, 17)
+    # Timestamp columns keep the time component; date-only values land at midnight.
+    assert coerce_value("2021-05-01 08:30:00", sa.DateTime()) == datetime(2021, 5, 1, 8, 30)
+    assert coerce_value("17-09-1968", sa.DateTime()) == datetime(1968, 9, 17, 0, 0)
+    # Unrecognisable strings are left for Postgres to interpret as before.
+    assert coerce_value("not-a-date", sa.Date()) == "not-a-date"
+
+
 def test_valid_values_pass_through():
-    assert coerce_value("2020-03-17", sa.Date()) == "2020-03-17"
     assert coerce_value("42", sa.Integer()) == "42"
     assert coerce_value("hello", sa.String()) == "hello"
     assert coerce_value("", sa.String()) == ""            # empty string is valid for text
@@ -49,4 +61,4 @@ def test_sanitize_rows_for_pg():
     ]
     out = sanitize_rows_for_pg(t, rows)
     assert out[0]["date"] is None and out[0]["otp_verify"] is None
-    assert out[1]["date"] == "2021-05-01"
+    assert out[1]["date"] == date(2021, 5, 1)

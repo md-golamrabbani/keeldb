@@ -11,6 +11,8 @@ import type {
   ConnectionProfile,
   ConnectionProfileIn,
   ConstraintList,
+  CreateAuthUsersParams,
+  SupabaseAuthEvent,
   DependentsResult,
   DuplicateResult,
   ExportResult,
@@ -433,4 +435,33 @@ export async function runProject(
     for (const line of lines) if (line.trim()) onEvent(JSON.parse(line) as ProjectEvent);
   }
   if (buffer.trim()) onEvent(JSON.parse(buffer) as ProjectEvent);
+}
+
+/** Stream a Supabase Auth bulk user creation (Admin API, one call per user). */
+export async function createSupabaseAuthUsers(
+  params: CreateAuthUsersParams,
+  onEvent: (e: SupabaseAuthEvent) => void
+): Promise<void> {
+  const res = await fetch(`${await resolveApiBase()}/supabase-auth/create-users`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(params),
+  });
+  if (!res.ok || !res.body) {
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail ?? detail; } catch {}
+    throw new Error(detail);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) if (line.trim()) onEvent(JSON.parse(line) as SupabaseAuthEvent);
+  }
+  if (buffer.trim()) onEvent(JSON.parse(buffer) as SupabaseAuthEvent);
 }

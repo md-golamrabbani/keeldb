@@ -24,6 +24,10 @@ interface WizardState {
   includeDdl: boolean;
   mappingName: string;
   loadedMappingId: string;
+  // Opt-in Supabase Auth (auth.users) migration — inert unless enabled.
+  supabaseAuthEnabled: boolean;
+  supabaseAuthPassword: string;
+  supabaseAuthConfirm: boolean;
 
   setStep: (s: number) => void;
   setConnections: (c: ConnectionProfile[]) => void;
@@ -44,6 +48,9 @@ interface WizardState {
         | "includeDdl"
         | "mappingName"
         | "loadedMappingId"
+        | "supabaseAuthEnabled"
+        | "supabaseAuthPassword"
+        | "supabaseAuthConfirm"
       >
     >
   ) => void;
@@ -68,6 +75,9 @@ export const useWizard = create<WizardState>((set) => ({
   includeDdl: true,
   mappingName: "",
   loadedMappingId: "",
+  supabaseAuthEnabled: false,
+  supabaseAuthPassword: "",
+  supabaseAuthConfirm: true,
 
   setStep: (step) => set({ step }),
   setConnections: (connections) => set({ connections }),
@@ -97,6 +107,9 @@ export const useWizard = create<WizardState>((set) => ({
       includeDdl: true,
       mappingName: "",
       loadedMappingId: "",
+      supabaseAuthEnabled: false,
+      supabaseAuthPassword: "",
+      supabaseAuthConfirm: true,
     }),
 }));
 

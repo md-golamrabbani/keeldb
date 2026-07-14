@@ -44,6 +44,7 @@ export default function MappingCanvas() {
   const {
     sourceColumns, targetColumns, columnMaps, setColumnMaps, patchColumnMap,
     conflictStrategy, batchSize, whereFilter, stopOnError, setGlobals,
+    outputMode, supabaseAuthEnabled, supabaseAuthPassword, supabaseAuthConfirm,
   } = useWizard();
 
   const targetByName = new Map(targetColumns.map((c) => [c.name, c]));
@@ -165,6 +166,44 @@ export default function MappingCanvas() {
           Stop on error
         </label>
       </div>
+
+      {outputMode === "push" && (
+        <div className="card card-pad space-y-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <Checkbox checked={supabaseAuthEnabled}
+              onCheckedChange={(v) => setGlobals({ supabaseAuthEnabled: v })} />
+            Supabase Auth users mode
+          </label>
+          <p className="text-xs muted">
+            Turn on only when the target is Supabase&rsquo;s <code>auth.users</code> table. Each row
+            gets a generated <code>id</code>, the common password below (bcrypt-hashed), and a
+            confirmed email — so you only need to map the <code>email</code> column. All other
+            auth.users columns fall back to Supabase&rsquo;s defaults.
+          </p>
+          {supabaseAuthEnabled && (
+            <div className="flex flex-wrap items-end gap-5">
+              <div>
+                <label className="label">Common password (all users)</label>
+                <input className="input !w-64" type="text" placeholder="e.g. Welcome@123"
+                  value={supabaseAuthPassword}
+                  onChange={(e) => setGlobals({ supabaseAuthPassword: e.target.value })} />
+              </div>
+              <label className="flex items-center gap-2 pb-2.5 text-sm">
+                <Checkbox checked={supabaseAuthConfirm}
+                  onCheckedChange={(v) => setGlobals({ supabaseAuthConfirm: v })} />
+                Mark email confirmed (allow immediate login)
+              </label>
+            </div>
+          )}
+          {supabaseAuthEnabled && (
+            <p className="text-xs muted">
+              After the push, run the <code>auth.identities</code> insert once in Supabase so
+              email/password login works (see docs). Set the conflict strategy to
+              <b> skip duplicates</b> for safe re-runs.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

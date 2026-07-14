@@ -25,6 +25,10 @@ class Connector(ABC):
         self._engine: Optional[Engine] = None
         self._tunnel = None  # sshtunnel.SSHTunnelForwarder
         self._pkey_path: Optional[str] = None
+        # Reflected tables are cached for the connector's lifetime (one migration
+        # run). Reflection is several catalog round-trips, so doing it per batch
+        # dominates a large push — reflect once per (schema, table) instead.
+        self._table_cache: dict[tuple[Optional[str], str], sa.Table] = {}
         # Effective host/port to connect to — replaced by the SSH tunnel's local
         # bind address when a tunnel is active.
         self.effective_host = profile.host
@@ -78,6 +82,7 @@ class Connector(ABC):
         return self._engine
 
     def dispose(self) -> None:
+        self._table_cache.clear()
         if self._engine is not None:
             self._engine.dispose()
             self._engine = None
@@ -153,7 +158,12 @@ class Connector(ABC):
         return out
 
     def _table(self, schema: str, table: str) -> sa.Table:
-        return sa.Table(table, sa.MetaData(), autoload_with=self.engine, schema=schema or None)
+        key = (schema or None, table)
+        cached = self._table_cache.get(key)
+        if cached is None:
+            cached = sa.Table(table, sa.MetaData(), autoload_with=self.engine, schema=schema or None)
+            self._table_cache[key] = cached
+        return cached
 
     def sample_rows(self, schema: str, table: str, limit: int = 20) -> list[dict[str, Any]]:
         t = self._table(schema, table)

@@ -21,6 +21,7 @@ from .connectors import connector_for
 from .models import ColumnMap, MappingProfile, Report, RowError, SavedConnection
 from .sinks import CSVSink, DBSink, EXPORT_EXT, JSONSink, SQLFileSink, Sink
 from .store.store import DATA_DIR
+from .supabase_auth import enricher_for
 from .transform.expr import eval_expr
 from .transform.registry import apply_cast
 
@@ -65,6 +66,46 @@ def set_checkpoint(mapping_id: str, rows_read: int, done: bool = False) -> None:
     else:
         items[mapping_id] = {"rows_read": rows_read}
     _save_checkpoints(items)
+
+
+def _short_db_error(exc: Exception) -> str:
+    """Trim the driver's echoed SQL/parameters so the message names the problem
+    (constraint, bad value) instead of the full multi-row INSERT statement."""
+    msg = str(exc)
+    idx = msg.find("[SQL:")
+    if idx != -1:
+        msg = msg[:idx]
+    return " ".join(msg.split()).strip()
+
+
+def _resilient_write(
+    sink: Sink, rows: list[dict[str, Any]], indices: list[int]
+) -> Iterator[tuple]:
+    """Write `rows` (parallel to source `indices`), isolating bad rows so the
+    good ones still land, yielding outcomes as they happen so the caller can
+    stream progress instead of waiting for the whole batch.
+
+    A multi-row INSERT is all-or-nothing: one bad row (duplicate key, bad value,
+    NOT NULL / FK violation) rejects the whole batch. Since each write_batch runs
+    in its own transaction, a rejected batch leaves nothing written, so we split
+    and retry the halves; a lone row that still fails is a genuine offender. The
+    happy path writes in one shot.
+
+    Yields ("written", count) / ("skipped", count) / ("error", row_index, msg)."""
+    try:
+        r = sink.write_batch(rows)
+    except Exception as exc:
+        if len(rows) == 1:
+            yield ("error", indices[0], _short_db_error(exc))
+            return
+        mid = len(rows) // 2
+        yield from _resilient_write(sink, rows[:mid], indices[:mid])
+        yield from _resilient_write(sink, rows[mid:], indices[mid:])
+        return
+    if r["written"]:
+        yield ("written", r["written"])
+    if r["skipped"]:
+        yield ("skipped", r["skipped"])
 
 
 def transform_row(
@@ -137,6 +178,8 @@ def run_migration(
     enabled = [m for m in mapping.column_maps if m.enabled and m.target_col]
     target_cols = [m.target_col for m in enabled]
     source_cols = sorted({m.source_col for m in mapping.column_maps if m.enabled})
+    # Opt-in Supabase auth.users enrichment — None for every ordinary migration.
+    auth_enricher = enricher_for(mapping.supabase_auth)
 
     export_id = uuid.uuid4().hex if (mapping.output_mode != "push" and not dry_run) else None
     sink: Optional[Sink] = None
@@ -165,6 +208,7 @@ def run_migration(
             where=mapping.where_filter,
         ):
             good_rows: list[dict[str, Any]] = []
+            good_indices: list[int] = []
             for row in batch:
                 row_index += 1
                 if row_index <= resume_offset:
@@ -181,23 +225,58 @@ def run_migration(
                         report.aborted = True
                         break
                     continue
+                if auth_enricher is not None:
+                    transformed = auth_enricher.enrich(transformed)
                 good_rows.append(transformed)
+                good_indices.append(row_index)
 
             if good_rows and not dry_run and sink is not None:
-                try:
-                    result = sink.write_batch(good_rows)
-                    report.rows_written += result["written"]
-                    report.rows_skipped += result["skipped"]
-                    if mapping.output_mode == "push":
-                        set_checkpoint(mapping.id, row_index)
-                except Exception as exc:
-                    report.rows_errored += len(good_rows)
-                    msg = f"batch write failed: {exc}"
-                    if len(report.errors) < MAX_LOGGED_ERRORS:
-                        report.errors.append(RowError(row_index=row_index, message=msg))
-                    yield {"event": "row_error", "row_index": row_index, "column": "", "message": msg}
-                    if mapping.stop_on_error:
-                        report.aborted = True
+                # Isolate any bad rows so one duplicate/invalid value doesn't sink
+                # the whole batch — good rows still land and we report the culprits.
+                # Consume outcomes as they stream so a slow row-by-row fallback
+                # (e.g. re-run into a table with existing rows) stays visible.
+                batch_written = batch_skipped = batch_errored = 0
+                first_error = ""
+                for outcome in _resilient_write(sink, good_rows, good_indices):
+                    if outcome[0] == "written":
+                        report.rows_written += outcome[1]
+                        batch_written += outcome[1]
+                    elif outcome[0] == "skipped":
+                        report.rows_skipped += outcome[1]
+                        batch_skipped += outcome[1]
+                    else:  # ("error", row_index, msg)
+                        idx, msg = outcome[1], outcome[2]
+                        report.rows_errored += 1
+                        batch_errored += 1
+                        first_error = first_error or msg
+                        if len(report.errors) < MAX_LOGGED_ERRORS:
+                            report.errors.append(RowError(row_index=idx, message=msg))
+                        yield {"event": "row_error", "row_index": idx, "column": "", "message": msg}
+                    yield {
+                        "event": "progress",
+                        "rows_read": report.rows_read,
+                        "rows_written": report.rows_written,
+                        "rows_skipped": report.rows_skipped,
+                        "rows_errored": report.rows_errored,
+                    }
+                if mapping.output_mode == "push":
+                    set_checkpoint(mapping.id, row_index)
+                # A whole batch failing while nothing has ever been written means the
+                # target is structurally incompatible (missing/renamed column, type or
+                # table mismatch) — every remaining batch would fail identically, so
+                # stop now instead of grinding the entire table row by row.
+                whole_batch_failed = batch_written == 0 and batch_skipped == 0 and batch_errored == len(good_rows)
+                if whole_batch_failed and report.rows_written == 0:
+                    report.aborted = True
+                    yield {
+                        "event": "fatal",
+                        "message": "aborted: the entire first batch failed to write — the target "
+                                   "table looks incompatible with the mapping (check that column "
+                                   "names and types match, and the table exists). "
+                                   f"First error: {first_error}",
+                    }
+                elif batch_errored and mapping.stop_on_error:
+                    report.aborted = True
             elif good_rows and dry_run:
                 report.rows_written += len(good_rows)  # "would write"
 

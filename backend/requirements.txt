@@ -12,3 +12,5 @@ paramiko>=3.4,<4
 # Optional: enables AI assist (natural-language → SQL) when ANTHROPIC_API_KEY is set.
 anthropic>=0.40
 keyring>=25
+# Bcrypt hashing for the opt-in Supabase Auth (auth.users) migration feature.
+bcrypt>=4.0

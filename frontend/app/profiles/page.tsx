@@ -51,6 +51,9 @@ export default function ProfilesPage() {
       conflictStrategy: m.conflict_strategy, batchSize: m.batch_size, whereFilter: m.where_filter,
       stopOnError: m.stop_on_error, outputMode: m.output_mode, includeDdl: m.include_ddl,
       mappingName: m.name, loadedMappingId: m.id,
+      supabaseAuthEnabled: m.supabase_auth?.enabled ?? false,
+      supabaseAuthPassword: m.supabase_auth?.common_password ?? "",
+      supabaseAuthConfirm: m.supabase_auth?.confirm_email ?? true,
     });
     router.push("/migrate");
   };
