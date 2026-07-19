@@ -56,17 +56,35 @@ _UA = "KeelDB/1.0 (+https://github.com/md-golamrabbani/MigrationStudio)"
 
 
 def _ssl_context() -> ssl.SSLContext:
-    """Build a verifying SSL context that works on machines whose Python has no
-    usable CA store. Bundled/packaged Python (e.g. the desktop sidecar on a
-    fresh Windows PC) often ships without a system trust store, which surfaces
-    as "SSL: CERTIFICATE_VERIFY_FAILED ... unable to get local issuer
-    certificate". Prefer certifi's bundled roots when available, then fall back
-    to the OS trust store — verification stays ON in both cases."""
+    """Build a verifying SSL context that works everywhere the desktop app runs.
+
+    The packaged sidecar on a fresh (or corporate) PC frequently hit
+    "SSL: CERTIFICATE_VERIFY_FAILED ... unable to get local issuer certificate".
+    Two independent causes: (a) a frozen Python that can't reach the OS trust
+    store, and (b) an antivirus / corporate proxy that intercepts TLS with a
+    private root CA that only lives in the OS store. No single source fixes both,
+    so we layer three, verification always ON:
+
+      1. OS-native trust store via `truststore` — includes the machine's own
+         roots (so corporate/AV interception proxies validate) and uses a
+         different code path than CPython's default, which is what failed.
+      2. certifi's bundled public roots — deterministic, works even when a
+         frozen build genuinely can't read the OS store.
+      3. Python's default resolution — last resort.
+    """
+    try:
+        import truststore
+        return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    except Exception:
+        pass
     try:
         import certifi
-        return ssl.create_default_context(cafile=certifi.where())
+        cafile = certifi.where()
+        if cafile and os.path.exists(cafile):
+            return ssl.create_default_context(cafile=cafile)
     except Exception:
-        return ssl.create_default_context()
+        pass
+    return ssl.create_default_context()
 
 
 _SSL_CTX = _ssl_context()

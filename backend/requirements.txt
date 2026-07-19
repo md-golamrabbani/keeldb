@@ -12,8 +12,10 @@ paramiko>=3.4,<4
 # Optional: enables AI assist (natural-language → SQL) when ANTHROPIC_API_KEY is set.
 anthropic>=0.40
 keyring>=25
-# CA trust store for outbound HTTPS (AI providers) — the bundled desktop Python
-# has no system trust store, so certifi's roots prevent CERTIFICATE_VERIFY_FAILED.
+# CA trust for outbound HTTPS (AI providers) — prevents CERTIFICATE_VERIFY_FAILED
+# on packaged builds and corporate/AV-proxied networks. truststore uses the OS
+# trust store (incl. interception-proxy roots); certifi is the bundled fallback.
+truststore>=0.9
 certifi>=2024.0
 # Bcrypt hashing for the opt-in Supabase Auth (auth.users) migration feature.
 bcrypt>=4.0

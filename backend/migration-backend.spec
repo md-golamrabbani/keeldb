@@ -11,8 +11,11 @@ for pkg in (
     "psycopg", "psycopg_binary", "sqlalchemy", "pymysql", "cryptography",
     "paramiko", "sshtunnel", "fastapi", "starlette", "uvicorn", "anyio",
     "pydantic", "pydantic_core",
-    # certifi ships cacert.pem — without it the frozen sidecar has no CA store
-    # and outbound HTTPS to AI providers fails with CERTIFICATE_VERIFY_FAILED.
+    # TLS trust for outbound HTTPS to AI providers. truststore reaches the OS
+    # trust store (incl. corporate/AV proxy roots); certifi ships cacert.pem as
+    # the bundled fallback. Without these the frozen sidecar hits
+    # CERTIFICATE_VERIFY_FAILED.
+    "truststore",
     "certifi",
 ):
     try:
