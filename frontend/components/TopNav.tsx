@@ -51,7 +51,7 @@ export default function TopNav() {
   return (
     <header className="z-30 shrink-0 border-b backdrop-blur"
       style={{ background: "color-mix(in srgb, var(--surface) 88%, transparent)", borderColor: "var(--border)" }}>
-      <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-5 px-4 sm:px-6">
+      <div className="flex h-14 w-full items-center gap-5 px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5 shrink-0" aria-label="KeelDB home">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.svg" alt="" width={28} height={28} />

@@ -199,6 +199,8 @@ export default function SqlEditor({
   const [usedLimit, setUsedLimit] = useState(1000);
   const [colCache, setColCache] = useState<Record<string, string[]>>({});
   const [guard, setGuard] = useState<StmtInfo[] | null>(null); // pending write awaiting confirmation
+  const [selection, setSelection] = useState(""); // highlighted SQL in the editor, if any
+  const runTargetRef = useRef(""); // the SQL actually sent to run() (selection or full)
   const [plan, setPlan] = useState<QueryPlan | null>(null);
   const [planError, setPlanError] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
@@ -462,9 +464,10 @@ export default function SqlEditor({
     setResultTab(0);
     setErrorHelp(null);
     try {
+      const target = runTargetRef.current || sql;
       const res = sandboxId
-        ? await api.sandboxRun(connId, sandboxId, sql, rowLimit)
-        : await api.runSql(connId, sql, schema, rowLimit, timeoutS, autoSnapshot);
+        ? await api.sandboxRun(connId, sandboxId, target, rowLimit)
+        : await api.runSql(connId, target, schema, rowLimit, timeoutS, autoSnapshot);
       setResult(res);
       if (res.sandbox?.writes != null) setSandboxWrites(res.sandbox.writes);
       if (res.snapshot?.id) setLastSnapshot(res.snapshot);
@@ -479,7 +482,11 @@ export default function SqlEditor({
   // Safe Query Assistant: reads run immediately; writes go through the guard.
   // In a sandbox, writes run directly — nothing persists until Commit.
   const run = async () => {
-    const stmts = analyzeSql(sql);
+    // Run just the highlighted statement(s) when there's a selection, else the
+    // whole editor — Workbench-style.
+    const target = selection.trim() ? selection : sql;
+    runTargetRef.current = target;
+    const stmts = analyzeSql(target);
     const writes = stmts.filter((s) => s.isWrite);
     if (writes.length === 0 || sandboxId) { await execute(); return; }
     if (readOnly) {
@@ -548,6 +555,7 @@ export default function SqlEditor({
           value={sql}
           onChange={setSql}
           onRun={run}
+          onSelectionChange={setSelection}
           minHeight={168}
           errorLine={lintError?.line ?? null}
           tableNames={tableNames}
@@ -624,8 +632,9 @@ export default function SqlEditor({
               className="btn btn-primary btn-sm py-2"
               onClick={run}
               disabled={running}
+              title={selection.trim() ? "Run only the highlighted selection (Ctrl/⌘+Enter)" : "Run the query (Ctrl/⌘+Enter)"}
             >
-              <IconPlay width={12} height={12} /> {running ? "Running…" : "Run"}
+              <IconPlay width={12} height={12} /> {running ? "Running…" : selection.trim() ? "Run selection" : "Run"}
             </button>
           </div>
         </div>
@@ -838,7 +847,7 @@ export default function SqlEditor({
         <GuardDialog
           connId={connId}
           schema={schema}
-          sql={sql}
+          sql={runTargetRef.current || sql}
           statements={guard}
           environment={environment}
           onConfirm={execute}

@@ -54,6 +54,8 @@ export default function DataGrid({
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState<{ r: number; c: number } | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [pending, setPending] = useState<Record<string, Cell>>({}); // staged cell edits, key `${r}::${c}`
+  const [saving, setSaving] = useState(false);
   const [exportMenu, setExportMenu] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newRow, setNewRow] = useState<Record<string, string>>({});
@@ -97,18 +99,59 @@ export default function DataGrid({
     return pk;
   };
 
-  const commitEdit = async (r: number, c: number, raw: string) => {
+  // Workbench-style editing: cell edits are STAGED (not written immediately),
+  // then applied together via "Save changes" — or thrown away via "Revert".
+  const cellKey = (r: number, c: number) => `${r}::${c}`;
+  const pendingCount = Object.keys(pending).length;
+  const dirty = pendingCount > 0;
+
+  const stageEdit = (r: number, c: number, raw: string) => {
     setEditing(null);
     const row = data!.rows[r];
-    const col = colnames[c];
     const value: Cell = raw === "" ? null : raw;
-    if (String(row[c] ?? "") === String(value ?? "")) return;
-    try {
-      await api.updateRow(connId, schema, table, pkFor(row), { [col]: value });
-      setData({ ...data!, rows: data!.rows.map((rr, i) => (i === r ? rr.map((cc, j) => (j === c ? value : cc)) : rr)) });
-      flash("Row updated");
-    } catch (e) { setError(String(e)); }
+    const key = cellKey(r, c);
+    setPending((p) => {
+      const next = { ...p };
+      // Editing a cell back to its original value clears the pending change.
+      if (String(row[c] ?? "") === String(value ?? "")) delete next[key];
+      else next[key] = value;
+      return next;
+    });
   };
+
+  const applyEdits = async () => {
+    if (!data || !dirty) return;
+    // Group staged cell changes by row so each row is written in one UPDATE.
+    const byRow = new Map<number, Record<string, Cell>>();
+    for (const [key, value] of Object.entries(pending)) {
+      const [rs, cs] = key.split("::").map(Number);
+      const m = byRow.get(rs) ?? {};
+      m[colnames[cs]] = value;
+      byRow.set(rs, m);
+    }
+    setSaving(true); setError("");
+    try {
+      for (const [r, changes] of byRow) {
+        await api.updateRow(connId, schema, table, pkFor(data.rows[r]), changes);
+      }
+      // Reflect the saved values locally without a full reload.
+      setData((d) => d && ({
+        ...d,
+        rows: d.rows.map((rr, i) => {
+          const changes = byRow.get(i);
+          return changes ? rr.map((cc, j) => (colnames[j] in changes ? changes[colnames[j]] : cc)) : rr;
+        }),
+      }));
+      setPending({});
+      flash(`Saved ${pendingCount} change${pendingCount === 1 ? "" : "s"}`);
+    } catch (e) {
+      setError(String(e)); // keep pending edits so the user can fix and retry
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const revertEdits = () => { setPending({}); setEditing(null); flash("Changes reverted"); };
 
   const removeRow = (r: number) => {
     setConfirm({
@@ -182,23 +225,26 @@ export default function DataGrid({
     ({ position: "sticky", left, zIndex: 1, background: bg });
 
   return (
-    <div className="space-y-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       {/* toolbar — all controls share h-9 */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative">
           <IconSearch width={14} height={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-faint)" }} />
-          <input className="input !h-9 !w-56 !py-0 !pl-8" placeholder="Search all columns…" defaultValue={search}
+          <input className="input !h-9 !w-56 !py-0 !pl-8" placeholder="Search all columns…" defaultValue={search} disabled={dirty}
+            title={dirty ? "Save or revert your changes first" : ""}
             onKeyDown={(e) => { if (e.key === "Enter") { setSearch((e.target as HTMLInputElement).value); setPage(0); } }} />
         </div>
-        <button className="btn btn-secondary btn-sm !h-9" onClick={() => setShowFilter((s) => !s)}>
+        <button className="btn btn-secondary btn-sm !h-9" onClick={() => setShowFilter((s) => !s)} disabled={dirty}
+          title={dirty ? "Save or revert your changes first" : ""}>
           <IconFilter width={14} height={14} /> Filter{filters.length ? ` · ${filters.length}` : ""}
         </button>
-        <button className="btn btn-secondary btn-sm !h-9" onClick={load} disabled={loading}><IconRefresh width={14} height={14} /> Refresh</button>
-        <button className="btn btn-secondary btn-sm !h-9" onClick={() => { setAdding((a) => !a); setNewRow({}); }} disabled={!editable}
-          title={editable ? "" : "Table has no primary key — rows can't be added safely"}>
+        <button className="btn btn-secondary btn-sm !h-9" onClick={load} disabled={loading || dirty}
+          title={dirty ? "Save or revert your changes first" : ""}><IconRefresh width={14} height={14} /> Refresh</button>
+        <button className="btn btn-secondary btn-sm !h-9" onClick={() => { setAdding((a) => !a); setNewRow({}); }} disabled={!editable || dirty}
+          title={!editable ? "Table has no primary key — rows can't be added safely" : dirty ? "Save or revert your changes first" : ""}>
           <IconPlus width={14} height={14} /> Add row
         </button>
-        {selected.size > 0 && (
+        {selected.size > 0 && !dirty && (
           <button className="btn btn-danger btn-sm !h-9" onClick={bulkDelete}><IconTrash width={14} height={14} /> Delete {selected.size} selected</button>
         )}
         <div className="ml-auto flex items-center gap-2">
@@ -265,6 +311,23 @@ export default function DataGrid({
       {notice && <p className="text-xs" style={{ color: "var(--success)" }}>{notice}</p>}
       <ErrorBanner message={error} onClose={() => setError("")} />
 
+      {/* Unsaved-edits bar — Workbench-style: edits are staged until applied. */}
+      {dirty && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm"
+          style={{ background: "var(--warning-soft, color-mix(in srgb, var(--warning) 12%, transparent))", borderColor: "var(--warning)" }}>
+          <span className="font-medium" style={{ color: "var(--warning)" }}>
+            {pendingCount} unsaved change{pendingCount === 1 ? "" : "s"}
+          </span>
+          <span className="text-xs faint">Navigation is locked until you save or revert.</span>
+          <div className="ml-auto flex items-center gap-2">
+            <button className="btn btn-ghost btn-sm !h-8" onClick={revertEdits} disabled={saving}>Revert</button>
+            <button className="btn btn-primary btn-sm !h-8" onClick={applyEdits} disabled={saving}>
+              {saving ? "Saving…" : `Save ${pendingCount} change${pendingCount === 1 ? "" : "s"}`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {adding && data && (
         <Modal title={`Add row to ${table}`} wide onClose={() => setAdding(false)}>
           <div className="space-y-4">
@@ -325,8 +388,9 @@ export default function DataGrid({
         </Modal>
       )}
 
-      {/* fills the remaining viewport height (like Structure/DDL); header stays sticky */}
-      <div className="card overflow-auto" style={{ minHeight: 220, height: "calc(100dvh - 21.5rem)" }}>
+      {/* fills the remaining space in the flex column; only this area scrolls
+          (no second page-level scrollbar); header stays sticky */}
+      <div className="card min-h-0 flex-1 overflow-auto" style={{ minHeight: 220 }}>
         <table className="w-full text-xs" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
           <thead>
             <tr className="text-left uppercase tracking-wide muted">
@@ -338,8 +402,8 @@ export default function DataGrid({
               {hasPk && <th style={{ ...stHead(actLeft), width: ACT_W, minWidth: ACT_W }} className="px-0 py-1.5"></th>}
               {(data?.columns ?? []).map((col, ci) => (
                 <th key={col.name} style={ci === 0 ? stHead(firstLeft) : stHead()}
-                  className="cursor-pointer select-none whitespace-nowrap border-b px-2.5 py-1.5 font-mono normal-case"
-                  onClick={() => sortBy(col.name)} title="Click to sort">
+                  className={`select-none whitespace-nowrap border-b px-2.5 py-1.5 font-mono normal-case ${dirty ? "cursor-not-allowed" : "cursor-pointer"}`}
+                  onClick={() => { if (!dirty) sortBy(col.name); }} title={dirty ? "Save or revert your changes first" : "Click to sort"}>
                   <span className="inline-flex items-center gap-1 align-middle">
                     {col.name}
                     {col.is_pk && <span className="badge badge-warning">PK</span>}
@@ -366,7 +430,7 @@ export default function DataGrid({
                     <td style={{ ...stCell(actLeft, rowBg), width: ACT_W, minWidth: ACT_W }} className="border-b px-0 py-1">
                       <div className="flex items-center justify-center gap-0.5">
                         <button className="btn btn-ghost !p-1" onClick={() => setRefRow(pkFor(row))} title="Rows that reference this row"><IconLink width={13} height={13} /></button>
-                        {editable && <button className="btn btn-ghost !p-1" onClick={() => removeRow(r)} aria-label="Delete row"><IconTrash width={13} height={13} /></button>}
+                        {editable && <button className="btn btn-ghost !p-1" onClick={() => removeRow(r)} disabled={dirty} aria-label="Delete row" title={dirty ? "Save or revert your changes first" : "Delete row"}><IconTrash width={13} height={13} /></button>}
                       </div>
                     </td>
                   )}
@@ -374,11 +438,19 @@ export default function DataGrid({
                     const isEditing = editing?.r === r && editing?.c === c;
                     const colInfo = data!.columns.find((ci) => ci.name === colnames[c]);
                     const fk = colInfo?.is_fk && colInfo.fk_target ? parseFk(colInfo.fk_target) : null;
+                    // Show the staged value (if any) instead of the stored one.
+                    const key = cellKey(r, c);
+                    const isPending = Object.prototype.hasOwnProperty.call(pending, key);
+                    const disp: Cell = isPending ? pending[key] : cell;
                     const base = "max-w-[20rem] truncate border-b px-2 py-1 font-mono";
+                    const cellBg = isPending
+                      ? "color-mix(in srgb, var(--warning) 22%, transparent)"
+                      : (c === 0 ? rowBg : undefined);
                     return (
-                      <td key={c} className={base} style={c === 0 ? stCell(firstLeft, rowBg) : undefined}
-                        onDoubleClick={() => { if (editable) { setEditValue(cell == null ? "" : String(cell)); setEditing({ r, c }); } }}
-                        title={fk ? `Click value to peek at ${fk.table} · double-click to change` : editable ? "Double-click to edit" : String(cell ?? "")}>
+                      <td key={c} className={base}
+                        style={c === 0 ? { ...stCell(firstLeft, rowBg), ...(isPending ? { background: cellBg } : {}) } : (isPending ? { background: cellBg } : undefined)}
+                        onDoubleClick={() => { if (editable) { setEditValue(disp == null ? "" : String(disp)); setEditing({ r, c }); } }}
+                        title={isPending ? "Unsaved change — Save to write it" : fk ? `Click value to peek at ${fk.table} · double-click to change` : editable ? "Double-click to edit" : String(disp ?? "")}>
                         {isEditing && colInfo ? (
                           fk && colInfo.fk_target ? (
                             // FK cells edit via a searchable dropdown of real parent keys
@@ -389,7 +461,7 @@ export default function DataGrid({
                               nullable={colInfo.nullable}
                               className="!h-7 !py-0 !text-xs min-w-[10rem]"
                               value={editValue}
-                              onChange={(v) => commitEdit(r, c, v)}
+                              onChange={(v) => stageEdit(r, c, v)}
                             />
                           ) : (
                           <CellEditor
@@ -398,21 +470,21 @@ export default function DataGrid({
                             className="!h-7 !py-0 !text-xs min-w-[8rem]"
                             value={editValue}
                             onChange={setEditValue}
-                            onCommit={(v) => commitEdit(r, c, v)}
-                            onBlurCommit={() => commitEdit(r, c, editValue)}
+                            onCommit={(v) => stageEdit(r, c, v)}
+                            onBlurCommit={() => stageEdit(r, c, editValue)}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter") commitEdit(r, c, editValue);
+                              if (e.key === "Enter") stageEdit(r, c, editValue);
                               if (e.key === "Escape") setEditing(null);
                             }}
                           />
                           )
-                        ) : cell == null ? <span className="faint">null</span>
+                        ) : disp == null ? <span className="faint">null</span>
                           : fk ? (
                             <button className="inline-flex items-center gap-1 underline decoration-dotted underline-offset-2" style={{ color: "var(--accent)" }}
-                              onClick={() => setPeek({ table: fk.table, column: fk.column, value: String(cell) })}>
-                              {String(cell)} <IconLink width={11} height={11} />
+                              onClick={() => setPeek({ table: fk.table, column: fk.column, value: String(disp) })}>
+                              {String(disp)} <IconLink width={11} height={11} />
                             </button>
-                          ) : String(cell)}
+                          ) : String(disp)}
                       </td>
                     );
                   })}
@@ -427,21 +499,21 @@ export default function DataGrid({
 
       {/* pagination + rows-per-page */}
       {data && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs muted">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 text-xs muted">
           <div className="flex items-center gap-2">
-            <span>{data.total.toLocaleString()} rows{search || filters.length ? " (filtered)" : ""}</span>
+            <span title={data.total_estimated ? "Estimated from table statistics — fast, may be slightly off" : undefined}>{data.total_estimated ? "~" : ""}{data.total.toLocaleString()} rows{search || filters.length ? " (filtered)" : ""}</span>
             <span className="faint">·</span>
-            <label className="flex items-center gap-1.5">
+            <label className="flex items-center gap-1.5" title={dirty ? "Save or revert your changes first" : ""}>
               Show
-              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(0); }}
+              <Select value={String(pageSize)} disabled={dirty} onValueChange={(v) => { setPageSize(Number(v)); setPage(0); }}
                 options={PAGE_SIZES.map((n) => ({ value: String(n), label: String(n) }))} />
               rows
             </label>
           </div>
           <div className="flex items-center gap-2">
-            <button className="btn btn-secondary btn-sm !h-8" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}><IconChevronLeft width={14} height={14} /></button>
+            <button className="btn btn-secondary btn-sm !h-8" disabled={page === 0 || dirty} title={dirty ? "Save or revert your changes first" : ""} onClick={() => setPage((p) => Math.max(0, p - 1))}><IconChevronLeft width={14} height={14} /></button>
             <span>Page {page + 1} / {totalPages}</span>
-            <button className="btn btn-secondary btn-sm !h-8" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}><IconChevronRight width={14} height={14} /></button>
+            <button className="btn btn-secondary btn-sm !h-8" disabled={page + 1 >= totalPages || dirty} title={dirty ? "Save or revert your changes first" : ""} onClick={() => setPage((p) => p + 1)}><IconChevronRight width={14} height={14} /></button>
           </div>
         </div>
       )}

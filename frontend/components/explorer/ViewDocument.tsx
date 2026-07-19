@@ -16,8 +16,8 @@ export default function ViewDocument({ connId, schema, view }: {
   }, [connId, schema, view]);
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 items-center gap-2">
         <span className="badge badge-accent">VIEW</span>
         <span className="font-mono text-sm">{view}</span>
         {definition && (

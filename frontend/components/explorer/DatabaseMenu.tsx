@@ -28,11 +28,19 @@ export default function DatabaseMenu({
   const [dialog, setDialog] = useState<Dialog>(null);
   const [error, setError] = useState("");
 
-  const item = (label: string, d: Dialog, danger?: boolean) => (
-    <button className="block w-full px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-2)]"
-      style={danger ? { color: "var(--danger)" } : undefined}
-      onClick={() => { setOpen(false); setError(""); setDialog(d); }}>{label}</button>
-  );
+  // Server-level actions (create/rename/drop database) don't need a schema, so
+  // the menu is reachable with only a connection. Schema-scoped items are
+  // disabled until a schema is chosen.
+  const item = (label: string, d: Dialog, opts?: { danger?: boolean; needsSchema?: boolean }) => {
+    const disabled = !!opts?.needsSchema && !schema;
+    return (
+      <button className="block w-full px-3 py-2 text-left text-sm transition-colors enabled:hover:bg-[var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed"
+        style={opts?.danger ? { color: "var(--danger)" } : undefined}
+        disabled={disabled}
+        title={disabled ? "Select a schema first" : undefined}
+        onClick={() => { setOpen(false); setError(""); setDialog(d); }}>{label}</button>
+    );
+  };
 
   const exportDatabase = async () => {
     setOpen(false); setError("");
@@ -56,18 +64,19 @@ export default function DatabaseMenu({
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-lg border py-1 shadow-lg" style={{ background: "var(--surface)", boxShadow: "var(--shadow-lg)" }}>
-            {item("Create table", "createTable")}
+            {item("Create table", "createTable", { needsSchema: true })}
             {item("Create database", "createDb")}
             {item("Rename database", "renameDb")}
-            {item("Privileges", "privileges")}
-            {item("Users & privileges", "users")}
+            {item("Privileges", "privileges", { needsSchema: true })}
+            {item("Users & privileges", "users", { needsSchema: true })}
             {item("Snapshots (undo history)", "snapshots")}
-            {item("Check integrity (FK orphans)", "integrity")}
+            {item("Check integrity (FK orphans)", "integrity", { needsSchema: true })}
             <div className="my-1 border-t" />
-            <button className="block w-full px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-2)]"
+            <button className="block w-full px-3 py-2 text-left text-sm transition-colors enabled:hover:bg-[var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={!schema} title={!schema ? "Select a schema first" : undefined}
               onClick={exportDatabase}>Export database (.sql)</button>
             <div className="my-1 border-t" />
-            {item("Drop database…", "dropDb", true)}
+            {item("Drop database…", "dropDb", { danger: true })}
           </div>
         </>
       )}

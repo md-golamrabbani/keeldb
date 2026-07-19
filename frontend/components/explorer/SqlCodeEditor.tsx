@@ -62,11 +62,12 @@ const KIND_COLOR: Record<Kind, string> = {
 };
 
 export default function SqlCodeEditor({
-  value, onChange, onRun, minHeight = 160, errorLine, tableNames = [], columns = {},
+  value, onChange, onRun, onSelectionChange, minHeight = 160, errorLine, tableNames = [], columns = {},
 }: {
   value: string;
   onChange: (v: string) => void;
   onRun?: () => void;
+  onSelectionChange?: (selection: string) => void;
   minHeight?: number;
   errorLine?: number | null;
   tableNames?: string[];
@@ -78,8 +79,34 @@ export default function SqlCodeEditor({
   const charW = useRef(7.8);
   const pendingCaret = useRef<number | null>(null);
   const [ac, setAc] = useState<AC | null>(null);
+  // User-controllable editor height (dragged via the handle below). Starts at
+  // the caller's minHeight and can grow freely — the old CSS `resize` corner was
+  // covered by the textarea/scrollbar, so it couldn't actually be grabbed.
+  const [height, setHeight] = useState(minHeight);
+  useEffect(() => { setHeight((h) => Math.max(h, minHeight)); }, [minHeight]);
   const lines = useMemo(() => value.split("\n"), [value]);
   const gutterW = Math.max(32, String(lines.length).length * 9 + 16);
+
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = height;
+    const onMove = (ev: PointerEvent) =>
+      setHeight(Math.max(120, startH + (ev.clientY - startY)));
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  // Report the current text selection so the parent can offer "Run selection".
+  const reportSelection = (ta: HTMLTextAreaElement | null) => {
+    if (!ta || !onSelectionChange) return;
+    onSelectionChange(ta.selectionStart !== ta.selectionEnd
+      ? value.slice(ta.selectionStart, ta.selectionEnd) : "");
+  };
 
   useEffect(() => {
     const c = document.createElement("canvas");
@@ -173,7 +200,8 @@ export default function SqlCodeEditor({
   };
 
   return (
-    <div className="relative flex" style={{ height: minHeight, minHeight: 120, resize: "vertical", overflow: "hidden" }}>
+    <div className="flex flex-col">
+    <div className="relative flex" style={{ height, minHeight: 120, overflow: "hidden" }}>
       <div ref={gutterRef} className="shrink-0 overflow-hidden border-r text-right"
         style={{ width: gutterW, background: "var(--surface-2)", paddingTop: PADY, paddingBottom: PADY }}>
         {lines.map((_, i) => (
@@ -196,12 +224,13 @@ export default function SqlCodeEditor({
           onChange={(e) => { onChange(e.target.value); compute(e.target.value, e.target.selectionStart); }}
           onScroll={sync}
           onKeyDown={onKeyDown}
-          onKeyUp={(e) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) compute(value, e.currentTarget.selectionStart); }}
-          onClick={(e) => compute(value, e.currentTarget.selectionStart)}
+          onKeyUp={(e) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) compute(value, e.currentTarget.selectionStart); reportSelection(e.currentTarget); }}
+          onClick={(e) => { compute(value, e.currentTarget.selectionStart); reportSelection(e.currentTarget); }}
+          onSelect={(e) => reportSelection(e.currentTarget)}
           onBlur={() => setTimeout(() => setAc(null), 150)}
           className="absolute inset-0 w-full resize-none overflow-auto bg-transparent outline-none"
           style={{ ...codeStyle, color: "transparent", caretColor: "var(--text)" }}
-          placeholder="Write SQL… (Ctrl/⌘+Enter to run · type for suggestions)" />
+          placeholder="Write SQL… (Ctrl/⌘+Enter to run · select text to run only that · type for suggestions)" />
       </div>
 
       {ac && ac.items.length > 0 && (
@@ -221,6 +250,17 @@ export default function SqlCodeEditor({
           ))}
         </div>
       )}
+      </div>
+      {/* Drag handle — resize the editor vertically (reliable, unlike the CSS
+          resize corner which the textarea covered). */}
+      <div
+        onPointerDown={startResize}
+        title="Drag to resize the editor"
+        className="flex shrink-0 items-center justify-center border-t"
+        style={{ height: 9, cursor: "ns-resize", background: "var(--surface-2)", borderColor: "var(--border)" }}
+      >
+        <div style={{ width: 28, height: 3, borderRadius: 2, background: "var(--border-strong)" }} />
+      </div>
     </div>
   );
 }

@@ -11,6 +11,9 @@ for pkg in (
     "psycopg", "psycopg_binary", "sqlalchemy", "pymysql", "cryptography",
     "paramiko", "sshtunnel", "fastapi", "starlette", "uvicorn", "anyio",
     "pydantic", "pydantic_core",
+    # certifi ships cacert.pem — without it the frozen sidecar has no CA store
+    # and outbound HTTPS to AI providers fails with CERTIFICATE_VERIFY_FAILED.
+    "certifi",
 ):
     try:
         d, b, h = collect_all(pkg)

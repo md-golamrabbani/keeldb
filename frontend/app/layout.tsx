@@ -34,7 +34,7 @@ export default function RootLayout({
         <AuthGate>
           <TopNav />
           <main className="min-h-0 flex-1 overflow-y-auto">
-            <div className="mx-auto w-full max-w-[1600px] px-4 pb-8 pt-4 sm:px-6">
+            <div className="w-full px-4 pb-8 pt-4 sm:px-6">
               <BackendProvider>{children}</BackendProvider>
             </div>
           </main>

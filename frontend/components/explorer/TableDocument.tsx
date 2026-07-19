@@ -47,8 +47,10 @@ export default function TableDocument({
   const gridKey = `${table}:${filterNonce}:${drillNonce}`;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-1 border-b" style={{ borderColor: "var(--border)" }}>
+    // The Data sub fills the available height so only the grid scrolls; other
+    // subs keep their natural (page-scrolling) flow.
+    <div className={sub === "data" ? "flex h-full min-h-0 flex-col gap-4" : "space-y-4"}>
+      <div className="flex shrink-0 items-center gap-1 border-b" style={{ borderColor: "var(--border)" }}>
         {SUBS.map(({ id, label }) => (
           <button key={id} onClick={() => setSub(id)}
             className="border-b-2 px-3 py-1.5 text-sm font-medium transition-colors"

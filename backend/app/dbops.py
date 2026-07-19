@@ -251,6 +251,21 @@ def _build_filters(t: sa.Table, filters: list[dict[str, Any]]) -> list[Any]:
     return conds
 
 
+# Above this many rows we trust the catalog estimate instead of running an exact
+# COUNT(*) on an unfiltered read — below it, an exact count is fast and accurate.
+_ESTIMATE_THRESHOLD = 20_000
+
+
+def _fast_estimate(connector: Connector, schema: str, table: str) -> Optional[int]:
+    """Cheap catalog-based row estimate for one table, or None if unavailable.
+    Uses the connector's `_row_estimates` (pg_class.reltuples / MySQL
+    information_schema), which never scans the table."""
+    try:
+        return connector._row_estimates(schema).get(table)
+    except Exception:
+        return None
+
+
 def read_table(
     connector: Connector,
     schema: str,
@@ -279,15 +294,33 @@ def read_table(
         q = q.order_by(col.desc() if order_dir == "desc" else col.asc())
     q = q.limit(max(1, min(limit, 500))).offset(max(0, offset))
 
+    total_estimated = False
     with connector.engine.connect() as conn:
-        total = int(conn.execute(cnt).scalar() or 0)
+        # Row count: the naive full-table COUNT(*) is what made large tables slow
+        # to page through — on 50k+ rows it scans the whole table/index on EVERY
+        # page load. For the unfiltered case we prefer the catalog row estimate
+        # (pg_class.reltuples / information_schema.table_rows), which is instant.
+        # A WHERE clause narrows the result, so an exact count there is cheap and
+        # worth keeping accurate.
+        if clauses:
+            total = int(conn.execute(cnt).scalar() or 0)
+        else:
+            est = _fast_estimate(connector, schema, table)
+            if est is not None and est >= _ESTIMATE_THRESHOLD:
+                total, total_estimated = est, True
+            else:
+                # Small (or never-analyzed → estimate 0) table: exact count is fast.
+                total = int(conn.execute(cnt).scalar() or 0)
         res = conn.execute(q)
         colnames = list(res.keys())
         data = [[jsonable(v) for v in row] for row in res.fetchall()]
 
     columns = [c.model_dump() for c in connector.list_columns(schema, table)]
     pk_cols = [c.name for c in t.primary_key.columns]
-    return {"columns": columns, "colnames": colnames, "rows": data, "total": total, "pk_cols": pk_cols}
+    return {
+        "columns": columns, "colnames": colnames, "rows": data,
+        "total": total, "total_estimated": total_estimated, "pk_cols": pk_cols,
+    }
 
 
 # -- row editing -----------------------------------------------------------

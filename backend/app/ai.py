@@ -11,9 +11,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import ssl
 import urllib.error
 import urllib.request
-
 import sqlalchemy as sa
 
 from .connectors.base import Connector
@@ -55,13 +55,30 @@ def _strip_fences(text: str) -> str:
 _UA = "KeelDB/1.0 (+https://github.com/md-golamrabbani/MigrationStudio)"
 
 
+def _ssl_context() -> ssl.SSLContext:
+    """Build a verifying SSL context that works on machines whose Python has no
+    usable CA store. Bundled/packaged Python (e.g. the desktop sidecar on a
+    fresh Windows PC) often ships without a system trust store, which surfaces
+    as "SSL: CERTIFICATE_VERIFY_FAILED ... unable to get local issuer
+    certificate". Prefer certifi's bundled roots when available, then fall back
+    to the OS trust store — verification stays ON in both cases."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+
+
+_SSL_CTX = _ssl_context()
+
+
 def _post(url: str, headers: dict, body: dict) -> dict:
     req = urllib.request.Request(
         url, data=json.dumps(body).encode(),
         headers={**headers, "content-type": "application/json", "accept": "application/json", "user-agent": _UA},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=45) as r:
+    with urllib.request.urlopen(req, timeout=45, context=_SSL_CTX) as r:
         return json.loads(r.read().decode())
 
 

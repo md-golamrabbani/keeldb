@@ -68,33 +68,63 @@ function ConnectionSession({
   initialConnId?: string;
   onLabelChange: (label: string) => void;
 }) {
-  // Rehydrate from the UI store so leaving the page and coming back doesn't
+  // Rehydrate from the UI store so leaving the page / reopening the app doesn't
   // lose the connection, schema, or open tabs.
-  const saved = useUiStore.getState().explorer?.sessions[wsId];
+  const wsSaved = useUiStore.getState().explorer?.sessions[wsId];
   const setExplorerSession = useUiStore((s) => s.setExplorerSession);
+  const setSchemaTabs = useUiStore((s) => s.setSchemaTabs);
 
-  const [connId, setConnId] = useState(saved?.connId ?? initialConnId ?? "");
-  const [schema, setSchema] = useState(saved?.schema ?? "");
+  const [connId, setConnId] = useState(wsSaved?.connId ?? initialConnId ?? "");
+  const [schema, setSchema] = useState(wsSaved?.schema ?? "");
   const [schemas, setSchemas] = useState<string[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [views, setViews] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
 
-  const [tabs, setTabs] = useState<OpenTab[]>((saved?.tabs as OpenTab[]) ?? []);
-  const [activeId, setActiveId] = useState(saved?.activeId ?? "");
-  const idRef = useRef(saved ? Math.max(0, ...saved.tabs.map((t) => Number(t.id.slice(1)) || 0)) : 0);
-  const uid = () => `t${++idRef.current}`;
-  // Skip the "connection changed → reset" effects on the restore render.
-  const restoring = useRef(!!saved);
+  // Open tabs are remembered PER connection+schema (Workbench-style): switching
+  // schema swaps to that schema's own tab-set, and reopening the app restores
+  // it. The key is `${connId}::${schema}`.
+  const tabKey = connId && schema ? `${connId}::${schema}` : "";
+  const initialTabs = tabKey ? useUiStore.getState().schemaTabs?.[tabKey] : undefined;
 
-  // Persist this session's shape whenever it changes.
+  const [tabs, setTabs] = useState<OpenTab[]>((initialTabs?.tabs as OpenTab[]) ?? []);
+  const [activeId, setActiveId] = useState(initialTabs?.activeId ?? "");
+  const idRef = useRef(
+    initialTabs?.tabs?.length ? Math.max(0, ...initialTabs.tabs.map((t) => Number(t.id.slice(1)) || 0)) : 0,
+  );
+  const uid = () => `t${++idRef.current}`;
+  const loadedKeyRef = useRef(tabKey); // the key `tabs` currently belongs to
+  const prevKeyRef = useRef(tabKey);   // guards persist against the schema-switch transition
+  const firstConnRun = useRef(true);   // keep the restored schema on the very first render
+
+  // Swap to the saved tab-set whenever the connection+schema (the key) changes.
   useEffect(() => {
-    setExplorerSession(wsId, {
-      connId, schema, activeId,
+    if (loadedKeyRef.current === tabKey) return;
+    loadedKeyRef.current = tabKey;
+    const s = tabKey ? useUiStore.getState().schemaTabs?.[tabKey] : undefined;
+    const nt = (s?.tabs as OpenTab[]) ?? [];
+    setTabs(nt);
+    setActiveId(s?.activeId ?? "");
+    idRef.current = nt.length ? Math.max(0, ...nt.map((t) => Number(t.id.slice(1)) || 0)) : 0;
+  }, [tabKey]);
+
+  // Persist the current tab-set under its key. Skip the schema-switch transition
+  // render, where `tabs` still belongs to the previous key (the load effect
+  // above hasn't swapped it in yet) — otherwise we'd clobber the new key.
+  useEffect(() => {
+    if (prevKeyRef.current !== tabKey) { prevKeyRef.current = tabKey; return; }
+    if (!tabKey) return;
+    setSchemaTabs(tabKey, {
       tabs: tabs.map(({ id, kind, title, table, initialSub, nonce }) => ({ id, kind, title, table, initialSub, nonce })),
+      activeId,
     });
-  }, [wsId, connId, schema, tabs, activeId, setExplorerSession]);
+  }, [tabKey, tabs, activeId, setSchemaTabs]);
+
+  // Remember which connection+schema this workspace points at (for restore).
+  useEffect(() => {
+    setExplorerSession(wsId, { connId, schema, tabs: [], activeId: "" });
+  }, [wsId, connId, schema, setExplorerSession]);
 
   const conn = connections.find((c) => c.id === connId);
   const activeTab = tabs.find((t) => t.id === activeId);
@@ -121,9 +151,12 @@ function ConnectionSession({
       .catch(() => setViews([]));
   }, [connId, schema]);
 
+  // Changing the connection resets the schema list — but keep the restored
+  // schema on the very first render.
   useEffect(() => {
     setSchemas([]);
-    if (!restoring.current) setSchema(""); // keep the restored schema on first run
+    if (!firstConnRun.current) setSchema("");
+    firstConnRun.current = false;
     setTables([]);
     setError("");
     if (!connId) return;
@@ -136,18 +169,8 @@ function ConnectionSession({
       .catch((e) => setError(String(e)));
   }, [connId]);
 
-  // New schema/connection ⇒ close all open documents (they belong to the old
-  // one) — except on the restore render, where the tabs ARE the point.
-  useEffect(() => {
-    if (restoring.current) {
-      restoring.current = false;
-      loadTables();
-      return;
-    }
-    setTabs([]);
-    setActiveId("");
-    loadTables();
-  }, [loadTables]);
+  // Refresh the table/view list whenever the connection or schema changes.
+  useEffect(() => { loadTables(); }, [loadTables]);
 
   const filtered = useMemo(
     () =>
@@ -283,24 +306,26 @@ function ConnectionSession({
           </>
         )}
 
-        {connId && schema && (
+        {connId && (
           <div className="ml-auto flex items-center gap-2">
-            <div className="flex items-center overflow-hidden rounded-lg border" style={{ borderColor: "var(--border-strong)" }}>
-              {[
-                { kind: "sql" as const, label: "SQL", Icon: IconTerminal },
-                { kind: "designer" as const, label: "Designer", Icon: IconColumns },
-                { kind: "triggers" as const, label: "Triggers", Icon: IconBolt },
-                { kind: "routines" as const, label: "Routines", Icon: IconBolt },
-                { kind: "health" as const, label: "Health", Icon: IconDatabase },
-              ].map(({ kind, label, Icon }, i) => (
-                <button key={kind}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-[var(--surface-2)]"
-                  style={i > 0 ? { borderLeft: "1px solid var(--border)", color: "var(--text-muted)" } : { color: "var(--text-muted)" }}
-                  onClick={() => openTool(kind, label)}>
-                  <Icon width={14} height={14} /> <span className="hidden lg:inline">{label}</span>
-                </button>
-              ))}
-            </div>
+            {schema && (
+              <div className="flex items-center overflow-hidden rounded-lg border" style={{ borderColor: "var(--border-strong)" }}>
+                {[
+                  { kind: "sql" as const, label: "SQL", Icon: IconTerminal },
+                  { kind: "designer" as const, label: "Designer", Icon: IconColumns },
+                  { kind: "triggers" as const, label: "Triggers", Icon: IconBolt },
+                  { kind: "routines" as const, label: "Routines", Icon: IconBolt },
+                  { kind: "health" as const, label: "Health", Icon: IconDatabase },
+                ].map(({ kind, label, Icon }, i) => (
+                  <button key={kind}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-[var(--surface-2)]"
+                    style={i > 0 ? { borderLeft: "1px solid var(--border)", color: "var(--text-muted)" } : { color: "var(--text-muted)" }}
+                    onClick={() => openTool(kind, label)}>
+                    <Icon width={14} height={14} /> <span className="hidden lg:inline">{label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <DatabaseMenu
               connId={connId}
               schema={schema}

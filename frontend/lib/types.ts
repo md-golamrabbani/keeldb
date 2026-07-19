@@ -485,6 +485,7 @@ export interface TableData {
   colnames: string[];
   rows: (string | number | boolean | null)[][];
   total: number;
+  total_estimated?: boolean; // true when `total` is a fast catalog estimate, not exact
   pk_cols: string[];
 }
 

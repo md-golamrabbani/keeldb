@@ -32,10 +32,21 @@ export default function ToolSidebar({
     return searchTools(searchQuery);
   }, [searchQuery]);
 
+  // Pin the Sample Data Generator to the very top of the sidebar — it's the
+  // most-used tool, so it stays reachable without scrolling into "Utilities".
+  const PINNED_ID = "sample-data";
+  const pinnedTool = useMemo(
+    () => TOOLS.find((t) => t.id === PINNED_ID),
+    [],
+  );
+
   const groupedTools = useMemo(() => {
     const groups: Record<string, ToolDefinition[]> = {};
     for (const category of CATEGORIES) {
-      groups[category] = filteredTools.filter((t) => t.category === category);
+      // Exclude the pinned tool from its category group so it isn't listed twice.
+      groups[category] = filteredTools.filter(
+        (t) => t.category === category && t.id !== PINNED_ID,
+      );
     }
     return groups;
   }, [filteredTools]);
@@ -101,6 +112,18 @@ export default function ToolSidebar({
       {/* Tools List */}
       <div className="flex-1 overflow-y-auto px-3 py-2">
         <div className="space-y-1">
+          {/* Pinned tool — always shown first when not searching */}
+          {!searchQuery && pinnedTool && (
+            <div className="mb-1 pb-1" style={{ borderBottom: "1px solid var(--border)" }}>
+              <ToolItem
+                tool={pinnedTool}
+                isSelected={selectedToolId === pinnedTool.id}
+                isFavorite={isFavorite(pinnedTool.id)}
+                onSelect={() => onSelectTool(pinnedTool.id)}
+                onToggleFavorite={() => onToggleFavorite?.(pinnedTool.id)}
+              />
+            </div>
+          )}
           {searchQuery
             ? // Search results (flat list)
               filteredTools.map((tool) => (

@@ -1,6 +1,6 @@
 [package]
 name = "keeldb"
-version = "0.1.0"
+version = "0.1.1"
 description = "KeelDB desktop"
 edition = "2021"
 
