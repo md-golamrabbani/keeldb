@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & discussion
+    url: https://github.com/md-golamrabbani/keeldb/discussions
+    about: Ask questions and share ideas with the community.
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/md-golamrabbani/keeldb/security/advisories/new
+    about: Please report vulnerabilities privately, not as public issues.

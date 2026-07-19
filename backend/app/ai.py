@@ -52,7 +52,7 @@ def _strip_fences(text: str) -> str:
 
 # A real User-Agent is required — Groq/OpenAI sit behind Cloudflare, which blocks
 # the default "Python-urllib/x" signature (error 1010).
-_UA = "KeelDB/1.0 (+https://github.com/md-golamrabbani/MigrationStudio)"
+_UA = "KeelDB/1.0 (+https://github.com/md-golamrabbani/keeldb)"
 
 
 def _ssl_context() -> ssl.SSLContext:

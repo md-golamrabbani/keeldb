@@ -29,23 +29,23 @@
   <screenshots>
     <screenshot type="default">
       <caption>Database explorer — browse and edit data with safety guards</caption>
-      <image>https://raw.githubusercontent.com/md-golamrabbani/MigrationStudio/main/screenshots/explorer.png</image>
+      <image>https://raw.githubusercontent.com/md-golamrabbani/keeldb/main/screenshots/explorer.png</image>
     </screenshot>
     <screenshot>
       <caption>ER diagram designer with DBML and AI assistance</caption>
-      <image>https://raw.githubusercontent.com/md-golamrabbani/MigrationStudio/main/screenshots/diagrams.png</image>
+      <image>https://raw.githubusercontent.com/md-golamrabbani/keeldb/main/screenshots/diagrams.png</image>
     </screenshot>
     <screenshot>
       <caption>Schema diagram (ERD) of a live database</caption>
-      <image>https://raw.githubusercontent.com/md-golamrabbani/MigrationStudio/main/screenshots/erd.png</image>
+      <image>https://raw.githubusercontent.com/md-golamrabbani/keeldb/main/screenshots/erd.png</image>
     </screenshot>
     <screenshot>
       <caption>SQL editor with safety guard, AI assist and query plan analysis</caption>
-      <image>https://raw.githubusercontent.com/md-golamrabbani/MigrationStudio/main/screenshots/sqleditor.png</image>
+      <image>https://raw.githubusercontent.com/md-golamrabbani/keeldb/main/screenshots/sqleditor.png</image>
     </screenshot>
   </screenshots>
-  <url type="homepage">https://github.com/md-golamrabbani/MigrationStudio</url>
-  <url type="bugtracker">https://github.com/md-golamrabbani/MigrationStudio/issues</url>
+  <url type="homepage">https://github.com/md-golamrabbani/keeldb</url>
+  <url type="bugtracker">https://github.com/md-golamrabbani/keeldb/issues</url>
   <categories>
     <category>Development</category>
     <category>Database</category>

@@ -1,38 +1,113 @@
+<div align="center">
+
+<img src="logo.svg" alt="KeelDB" width="96" height="96" />
+
 # KeelDB
 
 **A production-safe database workbench** — migrate, explore, guard, and monitor
-**MySQL / PostgreSQL / Supabase / Neon** (or an imported **`.sql` dump**) from one clean app,
-on the web and as a native desktop app (Windows / macOS / Linux).
+**MySQL · PostgreSQL · Supabase · Neon** (or an imported `.sql` dump) from one clean app,
+on the web and as a native desktop app.
 
-GUI-driven database migration — MySQL Workbench "import wizard" style, but for **both ends at once**.
-Move data between **MySQL / PostgreSQL / Supabase / Neon** (or from an imported **`.sql` dump**) with a
-visual column-mapping canvas, safe per-column transforms, dry-runs, batched idempotent writes, and reusable
-connection + mapping profiles.
+[![Desktop build](https://github.com/md-golamrabbani/keeldb/actions/workflows/desktop.yml/badge.svg)](https://github.com/md-golamrabbani/keeldb/actions/workflows/desktop.yml)
+[![Latest release](https://img.shields.io/github/v/release/md-golamrabbani/keeldb?sort=semver)](https://github.com/md-golamrabbani/keeldb/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platforms](https://img.shields.io/badge/desktop-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-informational)](https://github.com/md-golamrabbani/keeldb/releases)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-Sources can be a live database **or a `.sql` dump file** (mysqldump / pg_dump). Output is your choice:
-**push into the target database, or download the transformed rows as `.sql`, `.csv`, or `.json`.** Connections
-can reach databases **through an SSH tunnel** (bastion host).
+[**Download**](#-download) · [**Quick start**](#-run-from-source) · [**Features**](#-features) · [**Docs**](#-documentation) · [**Contributing**](CONTRIBUTING.md)
 
-It also includes a full **Database Explorer** — a lightweight SQL-client: browse & filter table data,
-edit / insert / delete rows inline, run arbitrary SQL, inspect table structure, and import/export a table
-(CSV / JSON / SQL) — for any connection.
+</div>
 
-Built from the spec in [PLAN.md](PLAN.md).
+---
 
-## Run locally
+KeelDB is a GUI-driven database tool that does three jobs well:
 
-Two processes: FastAPI backend on **:8000**, Next.js frontend on **:3000**.
+1. **Migrate** data between MySQL / PostgreSQL / Supabase / Neon — or from a `.sql` dump — with a visual
+   column-mapping canvas, safe per-column transforms, dry-runs, and batched, idempotent writes.
+2. **Explore** any database like a lightweight SQL client: browse & filter rows, edit inline (Workbench-style
+   staged saves), run SQL with autocomplete, and import/export tables.
+3. **Design & guard** — an interactive ERD of your schema, structure editing, health checks, and safety rails
+   that make writes to production deliberate rather than accidental.
+
+It runs as a **web app** (FastAPI + Next.js) and ships as a **single-window native desktop app** for
+Windows, macOS, and Linux (Tauri, with the Python backend bundled as a sidecar — no separate install).
+
+## 📸 Screenshots
+
+| Explorer | SQL editor |
+| :---: | :---: |
+| ![Database Explorer](screenshots/explorer.png) | ![SQL editor](screenshots/sqleditor.png) |
+| **ERD / Designer** | **Diagrams** |
+| ![ERD](screenshots/erd.png) | ![Diagrams](screenshots/diagrams.png) |
+
+## ⬇️ Download
+
+Grab the installer for your OS from the [**Releases**](https://github.com/md-golamrabbani/keeldb/releases) page:
+
+| OS | File |
+| --- | --- |
+| **Windows** | `.msi` or `.exe` (NSIS installer) |
+| **macOS** (Apple Silicon & Intel) | `.dmg` |
+| **Linux** | `.AppImage`, `.deb`, or `.rpm` |
+
+The desktop app is fully self-contained — the database backend is bundled, so there's nothing else to install.
+
+> Prefer the web app, or want the latest `main`? See [**Run from source**](#-run-from-source).
+
+## ✨ Features
+
+### Migrate
+- **Any-to-any** across MySQL, PostgreSQL, Supabase, and Neon — or from an imported **`.sql` dump**
+  (mysqldump / pg_dump), parsed into a local read-only SQLite source that keeps its **PKs and FKs**.
+- **Visual column mapping** with **Auto-map** by normalized name, per-column **casts**
+  (`int/numeric/bool/date/timestamp/uuid/text`), sandboxed **transform expressions**, defaults, and
+  conflict keys. Type mismatches and unmapped NOT-NULL columns are flagged.
+- **Preview & dry-run** every row before writing; **conflict strategies** (insert / upsert / skip-duplicates),
+  batch size, WHERE filter, and stop-on-error.
+- **Output your way** — push into the target DB, or download the transformed rows as `.sql`, `.csv`, or `.json`.
+- **Reusable profiles** for connections and full mappings; **SSH-tunnel** support (bastion host).
+
+### Explore
+- **Tabbed table browser** — open many tables at once; tabs (and which schema they belong to) **persist across
+  restarts**, Workbench-style.
+- **Data grid** — rows-per-page, click-to-sort, all-column search, phpMyAdmin-style advanced filters, sticky
+  header and left columns, FK peek-and-jump.
+- **Workbench-style editing** — cell edits are **staged and highlighted**, then applied with **Save** or thrown
+  away with **Revert** (no accidental auto-writes); all writes target rows by primary key.
+- **SQL editor** — syntax highlighting, line gutter, **autocomplete** (keywords, tables, `table.column`),
+  real-time error detection, a resizable pane, **run-the-selection**, and a row-limit cap. Runs in a
+  transaction and rolls back on error.
+- **Import / export** tables as CSV / JSON / SQL.
+
+### Design & guard
+- **Interactive ERD** — drag tables, zoom, full-screen, export as PNG/JPG, and view reconstructed
+  `CREATE TABLE` DDL per table.
+- **Structure editor** — add / rename / retype / drop columns (MySQL & Postgres).
+- **Safety rails** — production connections require confirmation for writes; read-only mode blocks writes;
+  large tables load instantly via catalog row estimates instead of full-table `COUNT(*)`.
+- **AI assist (optional)** — natural-language → SQL using **Claude, ChatGPT, or Groq** with your own API key;
+  the model only *suggests* a read-only SELECT, never executes anything.
+
+### Toolkit
+- 25+ built-in **SQL & data-prep utilities** (IN-clause builder, CSV→SQL, bulk insert/update, deduplicate,
+  JWT inspector, hash/encoding, sample-data generator, and more) — all client-side.
+
+## 🚀 Run from source
+
+Two processes: a **FastAPI** backend on `:8000` and a **Next.js** frontend on `:3000`.
+
+**Prerequisites:** Python 3.11+ and Node.js 20+.
 
 ### 1. Backend
 
 ```bash
 cd backend
-python3 -m venv .venv          # first time only
+python3 -m venv .venv                     # first time only
 .venv/bin/pip install -r requirements.txt
 .venv/bin/uvicorn app.main:app --port 8000 --reload
 ```
 
-API docs: http://127.0.0.1:8000/docs
+API docs: <http://127.0.0.1:8000/docs>
 
 > Port 8000 busy? Run on another port and point the frontend at it:
 > `BACKEND_URL=http://127.0.0.1:8010 npm run dev`
@@ -41,133 +116,52 @@ API docs: http://127.0.0.1:8000/docs
 
 ```bash
 cd frontend
-npm install                    # first time only
+npm install                                # first time only
 npm run dev
 ```
 
-Open http://localhost:3000
+Open <http://localhost:3000>.
 
-## Using it
+### Build the desktop app
 
-1. **Connections** — create source + target profiles. Toggle **Live database** vs **Import .sql file**:
-   - *Live database*: MySQL/Postgres take host/port/db/user/pass; Supabase/Neon take a pasted connection
-     string (`sslmode=require` added automatically). Optionally enable an **SSH tunnel** (bastion host/user
-     + password or pasted private key) — the DB host/port are then reached *through* the tunnel.
-     **Test connection** verifies before saving.
-   - *Import .sql file*: upload a mysqldump / pg_dump `.sql`; it's parsed into a local read-only SQLite
-     source you can map from like any connection.
-2. **Migrate → Source & Target** — pick source connection/schema/table and target connection/schema/table
-   (row estimates shown; a single-schema source auto-selects).
-3. **Column Mapping** — check the source columns to migrate, map each to a target column
-   (**Auto-map** matches by normalized name). Per column: optional **cast**
-   (`int/numeric/bool/date/timestamp/uuid/text`, with a date format string), a **transform expression**,
-   a **default** for null/empty, and a **conflict key** toggle. Type mismatches flag amber; unmapped
-   NOT-NULL target columns flag red. Global: conflict strategy (insert / upsert / skip duplicates),
-   batch size, optional WHERE filter, stop-on-error.
-4. **Preview & Dry-run** — first 20 rows exactly as they'll be written; dry-run validates every row
-   without writing.
-5. **Run & Report** — choose the **output destination**: push into the target DB, or download the
-   transformed rows as **`.sql`** (INSERTs, with optional `CREATE TABLE`), **`.csv`**, or **`.json`**.
-   Streamed progress, live error log, reconciliation report (source count vs written + skipped + errored,
-   target count after). **Save profile** stores the whole mapping (including output mode); re-run it any
-   time from **Saved Migrations**.
+See [docs/DESKTOP.md](docs/DESKTOP.md) and [docs/BUILDING.md](docs/BUILDING.md). In short, the backend is frozen
+into a self-contained sidecar (PyInstaller) and bundled by Tauri; CI does this for all platforms on every
+version tag (`v*`) via [`.github/workflows/desktop.yml`](.github/workflows/desktop.yml).
 
-> The target table is selected in every mode — for downloads it defines the output column names (and, for
-> `.sql`, the `CREATE TABLE` types). Point at the table whose shape you want the export to match.
+## 🧱 Tech stack
 
-## Database Explorer
+| Layer | Tech |
+| --- | --- |
+| Frontend | Next.js (App Router), React, TypeScript, Tailwind, Zustand |
+| Desktop shell | Tauri (Rust) with the backend as a bundled sidecar |
+| Backend | FastAPI, SQLAlchemy, Pydantic |
+| Databases | MySQL (PyMySQL), PostgreSQL (psycopg), SQLite (imported dumps) |
+| Security | Fernet-encrypted secrets at rest, SSH tunnels (paramiko), bcrypt |
 
-Open **Explorer** in the top nav (or **Explore** on any connection card) to work with a database directly.
-Pick a connection + schema; a table list sits on the left. **Clicking a table opens it in its own tab** —
-open as many tables as you like and switch between them (each tab keeps its own filters, scroll, and
-sub-view). Tabs are closeable; **SQL**, **Designer**, and **Triggers** open as their own tabs too. Within a
-table tab:
+## 📚 Documentation
 
-- **Data** — browse with a **rows-per-page** selector (default 25; 10–500), sort by clicking a header, quick
-  **search** across all columns, and a phpMyAdmin-style **Advanced filter** (per-column operators `= ≠ > ≥ <
-  ≤ contains starts/ends-with LIKE IN IS NULL`, combined with AND). The grid **scrolls within its own
-  height** with a **sticky header** and **sticky left columns** (checkbox, delete, first/PK column stay put
-  when scrolling sideways). **Double-click a cell to edit**, **Add row**, delete a row, or **select rows for
-  bulk delete** (with confirm dialogs) — all writes target rows by **primary key** (tables with no PK are
-  read-only by design). **Foreign-key columns** show an `FK` badge and their values are clickable: click one
-  to **peek the referenced record**, then **Open** that table (jumps to it, filtered to that row — Supabase
-  style). Toolbar **Import CSV** and **Export** to CSV / JSON / SQL.
-- **Structure** — view **and edit** columns (type is a **dropdown** of common SQL types): add, rename,
-  change type (MySQL/Postgres), and drop.
-- **Operations** — rename, **truncate**, or **drop** the table.
-- **Triggers** — list triggers in the schema.
-- **Designer** — an interactive **ERD** of the schema (tables + foreign-key relationships): **drag tables**
-  to arrange, **zoom** in/out, go **full screen**, and **export the diagram as PNG or JPG**. Click any table
-  for its reconstructed **CREATE TABLE DDL**.
-- **SQL** — a **syntax-highlighted, resizable** query editor with a line-number gutter, **autocomplete**
-  (type to get suggestions for keywords, table names, and columns — including context-aware `table.column`
-  after a dot; ↑/↓ to move, Enter/Tab to accept, Esc to dismiss), and **real-time error detection** (a
-  client-side SQL parser flags typos like `LIMITS` and marks the offending line). A
-  **Workbench-style row-limit dropdown** (100 / 500 / 1000 / 5000 / 10000 / All) caps how many rows a query
-  fetches. Run one or more statements (Ctrl/⌘+Enter); SELECTs show a results grid (sticky header, own scroll,
-  **Download CSV**), writes report affected-row counts and timing. Runs in a transaction, rolls back on error.
+- [Building & packaging](docs/BUILDING.md)
+- [Desktop app notes](docs/DESKTOP.md)
+- [Product plan / spec](docs/PLAN.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Contributing guide](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
 
-The **Database ▾** menu (top-right of the Explorer) handles server/database-level actions: **create table**,
-**create / rename / drop database**, and **privileges**.
+## 🔒 Safety & privacy
 
-> The Explorer runs SQL with the connection's own credentials — it's a DB client, so it can do anything that
-> login can. **Primary keys and foreign keys imported from a `.sql` dump are preserved**, so imported tables
-> are fully editable and show up in the ERD.
->
-> Dialect notes: column-type changes need MySQL/Postgres (SQLite/imported `.sql` supports add/rename/drop
-> only); `create/drop database` and `privileges` require a live MySQL/Postgres server; `rename database` is
-> Postgres-only. Unsupported actions return a clear message instead of running.
+- Introspection and previews are **read-only**; writes go only to the table you explicitly select.
+- Every batch runs in a **transaction** — failed batches roll back and are logged.
+- Deterministic `uuid5` keys + upsert make re-runs **converge** (a 1200-row re-run produced zero duplicates).
+- Secrets (DB passwords, connection strings, SSH keys) are **Fernet-encrypted at rest** in `data/`
+  (`data/key.bin`, mode `0600`), never returned by the API, never logged. `data/` is git-ignored — keep it so.
+- Found a vulnerability? Please read [SECURITY.md](SECURITY.md) and report privately.
 
-## Transform expressions
+## 🤝 Contributing
 
-Safe, sandboxed (AST-whitelist — no arbitrary eval). Available: `trim, lower, upper, split_part,
-split_before, coalesce, map, to_bool, parse_date, parse_timestamp, uuid5, concat, replace, substr,
-zfill, nullif`. `value` is the current cell, `row['col']` reads any source column.
+Contributions, issues, and feature requests are welcome! Star ⭐ the repo, fork it, and open a PR.
+Start with the [**Contributing guide**](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-```python
-split_part(value, ' ', -1)                    # last name from full name
-split_before(value, ' ')                      # first name(s)
-to_bool(value, 'yes', 'no')                   # yes/no → boolean
-parse_date(value, '%d/%m/%Y')                 # varchar → date
-map({'Human Resources': 'a1b2-…'}, trim(value))   # free-text FK → uuid
-uuid5('people', row['employee_id'])           # deterministic id — idempotent re-runs,
-                                              # and links related migrations (people ↔ employees)
-```
+## 📝 License
 
-## Safety properties
-
-- Introspection & preview are read-only; writes go only to the table you explicitly selected — no DDL
-  against the target. (`.sql` *exports* may contain a `CREATE TABLE` for you to run yourself.)
-- Every batch is a transaction; failed batches roll back and are logged.
-- Upsert + deterministic `uuid5` keys ⇒ re-running a migration converges (verified: 1200-row re-run
-  produced zero duplicates).
-- Imported `.sql` sources are parsed into a local SQLite file and are strictly read-only.
-- Secrets (DB passwords, connection strings, SSH passwords/keys) are Fernet-encrypted at rest in `data/`
-  (key file `data/key.bin`, mode 0600), never returned by the API, never logged. Keep `data/` out of
-  version control.
-
-## Layout
-
-```
-backend/app/
-  connectors/    # base.py (reflection, keyset reads, SSH tunnel), mysql.py, postgres.py, sqlfile.py
-  sqlimport/     # parser.py (tolerant SQL-dump parser, keeps PKs + FKs), loader.py (dump -> SQLite)
-  transform/     # registry.py (casts), expr.py (sandboxed expressions), uuidgen.py
-  sinks.py       # output destinations: DBSink, SQLFileSink, CSVSink, JSONSink
-  dbops.py       # Explorer data ops: run_sql, read_table (+filters), row CRUD, bulk delete, export, import
-  admin.py       # Explorer DDL/admin: create/alter/drop table & column, truncate, db ops, triggers,
-                 # privileges, table DDL, schema graph (ERD)
-  api/           # connections (+ upload-sql), introspect, preview, migrate, mappings, explorer, admin (/db/*)
-  store/         # encrypted JSON persistence (connections + mapping profiles)
-  runner.py      # batched read → transform → write to a sink, progress events, reconciliation
-  models.py      # pydantic schemas
-frontend/
-  app/           # / (connections), /explorer, /migrate (4-step wizard), /profiles
-  components/    # TopNav, ThemeToggle, ConnectionForm, SourceTargetPicker, MappingCanvas,
-                 # PreviewPanel, RunPanel, StatusPill, icons
-    explorer/    # DataGrid, AdvancedFilter, StructureEditor, OperationsPanel, DatabaseMenu,
-                 # DesignerView (ERD), Triggers/GridTable, SqlEditor, Modal
-  lib/           # api client (stream + upload/export + db + admin ops), zustand store, auto-map
-```
-
-The UI is a professional two-pane app (sidebar + content) with a light/dark theme toggle.
+[MIT](LICENSE) © [Md. Golam Rabbani](https://github.com/md-golamrabbani)

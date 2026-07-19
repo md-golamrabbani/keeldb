@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
 import { IconArrows, IconBookmark, IconColumns, IconDatabase, IconDownload, IconLock, IconTable, IconWrench } from "./icons";
 
-export const APP_VERSION = "0.1.0";
-const RELEASES_API = "https://api.github.com/repos/md-golamrabbani/MigrationStudio/releases/latest";
-const RELEASES_PAGE = "https://github.com/md-golamrabbani/MigrationStudio/releases/latest";
+export const APP_VERSION = "0.1.1";
+const RELEASES_API = "https://api.github.com/repos/md-golamrabbani/keeldb/releases/latest";
+const RELEASES_PAGE = "https://github.com/md-golamrabbani/keeldb/releases/latest";
 
 function newer(latest: string, current: string): boolean {
   const p = (v: string) => v.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);

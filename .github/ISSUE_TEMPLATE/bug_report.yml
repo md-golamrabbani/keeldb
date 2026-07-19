@@ -1,0 +1,66 @@
+name: 🐛 Bug report
+description: Report something that isn't working as expected
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to file a bug! Please fill out the sections below.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce it?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Explorer / data grid
+        - SQL editor
+        - Migration
+        - Diagrams / ERD
+        - Toolkit
+        - Desktop app / build
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: database
+    attributes:
+      label: Database & version
+      placeholder: e.g. MySQL 8.0, PostgreSQL 16, Supabase
+  - type: dropdown
+    id: install
+    attributes:
+      label: How are you running KeelDB?
+      options:
+        - Desktop app (Windows)
+        - Desktop app (macOS)
+        - Desktop app (Linux)
+        - From source (web)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: KeelDB version
+      placeholder: e.g. v0.1.1
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Paste any relevant error output or screenshots.

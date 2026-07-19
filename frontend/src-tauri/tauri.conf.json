@@ -28,7 +28,7 @@
     "active": true,
     "targets": ["deb", "rpm", "nsis", "msi", "dmg", "app"],
     "publisher": "Md. Golam Rabbani",
-    "homepage": "https://github.com/md-golamrabbani/MigrationStudio",
+    "homepage": "https://github.com/md-golamrabbani/keeldb",
     "category": "DeveloperTool",
     "shortDescription": "Visual database studio — explore, migrate, and diagram your databases",
     "longDescription": "KeelDB is a desktop database studio for MySQL, PostgreSQL, SQLite, Supabase and Neon: browse and edit data, manage structure and foreign keys, run SQL with safety guards (affected-row preview, transaction sandbox, automatic snapshots with undo), migrate data between engines with column mapping and checkpoint/resume, design schemas in a dbdiagram-style DBML editor with AI assistance, and monitor database health.",
