@@ -15,7 +15,7 @@ import Checkbox from "@/components/ui/Checkbox";
 import Select from "@/components/ui/Select";
 import { toast } from "@/lib/toast";
 import {
-  IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
+  IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, IconCopy, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
 } from "@/components/icons";
 
 type Cell = string | number | boolean | null;
@@ -193,6 +193,56 @@ export default function DataGrid({
   const openAddRow = () => { setNewRow({}); setAddError(""); setAdding(true); };
   const closeAddRow = () => { setAdding(false); setAddError(""); };
 
+  // Copy selected rows (or all shown rows if none selected) to the clipboard as
+  // TSV — pastes cleanly into spreadsheets and back into this grid.
+  const copyRows = async () => {
+    if (!data) return;
+    const idxs = selected.size ? [...selected].sort((a, b) => a - b) : data.rows.map((_, i) => i);
+    const cell = (v: Cell) => (v == null ? "" : String(v).replace(/\t/g, " ").replace(/\r?\n/g, " "));
+    const tsv = [data.colnames.join("\t"), ...idxs.map((i) => data.rows[i].map(cell).join("\t"))].join("\n");
+    try {
+      await navigator.clipboard.writeText(tsv);
+      flash(`Copied ${idxs.length} row(s)`);
+    } catch (e) {
+      setError(`Could not copy: ${e}`);
+    }
+  };
+
+  // Paste rows from the clipboard (TSV, e.g. copied from a spreadsheet or this
+  // grid). Columns map by position to this table; a header row matching the
+  // column names is skipped. Confirms before inserting.
+  const pasteRows = async () => {
+    setError("");
+    let text = "";
+    try { text = await navigator.clipboard.readText(); }
+    catch (e) { setError(`Could not read clipboard: ${e}`); return; }
+    const lines = text.replace(/\r\n/g, "\n").split("\n").filter((l) => l.length > 0);
+    if (!lines.length) { setError("Clipboard is empty."); return; }
+    let parsed = lines.map((l) => l.split("\t"));
+    // Skip a header row if it matches this table's columns.
+    if (parsed[0].join("\t").toLowerCase() === colnames.join("\t").toLowerCase()) parsed = parsed.slice(1);
+    if (!parsed.length) { setError("Nothing to paste after the header row."); return; }
+    const rows = parsed.map((cells) => {
+      const values: Record<string, unknown> = {};
+      cells.forEach((v, i) => { if (i < colnames.length && v !== "") values[colnames[i]] = v; });
+      return values;
+    });
+    setConfirm({
+      title: "Paste rows",
+      message: `Insert ${rows.length} row(s) into ${table}? Empty cells become NULL/defaults. Columns map left-to-right.`,
+      confirmLabel: `Insert ${rows.length}`,
+      onConfirm: async () => {
+        let ok = 0;
+        for (const values of rows) {
+          try { await api.insertRow(connId, schema, table, values); ok++; }
+          catch (e) { setError(`Inserted ${ok} of ${rows.length}; stopped at row ${ok + 1}: ${e}`); break; }
+        }
+        if (ok === rows.length) flash(`Pasted ${ok} row(s)`);
+        load();
+      },
+    });
+  };
+
   const runSqlFile = async (f: File) => {
     setError("");
     try {
@@ -256,6 +306,18 @@ export default function DataGrid({
           title={!editable ? "Table has no primary key — rows can't be added safely" : dirty ? "Save or revert your changes first" : ""}>
           <IconPlus width={14} height={14} /> Add row
         </button>
+        {editable && (
+          <button className="btn btn-secondary btn-sm !h-9" onClick={pasteRows} disabled={dirty}
+            title={dirty ? "Save or revert your changes first" : "Insert rows from the clipboard (TSV / spreadsheet)"}>
+            <IconUpload width={14} height={14} /> Paste rows
+          </button>
+        )}
+        {data && data.rows.length > 0 && (
+          <button className="btn btn-secondary btn-sm !h-9" onClick={copyRows}
+            title={selected.size ? `Copy ${selected.size} selected row(s) as TSV` : "Copy all shown rows as TSV"}>
+            <IconCopy width={14} height={14} /> Copy{selected.size ? ` ${selected.size}` : ""}
+          </button>
+        )}
         {selected.size > 0 && !dirty && (
           <button className="btn btn-danger btn-sm !h-9" onClick={bulkDelete}><IconTrash width={14} height={14} /> Delete {selected.size} selected</button>
         )}
