@@ -437,6 +437,8 @@ export interface QueryResult {
   edit_schema?: string;
   edit_table?: string;
   pk_cols?: string[];
+  /** Column metadata for the editable table, for datatype-aware result editing. */
+  edit_columns?: ColumnInfo[];
 }
 
 export interface ResultSet {
