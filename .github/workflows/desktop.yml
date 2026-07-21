@@ -22,8 +22,13 @@ jobs:
           - os: ubuntu-22.04      # linux x86_64
           - os: windows-latest    # windows x86_64
           - os: macos-latest      # macOS arm64 (Apple Silicon)
-          - os: macos-13          # macOS x86_64 (Intel)
+          # macos-13 (Intel) is dropped for now: the hosted Intel runner queues
+          # indefinitely on this account and auto-cancels at 24h, failing the run.
+          # Apple-Silicon .dmg covers most Macs; Intel users can build from source.
+          # See issue #1 for restoring Intel via a universal macOS binary.
     runs-on: ${{ matrix.os }}
+    # Safeguard: never let a stuck job burn the full 24h window.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
