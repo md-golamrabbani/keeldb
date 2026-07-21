@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KeelDB — a production-safe database workbench</title>
+<meta name="description" content="Migrate, explore, guard, and monitor MySQL, PostgreSQL, Supabase and Neon from one clean, open-source app — on the web and as a native desktop app for Windows, macOS and Linux." />
+<meta property="og:title" content="KeelDB — a production-safe database workbench" />
+<meta property="og:description" content="Migrate, explore, guard, and monitor MySQL · PostgreSQL · Supabase · Neon from one clean, open-source app." />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="https://raw.githubusercontent.com/md-golamrabbani/keeldb/main/screenshots/explorer.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" href="https://raw.githubusercontent.com/md-golamrabbani/keeldb/main/logo.svg" />
+<style>
+  :root{
+    --bg:#ffffff; --surface:#f7f8fa; --surface-2:#eef1f5; --border:#e3e7ec;
+    --text:#0f172a; --muted:#5b6473; --faint:#94a1b2; --accent:#2563eb; --accent-soft:#e7efff;
+    --radius:14px; --maxw:1080px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0b0f17; --surface:#111725; --surface-2:#161d2c; --border:#212a3a;
+      --text:#e8edf5; --muted:#9aa6b8; --faint:#68758a; --accent:#5b9dff; --accent-soft:#15233d;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:10px;
+    font-weight:600;font-size:15px;border:1px solid var(--border);transition:.15s;cursor:pointer;white-space:nowrap}
+  .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn-primary:hover{filter:brightness(1.07)}
+  .btn-ghost:hover{background:var(--surface-2)}
+  .muted{color:var(--muted)}
+
+  /* nav */
+  header.nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);
+    background:color-mix(in srgb,var(--bg) 82%,transparent);border-bottom:1px solid var(--border)}
+  .nav-in{display:flex;align-items:center;gap:14px;height:60px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+  .brand img{width:26px;height:26px}
+  .brand .db{color:var(--accent)}
+  .nav-links{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .nav-links a.txt{padding:8px 12px;border-radius:8px;color:var(--muted);font-weight:500}
+  .nav-links a.txt:hover{background:var(--surface-2);color:var(--text)}
+
+  /* hero */
+  .hero{text-align:center;padding:76px 0 40px}
+  .badge{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;
+    background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:600;margin-bottom:22px}
+  .hero h1{font-size:clamp(34px,6vw,56px);line-height:1.08;letter-spacing:-.02em;margin:0 0 18px}
+  .hero h1 .db{color:var(--accent)}
+  .hero p.lead{font-size:clamp(17px,2.4vw,20px);color:var(--muted);max-width:680px;margin:0 auto 28px}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .dbs{margin-top:26px;color:var(--faint);font-size:14px;font-weight:600;letter-spacing:.02em}
+  .dbs b{color:var(--muted)}
+
+  /* shot */
+  .shot{margin:36px auto 0;max-width:960px}
+  .shot img{width:100%;height:auto;border-radius:var(--radius);border:1px solid var(--border);
+    box-shadow:0 24px 60px -30px rgba(2,8,23,.45)}
+
+  section{padding:56px 0}
+  .eyebrow{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;text-align:center}
+  h2.title{font-size:clamp(26px,4vw,36px);text-align:center;margin:8px 0 8px;letter-spacing:-.02em}
+  .sub{text-align:center;color:var(--muted);max-width:640px;margin:0 auto 40px}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px}
+  .card h3{margin:6px 0 8px;font-size:18px}
+  .card p{margin:0;color:var(--muted);font-size:15px}
+  .ico{width:38px;height:38px;border-radius:10px;background:var(--accent-soft);color:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-size:20px}
+
+  .shots2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .shots2 img{width:100%;height:auto;border-radius:12px;border:1px solid var(--border)}
+  @media(max-width:720px){.shots2{grid-template-columns:1fr}}
+
+  .dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:12px}
+  .dl .card{text-align:center}
+  .dl .os{font-size:26px}
+  .dl .card h3{margin:10px 0 4px}
+  .dl .card .files{color:var(--faint);font-size:13px;font-family:ui-monospace,monospace}
+
+  .band{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+  .stack{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:8px}
+  .chip{padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg);
+    font-size:13px;font-weight:600;color:var(--muted)}
+
+  footer{padding:40px 0;border-top:1px solid var(--border);color:var(--muted);font-size:14px}
+  .foot-in{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+  .kbd{font-family:ui-monospace,monospace;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:6px;padding:1px 6px;font-size:12px}
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top">
+      <img src="https://raw.githubusercontent.com/md-golamrabbani/keeldb/main/logo.svg" alt="" />
+      Keel<span class="db">DB</span>
+    </a>
+    <nav class="nav-links">
+      <a class="txt" href="#features">Features</a>
+      <a class="txt" href="#screens">Screenshots</a>
+      <a class="txt" href="https://github.com/md-golamrabbani/keeldb#readme">Docs</a>
+      <a class="btn btn-ghost" href="https://github.com/md-golamrabbani/keeldb" target="_blank" rel="noopener">GitHub ★</a>
+      <a class="btn btn-primary" href="https://github.com/md-golamrabbani/keeldb/releases" target="_blank" rel="noopener">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <span class="badge">● Open source · MIT licensed</span>
+    <h1>A production-safe<br/>database <span class="db">workbench</span></h1>
+    <p class="lead">Migrate, explore, guard and monitor <b>MySQL · PostgreSQL · Supabase · Neon</b>
+      — or an imported <code>.sql</code> dump — from one clean app. On the web, and as a native
+      desktop app for Windows, macOS and Linux.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="https://github.com/md-golamrabbani/keeldb/releases" target="_blank" rel="noopener">⤓ Download the app</a>
+      <a class="btn btn-ghost" href="https://github.com/md-golamrabbani/keeldb" target="_blank" rel="noopener">View on GitHub</a>
+    </div>
+    <div class="dbs">Works with <b>MySQL</b> · <b>PostgreSQL</b> · <b>Supabase</b> · <b>Neon</b> · <b>SQLite / .sql dumps</b></div>
+    <div class="shot">
+      <img src="https://raw.githubusercontent.com/md-golamrabbani/keeldb/main/screenshots/explorer.png" alt="KeelDB Explorer" loading="lazy" />
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="eyebrow">What it does</div>
+      <h2 class="title">Everything you reach for, in one place</h2>
+      <p class="sub">A GUI-driven toolkit for real database work — safe by default, fast on big tables.</p>
+      <div class="grid">
+        <div class="card"><div class="ico">⇄</div><h3>Migrate</h3>
+          <p>Any-to-any across MySQL, PostgreSQL, Supabase and Neon (or a <code>.sql</code> dump) with a visual column-mapping canvas, casts, sandboxed transforms, dry-runs and batched idempotent writes.</p></div>
+        <div class="card"><div class="ico">▤</div><h3>Explore</h3>
+          <p>A fast tabbed browser: filter, sort, inline Workbench-style editing (staged saves), copy/paste rows, FK peek-and-jump, and CSV/JSON/SQL import &amp; export.</p></div>
+        <div class="card"><div class="ico">◫</div><h3>Design &amp; guard</h3>
+          <p>Interactive ERD, structure editing, health checks, and safety rails — production writes need confirmation, read-only mode blocks writes, big tables load instantly.</p></div>
+        <div class="card"><div class="ico">⌘</div><h3>SQL editor</h3>
+          <p>Autocomplete, live error checks, run-the-selection, saved queries with search, editable results (edit rows by primary key), and a chart view.</p></div>
+        <div class="card"><div class="ico">✦</div><h3>AI assist</h3>
+          <p>Optional natural-language → SQL with Claude, ChatGPT or Groq using your own key. The model only <em>suggests</em> a read-only query — it never runs anything.</p></div>
+        <div class="card"><div class="ico">🧰</div><h3>Developer toolkit</h3>
+          <p>25+ built-in SQL &amp; data-prep utilities — IN-clause builder, CSV→SQL, bulk insert/update, dedupe, JWT inspector, sample-data generator and more.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screens" class="band">
+    <div class="wrap">
+      <div class="eyebrow">A closer look</div>
+      <h2 class="title">Built to feel fast and familiar</h2>
+      <p class="sub">Clean, keyboard-friendly, and dark-mode native.</p>
+      <div class="shots2">
+        <img src="https://raw.githubusercontent.com/md-golamrabbani/keeldb/main/screenshots/sqleditor.png" alt="SQL editor" loading="lazy" />
+        <img src="https://raw.githubusercontent.com/md-golamrabbani/keeldb/main/screenshots/erd.png" alt="ERD designer" loading="lazy" />
+      </div>
+    </div>
+  </section>
+
+  <section id="download">
+    <div class="wrap">
+      <div class="eyebrow">Get it</div>
+      <h2 class="title">Download for your OS</h2>
+      <p class="sub">Native desktop builds with the database backend bundled — nothing else to install.</p>
+      <div class="dl">
+        <a class="card" href="https://github.com/md-golamrabbani/keeldb/releases" target="_blank" rel="noopener">
+          <div class="os">🪟</div><h3>Windows</h3><div class="files">.msi · .exe</div></a>
+        <a class="card" href="https://github.com/md-golamrabbani/keeldb/releases" target="_blank" rel="noopener">
+          <div class="os">🍎</div><h3>macOS</h3><div class="files">.dmg (Apple&nbsp;Silicon)</div></a>
+        <a class="card" href="https://github.com/md-golamrabbani/keeldb/releases" target="_blank" rel="noopener">
+          <div class="os">🐧</div><h3>Linux</h3><div class="files">.AppImage · .deb · .rpm</div></a>
+      </div>
+      <p class="sub" style="margin-top:22px">Prefer to run from source? <code>git clone</code> and follow the
+        <a href="https://github.com/md-golamrabbani/keeldb#-run-from-source" style="color:var(--accent);font-weight:600">quick start</a>.</p>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap" style="text-align:center">
+      <div class="eyebrow">Under the hood</div>
+      <h2 class="title">Built on solid, boring tech</h2>
+      <div class="stack">
+        <span class="chip">Next.js</span><span class="chip">React</span><span class="chip">TypeScript</span>
+        <span class="chip">Tailwind</span><span class="chip">Tauri (Rust)</span><span class="chip">FastAPI</span>
+        <span class="chip">SQLAlchemy</span><span class="chip">Fernet-encrypted secrets</span><span class="chip">SSH tunnels</span>
+      </div>
+      <div class="cta" style="margin-top:30px">
+        <a class="btn btn-primary" href="https://github.com/md-golamrabbani/keeldb" target="_blank" rel="noopener">★ Star on GitHub</a>
+        <a class="btn btn-ghost" href="https://github.com/md-golamrabbani/keeldb/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contribute</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot-in">
+    <div class="brand">Keel<span class="db">DB</span></div>
+    <div class="muted">MIT licensed · © <a href="https://github.com/md-golamrabbani" style="color:var(--accent)">Md. Golam Rabbani</a></div>
+    <div class="muted">Press <span class="kbd">⌘K</span> in the app for the command palette</div>
+  </div>
+</footer>
+</body>
+</html>
