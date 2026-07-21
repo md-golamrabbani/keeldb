@@ -18,7 +18,7 @@ function emit() {
   for (const l of listeners) l(toasts);
 }
 
-export function toast(message: string, kind: Toast["kind"] = "success", ms = 3500) {
+export function toast(message: string, kind: Toast["kind"] = "success", ms = 5000) {
   const t = { id: nextId++, message, kind };
   toasts = [...toasts, t];
   emit();
