@@ -12,8 +12,22 @@ export default function AiSettingsModal({ onClose, onSaved }: { onClose: () => v
   const [provider, setProvider] = useState("anthropic");
   const [model, setModel] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [show, setShow] = useState(false);
+  const [revealing, setRevealing] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Reveal the stored key: fetch it once (if the field is empty) and unmask it.
+  const toggleShow = async () => {
+    if (show) { setShow(false); return; }
+    if (!apiKey && s?.has_key) {
+      setRevealing(true);
+      try { setApiKey((await api.revealAiKey()).api_key); }
+      catch (e) { setError(String(e)); return; }
+      finally { setRevealing(false); }
+    }
+    setShow(true);
+  };
 
   useEffect(() => {
     api.aiSettings().then((r) => { setS(r); setProvider(r.provider); setModel(r.model); }).catch((e) => setError(String(e)));
@@ -52,8 +66,17 @@ export default function AiSettingsModal({ onClose, onSaved }: { onClose: () => v
 
         <div>
           <label className="label">API key {s?.has_key && <span className="badge badge-success">saved</span>}</label>
-          <input type="password" className="input font-mono" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-            placeholder={s?.has_key ? "•••••••• — leave blank to keep the saved key" : "Paste your API key"} />
+          <div className="relative">
+            <input type={show ? "text" : "password"} className="input font-mono !pr-16" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+              placeholder={s?.has_key ? "•••••••• — leave blank to keep the saved key" : "Paste your API key"} />
+            {(apiKey || s?.has_key) && (
+              <button type="button" onClick={toggleShow} disabled={revealing}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium"
+                style={{ color: "var(--accent)" }}>
+                {revealing ? "…" : show ? "Hide" : "Show"}
+              </button>
+            )}
+          </div>
           <p className="mt-1 text-xs faint">
             {provider === "anthropic" && "console.anthropic.com → API keys"}
             {provider === "openai" && "platform.openai.com → API keys"}

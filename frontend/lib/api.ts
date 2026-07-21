@@ -156,6 +156,7 @@ export const api = {
   aiSql: (connId: string, schema: string, question: string) =>
     req<{ available: boolean; sql: string; message?: string; model?: string }>(`/db/${connId}/ai/sql`, { method: "POST", body: JSON.stringify({ schema_name: schema, question }) }),
   aiSettings: () => req<AiSettingsPublic>("/ai/settings"),
+  revealAiKey: () => req<{ api_key: string }>("/ai/settings/key"),
   saveAiSettings: (p: { provider: string; model: string; api_key: string }) =>
     req<AiSettingsPublic>("/ai/settings", { method: "PUT", body: JSON.stringify(p) }),
   listIndexes: (connId: string, schema: string, table: string) =>

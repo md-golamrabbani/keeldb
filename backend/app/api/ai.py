@@ -33,6 +33,14 @@ def get_settings():
     return _public()
 
 
+@router.get("/settings/key")
+def reveal_key():
+    """Return the stored API key so the local UI can show it on demand. This is a
+    single-user desktop app; the key never leaves the machine. `_public()`
+    deliberately omits it so it isn't sent on every settings fetch."""
+    return {"api_key": ai_settings_store.get().api_key}
+
+
 @router.put("/settings")
 def put_settings(req: AiSettingsIn):
     existing = ai_settings_store.get()
