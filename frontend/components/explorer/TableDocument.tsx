@@ -49,7 +49,7 @@ export default function TableDocument({
   return (
     // The Data sub fills the available height so only the grid scrolls; other
     // subs keep their natural (page-scrolling) flow.
-    <div className={sub === "data" ? "flex h-full min-h-0 flex-col gap-4" : "space-y-4"}>
+    <div className={sub === "data" ? "flex h-full min-h-0 flex-col gap-2" : "space-y-3"}>
       <div className="flex shrink-0 items-center gap-1 border-b" style={{ borderColor: "var(--border)" }}>
         {SUBS.map(({ id, label }) => (
           <button key={id} onClick={() => setSub(id)}
