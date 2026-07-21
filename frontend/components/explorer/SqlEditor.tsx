@@ -125,6 +125,20 @@ const TIMEOUT_OPTIONS = [
 const ROW_HEIGHT = 25; // px — fixed row height for the virtualized result grid
 const OVERSCAN = 12;
 
+type Cell = string | number | boolean | null;
+
+/** Optional inline-editing wiring for the result grid (present only when the
+    query is a simple single-table SELECT with a PK). */
+interface GridEdit {
+  pending: Record<string, Cell>;
+  editing: { r: number; c: number } | null;
+  editVal: string;
+  start: (r: number, c: number, cur: Cell) => void;
+  change: (v: string) => void;
+  commit: (r: number, c: number) => void;
+  cancel: () => void;
+}
+
 /** Windowed result rows: only the visible slice (plus overscan) is in the DOM,
     so 100k-row results scroll smoothly. Spacer rows keep the scrollbar honest. */
 function VirtualRows({
@@ -132,11 +146,13 @@ function VirtualRows({
   colCount,
   scrollTop,
   viewport,
+  edit,
 }: {
-  rows: (string | number | boolean | null)[][];
+  rows: Cell[][];
   colCount: number;
   scrollTop: number;
   viewport: number;
+  edit?: GridEdit | null;
 }) {
   const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
   const count = Math.ceil(viewport / ROW_HEIGHT) + OVERSCAN * 2;
@@ -150,19 +166,47 @@ function VirtualRows({
           <td colSpan={colCount} style={{ padding: 0, border: 0 }} />
         </tr>
       )}
-      {rows.slice(start, end).map((row, i) => (
-        <tr key={start + i} style={{ height: ROW_HEIGHT }}>
-          {row.map((cell, c) => (
-            <td
-              key={c}
-              className="max-w-[24rem] truncate border-b px-2.5 font-mono"
-              title={String(cell ?? "")}
-            >
-              {cell == null ? <span className="faint">null</span> : String(cell)}
-            </td>
-          ))}
-        </tr>
-      ))}
+      {rows.slice(start, end).map((row, i) => {
+        const abs = start + i;
+        return (
+          <tr key={abs} style={{ height: ROW_HEIGHT }}>
+            {row.map((cell, c) => {
+              const key = `${abs}::${c}`;
+              const isPending = !!edit && Object.prototype.hasOwnProperty.call(edit.pending, key);
+              const disp: Cell = isPending ? edit!.pending[key] : cell;
+              const isEditing = !!edit && edit.editing?.r === abs && edit.editing?.c === c;
+              return (
+                <td
+                  key={c}
+                  className="max-w-[24rem] truncate border-b px-2.5 font-mono"
+                  style={isPending ? { background: "color-mix(in srgb, var(--warning) 22%, transparent)" } : undefined}
+                  title={edit ? "Double-click to edit" : String(disp ?? "")}
+                  onDoubleClick={edit ? () => edit.start(abs, c, disp) : undefined}
+                >
+                  {isEditing ? (
+                    <input
+                      autoFocus
+                      className="w-full bg-transparent font-mono text-xs outline-none"
+                      style={{ caretColor: "var(--text)" }}
+                      value={edit!.editVal}
+                      onChange={(e) => edit!.change(e.target.value)}
+                      onBlur={() => edit!.commit(abs, c)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") edit!.commit(abs, c);
+                        if (e.key === "Escape") edit!.cancel();
+                      }}
+                    />
+                  ) : disp == null ? (
+                    <span className="faint">null</span>
+                  ) : (
+                    String(disp)
+                  )}
+                </td>
+              );
+            })}
+          </tr>
+        );
+      })}
       {below > 0 && (
         <tr aria-hidden style={{ height: below }}>
           <td colSpan={colCount} style={{ padding: 0, border: 0 }} />
@@ -224,6 +268,12 @@ export default function SqlEditor({
   const [resultTab, setResultTab] = useState(0);
   const [explaining, setExplaining] = useState(false);
   const [errorHelp, setErrorHelp] = useState<{ explanation: string; suggested_sql?: string } | null>(null);
+  // Inline result editing (single-table SELECT with PK).
+  const [resultEdits, setResultEdits] = useState<Record<string, Cell>>({});
+  const [editingCell, setEditingCell] = useState<{ r: number; c: number } | null>(null);
+  const [editVal, setEditVal] = useState("");
+  const [savingEdits, setSavingEdits] = useState(false);
+  const [editErr, setEditErr] = useState("");
 
   const explainError = async () => {
     if (!result?.error) return;
@@ -245,6 +295,65 @@ export default function SqlEditor({
   const activeSet = sets ? sets[Math.min(resultTab, sets.length - 1)] : null;
   const shownColumns = activeSet?.columns ?? result?.columns;
   const shownRows = activeSet?.rows ?? result?.rows;
+
+  // The result is editable only for a lone simple single-table SELECT with a PK
+  // on a writable connection, and not while a sandbox transaction is open.
+  const canEdit = !!result?.ok && !!result?.is_select && !sets && !!result?.editable && !readOnly && !sandboxId;
+  const editCount = Object.keys(resultEdits).length;
+
+  const startEdit = (r: number, c: number, cur: Cell) => { setEditVal(cur == null ? "" : String(cur)); setEditingCell({ r, c }); };
+  const commitCellEdit = (r: number, c: number) => {
+    setEditingCell(null);
+    if (!shownRows) return;
+    const orig = shownRows[r]?.[c];
+    const val: Cell = editVal === "" ? null : editVal;
+    setResultEdits((p) => {
+      const next = { ...p };
+      const k = `${r}::${c}`;
+      if (String(orig ?? "") === String(val ?? "")) delete next[k];
+      else next[k] = val;
+      return next;
+    });
+  };
+  const revertResultEdits = () => { setResultEdits({}); setEditingCell(null); setEditErr(""); };
+  const applyResultEdits = async () => {
+    if (!result?.edit_table || !shownColumns || !shownRows || !editCount) return;
+    const byRow = new Map<number, Record<string, Cell>>();
+    for (const [k, v] of Object.entries(resultEdits)) {
+      const [rs, cs] = k.split("::").map(Number);
+      const m = byRow.get(rs) ?? {};
+      m[shownColumns[cs]] = v;
+      byRow.set(rs, m);
+    }
+    setSavingEdits(true); setEditErr("");
+    try {
+      for (const [r, changes] of byRow) {
+        const pk: Record<string, Cell> = {};
+        for (const name of result.pk_cols ?? []) {
+          const i = shownColumns.indexOf(name);
+          if (i >= 0) pk[name] = shownRows[r][i];
+        }
+        await api.updateRow(connId, result.edit_schema || schema, result.edit_table, pk, changes);
+      }
+      // Reflect saved values locally.
+      setResult((prev) => {
+        if (!prev?.rows) return prev;
+        const rows = prev.rows.map((rr, i) => {
+          const ch = byRow.get(i);
+          return ch ? rr.map((cc, j) => (shownColumns[j] in ch ? ch[shownColumns[j]] : cc)) : rr;
+        });
+        return { ...prev, rows };
+      });
+      setResultEdits({});
+    } catch (e) {
+      setEditErr(String(e)); // keep edits so the user can fix and retry
+    } finally {
+      setSavingEdits(false);
+    }
+  };
+  const gridEdit: GridEdit | null = canEdit
+    ? { pending: resultEdits, editing: editingCell, editVal, start: startEdit, change: setEditVal, commit: commitCellEdit, cancel: () => setEditingCell(null) }
+    : null;
 
   const beginSandbox = async () => {
     setSandboxBusy(true);
@@ -463,6 +572,9 @@ export default function SqlEditor({
     setGridScroll(0);
     setResultTab(0);
     setErrorHelp(null);
+    setResultEdits({});
+    setEditingCell(null);
+    setEditErr("");
     try {
       const target = runTargetRef.current || sql;
       const res = sandboxId
@@ -807,6 +919,25 @@ export default function SqlEditor({
           {showChart && result.is_select && shownColumns && shownRows && shownRows.length > 0 && (
             <ResultChart columns={shownColumns} rows={shownRows} />
           )}
+          {canEdit && editCount === 0 && (
+            <p className="text-xs faint">Editable result — double-click a cell to change it, then Save.</p>
+          )}
+          {editErr && <p className="alert-danger whitespace-pre-wrap text-sm">{editErr}</p>}
+          {editCount > 0 && (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm"
+              style={{ background: "color-mix(in srgb, var(--warning) 12%, transparent)", borderColor: "var(--warning)" }}>
+              <span className="font-medium" style={{ color: "var(--warning)" }}>
+                {editCount} unsaved change{editCount === 1 ? "" : "s"}
+              </span>
+              <span className="text-xs faint">Writes to {result.edit_table} by primary key.</span>
+              <div className="ml-auto flex items-center gap-2">
+                <button className="btn btn-ghost btn-sm !h-8" onClick={revertResultEdits} disabled={savingEdits}>Revert</button>
+                <button className="btn btn-primary btn-sm !h-8" onClick={applyResultEdits} disabled={savingEdits}>
+                  {savingEdits ? "Saving…" : `Save ${editCount} change${editCount === 1 ? "" : "s"}`}
+                </button>
+              </div>
+            </div>
+          )}
           {result.is_select && shownColumns && (
             <div
               ref={(el) => {
@@ -844,6 +975,7 @@ export default function SqlEditor({
                   colCount={shownColumns.length}
                   scrollTop={gridScroll}
                   viewport={gridHeight}
+                  edit={gridEdit}
                 />
               </table>
               {shownRows?.length === 0 && (
