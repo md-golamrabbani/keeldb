@@ -59,6 +59,8 @@ export default function DataGrid({
   const [exportMenu, setExportMenu] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newRow, setNewRow] = useState<Record<string, string>>({});
+  const [addError, setAddError] = useState(""); // error shown inside the Add-row dialog
+  const [addBusy, setAddBusy] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -173,13 +175,23 @@ export default function DataGrid({
   };
 
   const addRow = async () => {
+    // Keep the dialog open and show the error *inside* it on failure (e.g. a
+    // duplicate key), so the user never loses what they typed.
+    setAddError(""); setAddBusy(true);
     try {
       const values: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(newRow)) if (v !== "") values[k] = v;
       await api.insertRow(connId, schema, table, values);
       setAdding(false); setNewRow({}); flash("Row inserted"); load();
-    } catch (e) { setError(String(e)); }
+    } catch (e) {
+      setAddError(String(e));
+    } finally {
+      setAddBusy(false);
+    }
   };
+
+  const openAddRow = () => { setNewRow({}); setAddError(""); setAdding(true); };
+  const closeAddRow = () => { setAdding(false); setAddError(""); };
 
   const runSqlFile = async (f: File) => {
     setError("");
@@ -240,7 +252,7 @@ export default function DataGrid({
         </button>
         <button className="btn btn-secondary btn-sm !h-9" onClick={load} disabled={loading || dirty}
           title={dirty ? "Save or revert your changes first" : ""}><IconRefresh width={14} height={14} /> Refresh</button>
-        <button className="btn btn-secondary btn-sm !h-9" onClick={() => { setAdding((a) => !a); setNewRow({}); }} disabled={!editable || dirty}
+        <button className="btn btn-secondary btn-sm !h-9" onClick={() => (adding ? closeAddRow() : openAddRow())} disabled={!editable || dirty}
           title={!editable ? "Table has no primary key — rows can't be added safely" : dirty ? "Save or revert your changes first" : ""}>
           <IconPlus width={14} height={14} /> Add row
         </button>
@@ -329,7 +341,7 @@ export default function DataGrid({
       )}
 
       {adding && data && (
-        <Modal title={`Add row to ${table}`} wide onClose={() => setAdding(false)}>
+        <Modal title={`Add row to ${table}`} wide onClose={closeAddRow}>
           <div className="space-y-4">
             <div className="card max-h-[60vh] overflow-y-auto">
               <table className="w-full text-sm">
@@ -377,11 +389,14 @@ export default function DataGrid({
                 </tbody>
               </table>
             </div>
+            {addError && (
+              <div className="alert-danger whitespace-pre-wrap text-sm">{addError}</div>
+            )}
             <div className="flex items-center gap-2">
               <p className="text-xs faint"><span style={{ color: "var(--danger)" }}>*</span> required (NOT NULL, no default) · empty = NULL</p>
               <div className="ml-auto flex gap-2">
-                <button className="btn btn-ghost" onClick={() => setAdding(false)}>Cancel</button>
-                <button className="btn btn-primary" onClick={addRow}><IconPlus width={14} height={14} /> Insert row</button>
+                <button className="btn btn-ghost" onClick={closeAddRow} disabled={addBusy}>Cancel</button>
+                <button className="btn btn-primary" onClick={addRow} disabled={addBusy}><IconPlus width={14} height={14} /> {addBusy ? "Inserting…" : "Insert row"}</button>
               </div>
             </div>
           </div>
