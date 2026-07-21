@@ -11,7 +11,7 @@ import ResultChart from "./ResultChart";
 import Select from "@/components/ui/Select";
 import AiSettingsModal from "./AiSettingsModal";
 import {
-  IconCamera, IconCheck, IconDownload, IconFlask, IconPlay, IconSettings, IconSparkles, IconWarning,
+  IconCamera, IconCheck, IconDownload, IconEdit, IconFlask, IconPlay, IconSettings, IconSparkles, IconWarning,
 } from "@/components/icons";
 import { downloadFile } from "@/lib/toast";
 
@@ -699,12 +699,12 @@ export default function SqlEditor({
             never pushes Run/Analyze/options out of reach (real-world tools put
             these on top). */}
         <div
-          className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2"
+          className="flex flex-wrap items-center justify-between gap-2 border-b px-2 py-1"
           style={{ background: "var(--surface-2)" }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
-              className="btn btn-primary btn-sm py-2"
+              className="btn btn-primary btn-sm !h-7"
               onClick={run}
               disabled={running}
               title={selection.trim() ? "Run only the highlighted selection (Ctrl/⌘+Enter)" : "Run the query (Ctrl/⌘+Enter)"}
@@ -712,7 +712,7 @@ export default function SqlEditor({
               <IconPlay width={12} height={12} /> {running ? "Running…" : selection.trim() ? "Run selection" : "Run"}
             </button>
             <button
-              className="btn btn-secondary btn-sm py-2"
+              className="btn btn-secondary btn-sm !h-7"
               onClick={analyze}
               disabled={analyzing || running}
               title="Run EXPLAIN and get performance hints (read-only)"
@@ -721,7 +721,7 @@ export default function SqlEditor({
             </button>
             {!sandboxId && !readOnly && (
               <button
-                className="btn btn-secondary btn-sm py-2"
+                className="btn btn-secondary btn-sm !h-7"
                 onClick={beginSandbox}
                 disabled={sandboxBusy || running}
                 title="Open a transaction sandbox: writes stay invisible to everyone else until you Commit — or Rollback to discard them."
@@ -773,26 +773,23 @@ export default function SqlEditor({
           tableNames={tableNames}
           columns={colCache}
         />
-        {/* Slim status line under the editor — syntax feedback only. */}
-        <div
-          className="flex items-center gap-3 border-t px-3 py-1.5"
-          style={{ background: "var(--surface-2)" }}
-        >
-          <span
-            className="flex min-w-0 items-center gap-1.5 truncate text-xs"
-            style={{ color: lintError ? "var(--danger)" : "var(--text-faint)" }}
+        {/* Status line only appears when there's an actual syntax issue — no
+            space wasted on an all-clear message. */}
+        {lintError && (
+          <div
+            className="flex items-center gap-3 border-t px-3 py-1"
+            style={{ background: "var(--surface-2)" }}
           >
-            {lintError ? (
-              <>
-                <IconWarning width={13} height={13} className="shrink-0" aria-hidden />
-                {lintError.line ? <b>Line {lintError.line}:</b> : null}{" "}
-                {lintError.message}
-              </>
-            ) : (
-              "No syntax issues · runs in a transaction · Ctrl/⌘+Enter to run · select text to run only that"
-            )}
-          </span>
-        </div>
+            <span
+              className="flex min-w-0 items-center gap-1.5 truncate text-xs"
+              style={{ color: "var(--danger)" }}
+            >
+              <IconWarning width={13} height={13} className="shrink-0" aria-hidden />
+              {lintError.line ? <b>Line {lintError.line}:</b> : null}{" "}
+              {lintError.message}
+            </span>
+          </div>
+        )}
       </div>
 
       {sandboxId && (
@@ -901,33 +898,41 @@ export default function SqlEditor({
 
       {result && result.ok && (
         <>
-          <div className="flex items-center justify-between">
-            <p className="text-xs muted">
-              {result.is_select ? (
-                <>
-                  {result.rowcount?.toLocaleString()} row
-                  {result.rowcount === 1 ? "" : "s"}
-                  {result.truncated
-                    ? ` (limited to ${usedLimit.toLocaleString()} — raise “Limit” for more)`
-                    : ""}
-                </>
-              ) : (
-                <>
-                  {result.rowcount?.toLocaleString()} row
-                  {result.rowcount === 1 ? "" : "s"} affected
-                </>
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex min-w-0 items-center gap-1.5 truncate text-xs muted">
+              <span className="truncate">
+                {result.is_select ? (
+                  <>
+                    {result.rowcount?.toLocaleString()} row
+                    {result.rowcount === 1 ? "" : "s"}
+                    {result.truncated
+                      ? ` (limited to ${usedLimit.toLocaleString()} — raise “Limit” for more)`
+                      : ""}
+                  </>
+                ) : (
+                  <>
+                    {result.rowcount?.toLocaleString()} row
+                    {result.rowcount === 1 ? "" : "s"} affected
+                  </>
+                )}
+                {" · "}
+                {result.executed} statement{result.executed === 1 ? "" : "s"} ·{" "}
+                {result.elapsed_ms} ms
+              </span>
+              {canEdit && editCount === 0 && (
+                <span className="inline-flex shrink-0 items-center gap-1" style={{ color: "var(--accent)" }}
+                  title="Editable result — double-click a cell to change it, then Save">
+                  <IconEdit width={12} height={12} /> Editable
+                </span>
               )}
-              {" · "}
-              {result.executed} statement{result.executed === 1 ? "" : "s"} ·{" "}
-              {result.elapsed_ms} ms
             </p>
             {result.is_select && !!result.rows?.length && (
-              <div className="flex items-center gap-2">
-                <button className="btn btn-secondary btn-sm !h-8" onClick={() => setShowChart((s) => !s)}>
+              <div className="flex shrink-0 items-center gap-2">
+                <button className="btn btn-secondary btn-sm !h-7" onClick={() => setShowChart((s) => !s)}>
                   {showChart ? "Hide chart" : "Chart"}
                 </button>
-                <button className="btn btn-secondary btn-sm !h-8" onClick={downloadCsv}>
-                  <IconDownload width={13} height={13} /> Download CSV
+                <button className="btn btn-secondary btn-sm !h-7" onClick={downloadCsv}>
+                  <IconDownload width={13} height={13} /> CSV
                 </button>
               </div>
             )}
@@ -950,9 +955,6 @@ export default function SqlEditor({
 
           {showChart && result.is_select && shownColumns && shownRows && shownRows.length > 0 && (
             <ResultChart columns={shownColumns} rows={shownRows} />
-          )}
-          {canEdit && editCount === 0 && (
-            <p className="text-xs faint">Editable result — double-click a cell to change it, then Save.</p>
           )}
           {editErr && <p className="alert-danger whitespace-pre-wrap text-sm">{editErr}</p>}
           {editCount > 0 && (
