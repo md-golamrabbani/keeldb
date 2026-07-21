@@ -74,10 +74,35 @@ export default function ConnectionForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [showSecrets, setShowSecrets] = useState(false);
+  const [revealing, setRevealing] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const isPreset = form.flavor === "supabase" || form.flavor === "neon";
   const set = (patch: Partial<ConnectionProfileIn>) => setForm((f) => ({ ...f, ...patch }));
+
+  // Fetch and unmask the saved credentials for an existing connection so the
+  // user can view/copy them. Secrets aren't sent with the normal profile, so we
+  // pull them on demand from the reveal endpoint.
+  const hasSavedSecret =
+    !!initial && (initial.has_password || initial.has_connection_string || initial.has_ssh_key);
+  const toggleSecrets = async () => {
+    if (showSecrets) { setShowSecrets(false); return; }
+    if (initial?.id) {
+      setRevealing(true);
+      try {
+        const s = await api.connectionSecrets(initial.id);
+        set({
+          password: s.password, connection_string: s.connection_string,
+          service_role_key: s.service_role_key, ssh_password: s.ssh_password,
+          ssh_private_key: s.ssh_private_key,
+        });
+      } catch (e) { setError(String(e)); return; }
+      finally { setRevealing(false); }
+    }
+    setShowSecrets(true);
+  };
+  const secretType = showSecrets ? "text" : "password";
 
   // Native file picker in the desktop app; the web build falls back to a hint
   // (browsers never expose full filesystem paths for security).
@@ -248,6 +273,14 @@ export default function ConnectionForm({
           {/* Column 2 — connection details + SSH tunnel */}
           <div className="space-y-5">
             <Section title="Connection details" hint="Where and how to reach the server.">
+            {hasSavedSecret && (
+              <div className="flex justify-end">
+                <button type="button" onClick={toggleSecrets} disabled={revealing}
+                  className="text-xs font-medium" style={{ color: "var(--accent)" }}>
+                  {revealing ? "Revealing…" : showSecrets ? "Hide saved secrets" : "Show saved secrets"}
+                </button>
+              </div>
+            )}
             {form.flavor === "sqlite" ? (
               <div>
                 <label className="label">Database file path</label>
@@ -280,7 +313,7 @@ export default function ConnectionForm({
                 {form.flavor === "supabase" && (
                   <div>
                     <label className="label">Service-role key (optional)</label>
-                    <input className="input font-mono text-xs" type="password" value={form.service_role_key}
+                    <input className="input font-mono text-xs" type={secretType} value={form.service_role_key}
                       onChange={(e) => set({ service_role_key: e.target.value })} />
                   </div>
                 )}
@@ -310,7 +343,7 @@ export default function ConnectionForm({
                   </div>
                   <div>
                     <label className="label">Password</label>
-                    <input className="input" type="password" value={form.password}
+                    <input className="input" type={secretType} value={form.password}
                       placeholder={initial?.has_password ? "•••••• (unchanged)" : ""}
                       onChange={(e) => set({ password: e.target.value })} />
                   </div>
@@ -351,7 +384,7 @@ export default function ConnectionForm({
                     </div>
                     <div>
                       <label className="label">SSH password / passphrase</label>
-                      <input className="input" type="password" value={form.ssh_password}
+                      <input className="input" type={secretType} value={form.ssh_password}
                         placeholder={initial?.ssh_enabled ? "•••••• (unchanged)" : ""}
                         onChange={(e) => set({ ssh_password: e.target.value })} />
                     </div>
