@@ -10,12 +10,11 @@ import DependentsDialog from "./DependentsDialog";
 import ErrorBanner from "./ErrorBanner";
 import FkPeekDialog, { parseFk } from "./FkPeekDialog";
 import ImportCsvModal from "./ImportCsvModal";
-import Modal from "./Modal";
 import Checkbox from "@/components/ui/Checkbox";
 import Select from "@/components/ui/Select";
 import { toast } from "@/lib/toast";
 import {
-  IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, IconCopy, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
+  IconCheck, IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, IconClose, IconCopy, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
 } from "@/components/icons";
 
 type Cell = string | number | boolean | null;
@@ -402,67 +401,21 @@ export default function DataGrid({
         </div>
       )}
 
+      {/* Inline add row: the draft row is rendered at the top of the grid below.
+          This banner carries the help text, the error, and the Insert/Cancel. */}
       {adding && data && (
-        <Modal title={`Add row to ${table}`} wide onClose={closeAddRow}>
-          <div className="space-y-4">
-            <div className="card max-h-[60vh] overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ background: "var(--surface-2)" }} className="text-left text-xs uppercase tracking-wide muted">
-                    <th className="px-3 py-2">Column</th>
-                    <th className="px-3 py-2">Type</th>
-                    <th className="w-1/2 px-3 py-2">Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.columns.map((col) => (
-                    <tr key={col.name} className="border-t align-middle">
-                      <td className="whitespace-nowrap px-3 py-2 font-mono font-medium">
-                        <span className="inline-flex items-center gap-1.5">
-                          {col.name}
-                          {col.is_pk && <span className="badge badge-warning">PK</span>}
-                          {col.is_fk && <span className="badge badge-accent" title={`→ ${col.fk_target}`}>FK</span>}
-                          {!col.nullable && col.default == null && <span style={{ color: "var(--danger)" }}>*</span>}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 font-mono text-xs muted">{col.data_type}</td>
-                      <td className="px-3 py-2">
-                        {col.is_fk && col.fk_target ? (
-                          <FkValueSelect
-                            connId={connId}
-                            schema={schema}
-                            fkTarget={col.fk_target}
-                            nullable={col.nullable}
-                            className="!h-9 w-full"
-                            value={newRow[col.name] ?? ""}
-                            onChange={(v) => setNewRow((n) => ({ ...n, [col.name]: v }))}
-                          />
-                        ) : (
-                          <CellEditor
-                            col={col}
-                            className="!h-9 w-full"
-                            value={newRow[col.name] ?? ""}
-                            onChange={(v) => setNewRow((n) => ({ ...n, [col.name]: v }))}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {addError && (
-              <div className="alert-danger whitespace-pre-wrap text-sm">{addError}</div>
-            )}
-            <div className="flex items-center gap-2">
-              <p className="text-xs faint"><span style={{ color: "var(--danger)" }}>*</span> required (NOT NULL, no default) · empty = NULL</p>
-              <div className="ml-auto flex gap-2">
-                <button className="btn btn-ghost" onClick={closeAddRow} disabled={addBusy}>Cancel</button>
-                <button className="btn btn-primary" onClick={addRow} disabled={addBusy}><IconPlus width={14} height={14} /> {addBusy ? "Inserting…" : "Insert row"}</button>
-              </div>
-            </div>
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm"
+          style={{ background: "var(--accent-soft)", borderColor: "var(--accent)" }}>
+          <span className="font-medium" style={{ color: "var(--accent)" }}>New row</span>
+          <span className="text-xs faint">Fill the highlighted row below (<span style={{ color: "var(--danger)" }}>*</span> = required · empty = NULL · Enter to insert)</span>
+          <div className="ml-auto flex gap-2">
+            <button className="btn btn-ghost btn-sm !h-8" onClick={closeAddRow} disabled={addBusy}>Cancel</button>
+            <button className="btn btn-primary btn-sm !h-8" onClick={addRow} disabled={addBusy}>
+              <IconPlus width={13} height={13} /> {addBusy ? "Inserting…" : "Insert row"}
+            </button>
           </div>
-        </Modal>
+          {addError && <div className="alert-danger w-full whitespace-pre-wrap text-sm">{addError}</div>}
+        </div>
       )}
 
       {/* fills the remaining space in the flex column; only this area scrolls
@@ -494,6 +447,45 @@ export default function DataGrid({
             </tr>
           </thead>
           <tbody>
+            {/* Inline draft row for adding — editable cells right in the grid. */}
+            {adding && data && (
+              <tr>
+                {editable && (
+                  <td style={{ ...stCell(0, "var(--accent-soft)"), width: CHECK_W, minWidth: CHECK_W }} className="border-b px-0 py-1 text-center">
+                    <IconPlus width={12} height={12} style={{ color: "var(--accent)", margin: "0 auto" }} />
+                  </td>
+                )}
+                {hasPk && (
+                  <td style={{ ...stCell(actLeft, "var(--accent-soft)"), width: ACT_W, minWidth: ACT_W }} className="border-b px-0 py-1">
+                    <div className="flex items-center justify-center gap-0.5">
+                      <button className="btn btn-ghost !p-1" onClick={addRow} disabled={addBusy} aria-label="Insert row" title="Insert row"><IconCheck width={13} height={13} style={{ color: "var(--accent)" }} /></button>
+                      <button className="btn btn-ghost !p-1" onClick={closeAddRow} disabled={addBusy} aria-label="Cancel" title="Cancel"><IconClose width={13} height={13} /></button>
+                    </div>
+                  </td>
+                )}
+                {data.columns.map((col, c) => (
+                  <td key={col.name} className="border-b px-1 py-1"
+                    style={c === 0 ? { ...stCell(firstLeft, "var(--accent-soft)") } : { background: "var(--accent-soft)" }}>
+                    {col.is_fk && col.fk_target ? (
+                      <FkValueSelect
+                        connId={connId} schema={schema} fkTarget={col.fk_target} nullable={col.nullable}
+                        className="!h-7 !py-0 !text-xs min-w-[8rem]"
+                        value={newRow[col.name] ?? ""}
+                        onChange={(v) => setNewRow((n) => ({ ...n, [col.name]: v }))}
+                      />
+                    ) : (
+                      <CellEditor
+                        col={col}
+                        className="!h-7 !py-0 !text-xs min-w-[8rem]"
+                        value={newRow[col.name] ?? ""}
+                        onChange={(v) => setNewRow((n) => ({ ...n, [col.name]: v }))}
+                        onKeyDown={(e) => { if (e.key === "Enter") addRow(); if (e.key === "Escape") closeAddRow(); }}
+                      />
+                    )}
+                  </td>
+                ))}
+              </tr>
+            )}
             {data?.rows.map((row, r) => {
               const rowBg = selected.has(r) ? "var(--accent-soft)" : "var(--surface)";
               return (
