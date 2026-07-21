@@ -4,6 +4,29 @@ All notable changes to KeelDB are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2]
+
+### Added
+- **Editable SQL results** — a simple single-table `SELECT` with a primary key can now be edited right in the
+  results grid (double-click → stage → Save by PK), using the same datatype-aware editors as the Data tab.
+- **Copy / paste rows** and **inline in-grid row adding** in the Explorer data grid.
+- **Right-click column headers** (Data tab + SQL results) for quick actions: copy name, copy values, copy
+  DISTINCT, copy as a SQL `IN (…)` list, and sort.
+- **Reveal saved secrets** on demand — AI provider API key, and DB connection password / connection string /
+  SSH credentials.
+- **Searchable saved queries** in the SQL sidebar.
+
+### Changed
+- **SQL editor** redesigned Supabase-style: action toolbar on top, **Results / Chart tabs**, independent
+  scrolling for the sidebar and results, a shorter default editor height, and a compact results bar.
+- **Tighter layout density** across the app for more data area.
+- **Toasts** moved to top-center, larger, and last 5s.
+- Full-width layout; large tables load instantly; SQL editor gains run-the-selection and a resize handle.
+
+### Fixed
+- AI over HTTPS `CERTIFICATE_VERIFY_FAILED` on packaged/corporate networks (OS trust store + certifi).
+- Second scrollbar in the Data tab; add-row errors now stay in the dialog without losing input.
+
 ## [0.1.1]
 
 ### Added
@@ -39,5 +62,6 @@ All notable changes to KeelDB are documented here. The format is based on
 - Developer Toolkit with 25+ SQL/data-prep utilities.
 - Native desktop builds for Windows, macOS, and Linux (Tauri + PyInstaller sidecar).
 
+[0.1.2]: https://github.com/md-golamrabbani/keeldb/releases/tag/v0.1.2
 [0.1.1]: https://github.com/md-golamrabbani/keeldb/releases/tag/v0.1.1
 [0.1.0]: https://github.com/md-golamrabbani/keeldb/releases/tag/v0.1.0

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
 import { IconArrows, IconBookmark, IconColumns, IconDatabase, IconDownload, IconLock, IconTable, IconWrench } from "./icons";
 
-export const APP_VERSION = "0.1.1";
+export const APP_VERSION = "0.1.2";
 const RELEASES_API = "https://api.github.com/repos/md-golamrabbani/keeldb/releases/latest";
 const RELEASES_PAGE = "https://github.com/md-golamrabbani/keeldb/releases/latest";
 
