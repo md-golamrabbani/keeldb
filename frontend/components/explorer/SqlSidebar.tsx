@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { HistoryEntry, Snippet } from "@/lib/types";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
-import { IconBookmark, IconCheck, IconClose, IconEdit, IconPlus, IconSave, IconTrash } from "@/components/icons";
+import { IconBookmark, IconCheck, IconClose, IconEdit, IconPlus, IconSave, IconSearch, IconTrash } from "@/components/icons";
 import { downloadFile } from "@/lib/toast";
 
 export type SaveState = "idle" | "saving" | "saved";
@@ -26,6 +26,7 @@ export default function SqlSidebar({
   historyNonce: number;
 }) {
   const [tab, setTab] = useState<"saved" | "history">("saved");
+  const [q, setQ] = useState("");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -49,7 +50,7 @@ export default function SqlSidebar({
   };
 
   return (
-    <aside className="card flex w-full shrink-0 flex-col lg:sticky lg:top-0 lg:w-60 lg:max-h-[calc(100vh-9rem)]">
+    <aside className="card flex w-full shrink-0 flex-col min-h-0 lg:h-full lg:w-60">
       <div className="flex items-center gap-1.5 border-b p-2" style={{ borderColor: "var(--border)" }}>
         <button className="btn btn-primary btn-sm flex-1" onClick={onNew}><IconPlus width={13} height={13} /> New query</button>
         <button className="btn btn-secondary btn-sm" onClick={onSave} title="Save now">
@@ -85,11 +86,26 @@ export default function SqlSidebar({
         )}
       </div>
 
+      {tab === "saved" && snippets.length > 0 && (
+        <div className="px-2 pt-2">
+          <div className="relative">
+            <IconSearch width={13} height={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-faint)" }} />
+            <input className="input !h-8 !w-full !py-0 !pl-8 text-xs" placeholder="Search queries…" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-y-auto p-1.5 max-lg:max-h-52">
         {tab === "saved" ? (
           snippets.length === 0 ? <p className="p-3 text-center text-xs muted">No saved queries yet.</p> : (
+            (() => {
+              const shown = q.trim()
+                ? snippets.filter((s) => (s.name + " " + s.sql).toLowerCase().includes(q.trim().toLowerCase()))
+                : snippets;
+              if (shown.length === 0) return <p className="p-3 text-center text-xs muted">No queries match “{q}”.</p>;
+              return (
             <ul className="space-y-0.5">
-              {snippets.map((s) => {
+              {shown.map((s) => {
                 const active = s.id === activeId;
                 const editing = s.id === editingId;
                 return (
@@ -125,6 +141,8 @@ export default function SqlSidebar({
                 );
               })}
             </ul>
+              );
+            })()
           )
         ) : (
           history.length === 0 ? <p className="p-3 text-center text-xs muted">No history yet.</p> : (

@@ -639,11 +639,11 @@ export default function SqlEditor({
   };
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 lg:h-full lg:flex-row">
       <SqlSidebar connId={connId} snippets={snippets} activeId={activeId} saveState={saveState}
         onNew={newQuery} onSelect={selectSnippet} onSave={saveNow} onDelete={deleteSnippet}
         onRename={renameSnippet} onLoadHistory={setSql} historyNonce={historyNonce} />
-      <div className="min-w-0 flex-1 space-y-3">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <IconSparkles width={14} height={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--accent)" }} />
@@ -945,8 +945,8 @@ export default function SqlEditor({
                 if (el && el.clientHeight !== gridHeight) setGridHeight(el.clientHeight);
               }}
               onScroll={(e) => setGridScroll((e.target as HTMLDivElement).scrollTop)}
-              className="card overflow-auto"
-              style={{ maxHeight: "calc(100vh - 26rem)", minHeight: 160 }}
+              className="card min-h-0 flex-1 overflow-auto"
+              style={{ minHeight: 160 }}
             >
               <table
                 className="w-full text-xs"
