@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from ..connectors import connector_for
-from ..models import ConnectionProfileIn, ConnectionProfileOut, SavedConnection, TestResult
+from ..models import ConnectionProfileIn, ConnectionProfileOut, ConnectionSecrets, SavedConnection, TestResult
 from ..sqlimport import load_sql_dump
 from ..store import connection_store
 from ..store.store import DATA_DIR
@@ -36,6 +36,23 @@ def delete_connection(conn_id: str):
     if not connection_store.delete(conn_id):
         raise HTTPException(404, "connection not found")
     return {"ok": True}
+
+
+@router.get("/{conn_id}/secrets", response_model=ConnectionSecrets)
+def reveal_secrets(conn_id: str):
+    """Return the stored credentials so the user can view/copy them on demand.
+    Single-user desktop app; secrets stay on the machine and are omitted from
+    every other response (list/create/update return only `has_*` flags)."""
+    record = connection_store.get(conn_id)
+    if not record:
+        raise HTTPException(404, "connection not found")
+    return ConnectionSecrets(
+        password=record.password,
+        connection_string=record.connection_string,
+        service_role_key=record.service_role_key,
+        ssh_password=record.ssh_password,
+        ssh_private_key=record.ssh_private_key,
+    )
 
 
 @router.post("/upload-sql", response_model=ConnectionProfileOut)

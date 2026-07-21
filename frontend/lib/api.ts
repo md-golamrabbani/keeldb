@@ -116,6 +116,8 @@ export const api = {
   updateConnection: (id: string, p: ConnectionProfileIn) =>
     req<ConnectionProfile>(`/connections/${id}`, { method: "PUT", body: JSON.stringify(p) }),
   deleteConnection: (id: string) => req<{ ok: boolean }>(`/connections/${id}`, { method: "DELETE" }),
+  connectionSecrets: (id: string) =>
+    req<{ password: string; connection_string: string; service_role_key: string; ssh_password: string; ssh_private_key: string }>(`/connections/${id}/secrets`),
   testSaved: (id: string) => req<TestResult>(`/connections/${id}/test`, { method: "POST" }),
   testUnsaved: (p: ConnectionProfileIn) =>
     req<TestResult>("/connections/test", { method: "POST", body: JSON.stringify(p) }),

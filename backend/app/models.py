@@ -75,6 +75,18 @@ class ConnectionProfileOut(BaseModel):
     read_only: bool = False
 
 
+class ConnectionSecrets(BaseModel):
+    """The sensitive fields of a saved connection, returned only via the explicit
+    reveal endpoint so the user can view/copy their own stored credentials.
+    Never included in the normal ConnectionProfileOut."""
+
+    password: str = ""
+    connection_string: str = ""
+    service_role_key: str = ""
+    ssh_password: str = ""
+    ssh_private_key: str = ""
+
+
 class TestResult(BaseModel):
     ok: bool
     server_version: str = ""
