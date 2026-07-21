@@ -551,35 +551,42 @@ export default function SqlEditor({
       {aiSettingsOpen && <AiSettingsModal onClose={() => setAiSettingsOpen(false)} onSaved={() => setAiMsg("AI settings saved.")} />}
 
       <div className="card overflow-hidden">
-        <SqlCodeEditor
-          value={sql}
-          onChange={setSql}
-          onRun={run}
-          onSelectionChange={setSelection}
-          minHeight={168}
-          errorLine={lintError?.line ?? null}
-          tableNames={tableNames}
-          columns={colCache}
-        />
+        {/* Top action bar — stays fixed above the editor, so growing the editor
+            never pushes Run/Analyze/options out of reach (real-world tools put
+            these on top). */}
         <div
-          className="flex items-center justify-between gap-3 border-t px-3 py-2"
+          className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2"
           style={{ background: "var(--surface-2)" }}
         >
-          <span
-            className="flex min-w-0 items-center gap-1.5 truncate text-xs"
-            style={{ color: lintError ? "var(--danger)" : "var(--text-faint)" }}
-          >
-            {lintError ? (
-              <>
-                <IconWarning width={13} height={13} className="shrink-0" aria-hidden />
-                {lintError.line ? <b>Line {lintError.line}:</b> : null}{" "}
-                {lintError.message}
-              </>
-            ) : (
-              "No syntax issues · runs in a transaction · Ctrl/⌘+Enter to run"
+          <div className="flex items-center gap-2">
+            <button
+              className="btn btn-primary btn-sm py-2"
+              onClick={run}
+              disabled={running}
+              title={selection.trim() ? "Run only the highlighted selection (Ctrl/⌘+Enter)" : "Run the query (Ctrl/⌘+Enter)"}
+            >
+              <IconPlay width={12} height={12} /> {running ? "Running…" : selection.trim() ? "Run selection" : "Run"}
+            </button>
+            <button
+              className="btn btn-secondary btn-sm py-2"
+              onClick={analyze}
+              disabled={analyzing || running}
+              title="Run EXPLAIN and get performance hints (read-only)"
+            >
+              {analyzing ? "Analyzing…" : "Analyze"}
+            </button>
+            {!sandboxId && !readOnly && (
+              <button
+                className="btn btn-secondary btn-sm py-2"
+                onClick={beginSandbox}
+                disabled={sandboxBusy || running}
+                title="Open a transaction sandbox: writes stay invisible to everyone else until you Commit — or Rollback to discard them."
+              >
+                Sandbox
+              </button>
             )}
-          </span>
-          <div className="flex shrink-0 items-center gap-2">
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <label
               className="flex cursor-pointer items-center gap-1.5 text-xs muted"
               title="Before destructive SQL (UPDATE/DELETE/DROP/…) runs, affected tables are snapshotted so you can undo."
@@ -610,33 +617,37 @@ export default function SqlEditor({
                 options={[...LIMIT_OPTIONS.map((n) => ({ value: String(n), label: n.toLocaleString() })), { value: "0", label: "All" }]}
               />
             </label>
-            {!sandboxId && !readOnly && (
-              <button
-                className="btn btn-secondary btn-sm py-2"
-                onClick={beginSandbox}
-                disabled={sandboxBusy || running}
-                title="Open a transaction sandbox: writes stay invisible to everyone else until you Commit — or Rollback to discard them."
-              >
-                Sandbox
-              </button>
-            )}
-            <button
-              className="btn btn-secondary btn-sm py-2"
-              onClick={analyze}
-              disabled={analyzing || running}
-              title="Run EXPLAIN and get performance hints (read-only)"
-            >
-              {analyzing ? "Analyzing…" : "Analyze"}
-            </button>
-            <button
-              className="btn btn-primary btn-sm py-2"
-              onClick={run}
-              disabled={running}
-              title={selection.trim() ? "Run only the highlighted selection (Ctrl/⌘+Enter)" : "Run the query (Ctrl/⌘+Enter)"}
-            >
-              <IconPlay width={12} height={12} /> {running ? "Running…" : selection.trim() ? "Run selection" : "Run"}
-            </button>
           </div>
+        </div>
+        <SqlCodeEditor
+          value={sql}
+          onChange={setSql}
+          onRun={run}
+          onSelectionChange={setSelection}
+          minHeight={168}
+          errorLine={lintError?.line ?? null}
+          tableNames={tableNames}
+          columns={colCache}
+        />
+        {/* Slim status line under the editor — syntax feedback only. */}
+        <div
+          className="flex items-center gap-3 border-t px-3 py-1.5"
+          style={{ background: "var(--surface-2)" }}
+        >
+          <span
+            className="flex min-w-0 items-center gap-1.5 truncate text-xs"
+            style={{ color: lintError ? "var(--danger)" : "var(--text-faint)" }}
+          >
+            {lintError ? (
+              <>
+                <IconWarning width={13} height={13} className="shrink-0" aria-hidden />
+                {lintError.line ? <b>Line {lintError.line}:</b> : null}{" "}
+                {lintError.message}
+              </>
+            ) : (
+              "No syntax issues · runs in a transaction · Ctrl/⌘+Enter to run · select text to run only that"
+            )}
+          </span>
         </div>
       </div>
 
