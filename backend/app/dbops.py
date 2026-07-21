@@ -129,6 +129,52 @@ def _apply_timeout(conn, connector: Connector, timeout_s: int) -> None:
 
 
 # -- SQL editor ------------------------------------------------------------
+# A result set is editable only when it comes from a trivially-addressable
+# single-table read: a plain SELECT, one table, no join/union/aggregate/group,
+# and the result exposes the table's full primary key. Anything fancier stays
+# read-only (fail-closed).
+_UNEDITABLE_RE = re.compile(
+    r"(?is)\b(join|union|group\s+by|having|distinct)\b|\b(count|sum|avg|min|max|array_agg|string_agg)\s*\("
+)
+_FROM_CLAUSE_RE = re.compile(
+    r"(?is)\bfrom\s+(.+?)(?:\bwhere\b|\bgroup\s+by\b|\border\s+by\b|\blimit\b|\boffset\b|\bunion\b|\bhaving\b|$)"
+)
+
+
+def _editable_source(
+    connector: Connector, statement: str, columns: list[str], schema: str
+) -> tuple[str, str, list[str]]:
+    """If `statement` is a simple single-table SELECT whose columns include the
+    table's whole primary key, return (schema, table, pk_cols) so the UI can edit
+    the result rows by PK. Otherwise ('', '', [])."""
+    s = statement.strip().rstrip(";")
+    if not re.match(r"(?is)^\s*select\b", s) or _UNEDITABLE_RE.search(s):
+        return "", "", []
+    m = _FROM_CLAUSE_RE.search(s)
+    if not m:
+        return "", "", []
+    from_clause = m.group(1).strip()
+    # single table only — reject comma-joins and subqueries
+    if re.search(r"(?is)\bjoin\b|,|\(", from_clause):
+        return "", "", []
+    token = from_clause.split()[0] if from_clause.split() else ""
+    tbl = token.strip('`"[]')
+    tbl_schema = schema
+    if "." in tbl:
+        a, b = tbl.split(".", 1)
+        tbl_schema, tbl = a.strip('`"[]'), b.strip('`"[]')
+    if not tbl:
+        return "", "", []
+    try:
+        t = connector._table(tbl_schema, tbl)
+        pk_cols = [c.name for c in t.primary_key.columns]
+    except Exception:
+        return "", "", []
+    if not pk_cols or not all(pk in columns for pk in pk_cols):
+        return "", "", []
+    return tbl_schema, tbl, pk_cols
+
+
 def run_sql(connector: Connector, sql: str, max_rows: int = MAX_ROWS_DEFAULT, schema: str = "", timeout_s: int = 0) -> dict[str, Any]:
     """Execute one or more statements in a single transaction. Returns the last
     statement's result set (for SELECTs) plus counts. Rolls back on any error."""
@@ -183,6 +229,16 @@ def run_sql(connector: Connector, sql: str, max_rows: int = MAX_ROWS_DEFAULT, sc
             "truncated": truncated,
             "elapsed_ms": round((time.perf_counter() - t0) * 1000, 1),
         }
+        # Editability: only for a lone, simple single-table SELECT on a writable
+        # connection, so the result grid can edit rows by primary key.
+        edit_schema = edit_table = ""
+        pk_cols: list[str] = []
+        if is_select and len(statements) == 1 and not getattr(connector.profile, "read_only", False):
+            edit_schema, edit_table, pk_cols = _editable_source(connector, statements[0], columns, schema)
+        out["editable"] = bool(edit_table)
+        out["edit_schema"] = edit_schema
+        out["edit_table"] = edit_table
+        out["pk_cols"] = pk_cols
         # Multiple SELECTs in one run: expose every result set (the legacy
         # top-level fields keep carrying the last one for old callers).
         if len(result_sets) > 1:

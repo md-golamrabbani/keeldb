@@ -432,6 +432,11 @@ export interface QueryResult {
   sandbox?: SandboxStatus;
   /** Present when a run produced more than one SELECT result set. */
   result_sets?: ResultSet[];
+  /** Set when the result is a simple single-table SELECT that can be edited by PK. */
+  editable?: boolean;
+  edit_schema?: string;
+  edit_table?: string;
+  pk_cols?: string[];
 }
 
 export interface ResultSet {
