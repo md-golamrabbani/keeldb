@@ -5,6 +5,7 @@ import type { FilterCond, TableData } from "@/lib/types";
 import { PAGE_SIZES } from "@/lib/types";
 import AdvancedFilter from "./AdvancedFilter";
 import CellEditor, { FkValueSelect } from "./CellEditor";
+import ColumnMenu, { type ColumnMenuState } from "./ColumnMenu";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
 import DependentsDialog from "./DependentsDialog";
 import ErrorBanner from "./ErrorBanner";
@@ -62,6 +63,7 @@ export default function DataGrid({
   const [addBusy, setAddBusy] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [colMenu, setColMenu] = useState<ColumnMenuState | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -433,7 +435,9 @@ export default function DataGrid({
               {(data?.columns ?? []).map((col, ci) => (
                 <th key={col.name} style={ci === 0 ? stHead(firstLeft) : stHead()}
                   className={`select-none whitespace-nowrap border-b px-2.5 py-1.5 font-mono normal-case ${dirty ? "cursor-not-allowed" : "cursor-pointer"}`}
-                  onClick={() => { if (!dirty) sortBy(col.name); }} title={dirty ? "Save or revert your changes first" : "Click to sort"}>
+                  onClick={() => { if (!dirty) sortBy(col.name); }}
+                  onContextMenu={(e) => { e.preventDefault(); setColMenu({ x: e.clientX, y: e.clientY, column: col.name, colIndex: ci }); }}
+                  title={dirty ? "Save or revert your changes first" : "Click to sort · right-click for more"}>
                   <span className="inline-flex items-center gap-1 align-middle">
                     {col.name}
                     {col.is_pk && <span className="badge badge-warning">PK</span>}
@@ -587,6 +591,13 @@ export default function DataGrid({
         </div>
       )}
 
+      <ColumnMenu
+        state={colMenu}
+        values={colMenu && data ? data.rows.map((r) => r[colnames.indexOf(colMenu.column)]) : []}
+        onClose={() => setColMenu(null)}
+        onSortAsc={() => { if (colMenu) { setOrderBy(colMenu.column); setOrderDir("asc"); setPage(0); } }}
+        onSortDesc={() => { if (colMenu) { setOrderBy(colMenu.column); setOrderDir("desc"); setPage(0); } }}
+      />
       <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
       {peek && (
         <FkPeekDialog connId={connId} schema={schema} targetTable={peek.table} targetColumn={peek.column} value={peek.value}
