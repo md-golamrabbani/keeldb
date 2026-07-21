@@ -279,7 +279,7 @@ function ConnectionSession({
   };
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full flex-col gap-2">
       <div className="toolbar shrink-0">
         <div className="flex items-center gap-2">
           <IconDatabase width={16} height={16} className="shrink-0" style={{ color: "var(--text-faint)" }} />
@@ -360,7 +360,7 @@ function ConnectionSession({
       )}
 
       {connId && schema && (
-        <div className="flex min-h-0 flex-1 gap-5">
+        <div className="flex min-h-0 flex-1 gap-3">
           {/* table list */}
           <div className="flex w-56 shrink-0 flex-col gap-2">
             <div className="relative">
@@ -432,7 +432,7 @@ function ConnectionSession({
           </div>
 
           {/* documents */}
-          <div className="flex min-w-0 flex-1 flex-col gap-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
             {tabs.length > 0 && (
               <div
                 className="flex shrink-0 items-stretch gap-1 overflow-x-auto border-b"
@@ -640,7 +640,7 @@ function Explorer() {
     );
 
   return (
-    <div className="flex flex-col gap-3 lg:h-[calc(100dvh-6.5rem)]">
+    <div className="flex flex-col gap-2 lg:h-[calc(100dvh-4.5rem)]">
       {/* workspace strip */}
       <div
         className="flex shrink-0 items-center gap-1 overflow-x-auto border-b pb-0"
