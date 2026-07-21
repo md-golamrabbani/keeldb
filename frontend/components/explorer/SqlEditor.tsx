@@ -279,7 +279,7 @@ export default function SqlEditor({
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState("");
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
-  const [showChart, setShowChart] = useState(false);
+  const [resultView, setResultView] = useState<"results" | "chart">("results");
 
   // Guard extras: statement timeout, pre-write snapshots (undo), tx sandbox.
   const [timeoutS, setTimeoutS] = useState(0);
@@ -326,6 +326,8 @@ export default function SqlEditor({
   // on a writable connection, and not while a sandbox transaction is open.
   const canEdit = !!result?.ok && !!result?.is_select && !sets && !!result?.editable && !readOnly && !sandboxId;
   const editCount = Object.keys(resultEdits).length;
+  const chartable = !!result?.is_select && !!shownRows?.length;
+  const resultViewEff: "results" | "chart" = resultView === "chart" && chartable ? "chart" : "results";
 
   const startEdit = (r: number, c: number, cur: Cell) => { setEditVal(cur == null ? "" : String(cur)); setEditingCell({ r, c }); };
   const commitCellEdit = (r: number, c: number) => {
@@ -898,67 +900,46 @@ export default function SqlEditor({
 
       {result && result.ok && (
         <>
-          <div className="flex items-center justify-between gap-2">
-            <p className="flex min-w-0 items-center gap-1.5 truncate text-xs muted">
-              <span className="truncate">
-                {result.is_select ? (
-                  <>
-                    {result.rowcount?.toLocaleString()} row
-                    {result.rowcount === 1 ? "" : "s"}
-                    {result.truncated
-                      ? ` (limited to ${usedLimit.toLocaleString()} — raise “Limit” for more)`
-                      : ""}
-                  </>
-                ) : (
-                  <>
-                    {result.rowcount?.toLocaleString()} row
-                    {result.rowcount === 1 ? "" : "s"} affected
-                  </>
-                )}
-                {" · "}
-                {result.executed} statement{result.executed === 1 ? "" : "s"} ·{" "}
-                {result.elapsed_ms} ms
+          {/* Results / Chart tabs on the left, meta + CSV on the right (Supabase-style). */}
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b" style={{ borderColor: "var(--border)" }}>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setResultView("results")}
+                className="border-b-2 px-3 py-1.5 text-xs font-medium transition-colors"
+                style={resultViewEff === "results" ? { borderColor: "var(--accent)", color: "var(--accent)" } : { borderColor: "transparent", color: "var(--text-muted)" }}>
+                Results
+              </button>
+              {chartable && (
+                <button onClick={() => setResultView("chart")}
+                  className="border-b-2 px-3 py-1.5 text-xs font-medium transition-colors"
+                  style={resultViewEff === "chart" ? { borderColor: "var(--accent)", color: "var(--accent)" } : { borderColor: "transparent", color: "var(--text-muted)" }}>
+                  Chart
+                </button>
+              )}
+            </div>
+            <div className="flex min-w-0 items-center gap-2 pr-1">
+              <span className="truncate text-xs muted">
+                {result.is_select
+                  ? `${result.rowcount?.toLocaleString()} row${result.rowcount === 1 ? "" : "s"}${result.truncated ? ` (limited to ${usedLimit.toLocaleString()})` : ""}`
+                  : `${result.rowcount?.toLocaleString()} row${result.rowcount === 1 ? "" : "s"} affected`}
+                {` · ${result.elapsed_ms} ms`}
               </span>
               {canEdit && editCount === 0 && (
-                <span className="inline-flex shrink-0 items-center gap-1" style={{ color: "var(--accent)" }}
+                <span className="inline-flex shrink-0 items-center gap-1 text-xs" style={{ color: "var(--accent)" }}
                   title="Editable result — double-click a cell to change it, then Save">
                   <IconEdit width={12} height={12} /> Editable
                 </span>
               )}
-            </p>
-            {result.is_select && !!result.rows?.length && (
-              <div className="flex shrink-0 items-center gap-2">
-                <button className="btn btn-secondary btn-sm !h-7" onClick={() => setShowChart((s) => !s)}>
-                  {showChart ? "Hide chart" : "Chart"}
-                </button>
-                <button className="btn btn-secondary btn-sm !h-7" onClick={downloadCsv}>
+              {chartable && (
+                <button className="btn btn-secondary btn-sm !h-7 shrink-0" onClick={downloadCsv}>
                   <IconDownload width={13} height={13} /> CSV
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {sets && sets.length > 1 && (
-            <div className="flex items-center gap-1 overflow-x-auto border-b" style={{ borderColor: "var(--border)" }}>
-              {sets.map((s, i) => (
-                <button key={i} onClick={() => { setResultTab(i); setGridScroll(0); }}
-                  title={s.statement}
-                  className="whitespace-nowrap border-b-2 px-3 py-1.5 text-xs font-medium transition-colors"
-                  style={i === resultTab
-                    ? { borderColor: "var(--accent)", color: "var(--accent)" }
-                    : { borderColor: "transparent", color: "var(--text-muted)" }}>
-                  Result {i + 1} <span className="faint">({s.rowcount.toLocaleString()})</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {showChart && result.is_select && shownColumns && shownRows && shownRows.length > 0 && (
-            <ResultChart columns={shownColumns} rows={shownRows} />
-          )}
-          {editErr && <p className="alert-danger whitespace-pre-wrap text-sm">{editErr}</p>}
+          {editErr && <p className="shrink-0 alert-danger whitespace-pre-wrap text-sm">{editErr}</p>}
           {editCount > 0 && (
-            <div className="flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm"
+            <div className="flex shrink-0 flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm"
               style={{ background: "color-mix(in srgb, var(--warning) 12%, transparent)", borderColor: "var(--warning)" }}>
               <span className="font-medium" style={{ color: "var(--warning)" }}>
                 {editCount} unsaved change{editCount === 1 ? "" : "s"}
@@ -972,50 +953,62 @@ export default function SqlEditor({
               </div>
             </div>
           )}
-          {result.is_select && shownColumns && (
-            <div
-              ref={(el) => {
-                gridRef.current = el;
-                if (el && el.clientHeight !== gridHeight) setGridHeight(el.clientHeight);
-              }}
-              onScroll={(e) => setGridScroll((e.target as HTMLDivElement).scrollTop)}
-              className="card min-h-0 flex-1 overflow-auto"
-              style={{ minHeight: 160 }}
-            >
-              <table
-                className="w-full text-xs"
-                style={{ borderCollapse: "separate", borderSpacing: 0 }}
-              >
-                <thead>
-                  <tr className="text-left uppercase tracking-wide muted">
-                    {shownColumns.map((c, i) => (
-                      <th
-                        key={i}
-                        className="border-b px-2.5 py-2 font-mono normal-case"
-                        style={{
-                          position: "sticky",
-                          top: 0,
-                          zIndex: 2,
-                          background: "var(--surface-2)",
-                        }}
-                      >
-                        {c}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <VirtualRows
-                  rows={shownRows ?? []}
-                  colCount={shownColumns.length}
-                  scrollTop={gridScroll}
-                  viewport={gridHeight}
-                  edit={gridEdit}
-                />
-              </table>
-              {shownRows?.length === 0 && (
-                <p className="p-6 text-center muted">No rows returned.</p>
-              )}
+
+          {resultViewEff === "chart" ? (
+            <div className="min-h-0 flex-1 overflow-auto">
+              <ResultChart columns={shownColumns ?? []} rows={shownRows ?? []} />
             </div>
+          ) : (
+            <>
+              {sets && sets.length > 1 && (
+                <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b" style={{ borderColor: "var(--border)" }}>
+                  {sets.map((s, i) => (
+                    <button key={i} onClick={() => { setResultTab(i); setGridScroll(0); }}
+                      title={s.statement}
+                      className="whitespace-nowrap border-b-2 px-3 py-1.5 text-xs font-medium transition-colors"
+                      style={i === resultTab
+                        ? { borderColor: "var(--accent)", color: "var(--accent)" }
+                        : { borderColor: "transparent", color: "var(--text-muted)" }}>
+                      Result {i + 1} <span className="faint">({s.rowcount.toLocaleString()})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {result.is_select && shownColumns && (
+                <div
+                  ref={(el) => {
+                    gridRef.current = el;
+                    if (el && el.clientHeight !== gridHeight) setGridHeight(el.clientHeight);
+                  }}
+                  onScroll={(e) => setGridScroll((e.target as HTMLDivElement).scrollTop)}
+                  className="card min-h-0 flex-1 overflow-auto"
+                  style={{ minHeight: 120 }}
+                >
+                  <table className="w-full text-xs" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
+                    <thead>
+                      <tr className="text-left uppercase tracking-wide muted">
+                        {shownColumns.map((c, i) => (
+                          <th key={i} className="border-b px-2.5 py-2 font-mono normal-case"
+                            style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--surface-2)" }}>
+                            {c}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <VirtualRows
+                      rows={shownRows ?? []}
+                      colCount={shownColumns.length}
+                      scrollTop={gridScroll}
+                      viewport={gridHeight}
+                      edit={gridEdit}
+                    />
+                  </table>
+                  {shownRows?.length === 0 && (
+                    <p className="p-6 text-center muted">No rows returned.</p>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </>
       )}

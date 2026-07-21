@@ -47,8 +47,8 @@ export default function ResultChart({ columns, rows }: { columns: string[]; rows
         </div>
       </div>
 
-      <div className="card overflow-x-auto p-2">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 480 }} role="img">
+      <div className="card overflow-auto p-2">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 480, maxHeight: 300 }} preserveAspectRatio="xMidYMid meet" role="img">
           <line x1={PAD} y1={y(min)} x2={W - PAD} y2={y(min)} stroke="var(--border-strong)" />
           {kind === "bar"
             ? data.map((d, i) => (
