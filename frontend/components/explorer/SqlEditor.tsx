@@ -1,8 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import type { Environment, Flavor, QueryPlan, QueryResult, SnapshotMeta, Snippet } from "@/lib/types";
+import type { ColumnInfo, Environment, Flavor, QueryPlan, QueryResult, SnapshotMeta, Snippet } from "@/lib/types";
 import { analyzeSql, type StmtInfo } from "@/lib/sqlguard";
+import CellEditor, { FkValueSelect } from "./CellEditor";
 import SqlCodeEditor from "./SqlCodeEditor";
 import GuardDialog from "./GuardDialog";
 import SqlSidebar, { type SaveState } from "./SqlSidebar";
@@ -137,6 +138,10 @@ interface GridEdit {
   change: (v: string) => void;
   commit: (r: number, c: number) => void;
   cancel: () => void;
+  connId: string;
+  schema: string;
+  colNames: string[];
+  colInfo: Record<string, ColumnInfo>;
 }
 
 /** Windowed result rows: only the visible slice (plus overscan) is in the DOM,
@@ -183,19 +188,40 @@ function VirtualRows({
                   title={edit ? "Double-click to edit" : String(disp ?? "")}
                   onDoubleClick={edit ? () => edit.start(abs, c, disp) : undefined}
                 >
-                  {isEditing ? (
-                    <input
-                      autoFocus
-                      className="w-full bg-transparent font-mono text-xs outline-none"
-                      style={{ caretColor: "var(--text)" }}
-                      value={edit!.editVal}
-                      onChange={(e) => edit!.change(e.target.value)}
-                      onBlur={() => edit!.commit(abs, c)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") edit!.commit(abs, c);
-                        if (e.key === "Escape") edit!.cancel();
-                      }}
-                    />
+                  {isEditing && edit ? (
+                    (() => {
+                      const colInfo = edit.colInfo[edit.colNames[c]];
+                      // Datatype-aware editors matching the Data tab: FK dropdown,
+                      // else a typed CellEditor, else a plain input fallback.
+                      if (colInfo?.is_fk && colInfo.fk_target) {
+                        return (
+                          <FkValueSelect
+                            connId={edit.connId} schema={edit.schema} fkTarget={colInfo.fk_target}
+                            nullable={colInfo.nullable} className="!h-7 !py-0 !text-xs min-w-[8rem]"
+                            value={edit.editVal} onChange={(v) => { edit.change(v); edit.commit(abs, c); }}
+                          />
+                        );
+                      }
+                      if (colInfo) {
+                        return (
+                          <CellEditor
+                            col={colInfo} autoFocus className="!h-7 !py-0 !text-xs min-w-[8rem]"
+                            value={edit.editVal} onChange={edit.change}
+                            onCommit={() => edit.commit(abs, c)} onBlurCommit={() => edit.commit(abs, c)}
+                            onKeyDown={(e) => { if (e.key === "Enter") edit.commit(abs, c); if (e.key === "Escape") edit.cancel(); }}
+                          />
+                        );
+                      }
+                      return (
+                        <input
+                          autoFocus className="w-full bg-transparent font-mono text-xs outline-none"
+                          style={{ caretColor: "var(--text)" }}
+                          value={edit.editVal} onChange={(e) => edit.change(e.target.value)}
+                          onBlur={() => edit.commit(abs, c)}
+                          onKeyDown={(e) => { if (e.key === "Enter") edit.commit(abs, c); if (e.key === "Escape") edit.cancel(); }}
+                        />
+                      );
+                    })()
                   ) : disp == null ? (
                     <span className="faint">null</span>
                   ) : (
@@ -351,8 +377,14 @@ export default function SqlEditor({
       setSavingEdits(false);
     }
   };
+  const colInfoMap: Record<string, ColumnInfo> = {};
+  for (const ci of result?.edit_columns ?? []) colInfoMap[ci.name] = ci;
   const gridEdit: GridEdit | null = canEdit
-    ? { pending: resultEdits, editing: editingCell, editVal, start: startEdit, change: setEditVal, commit: commitCellEdit, cancel: () => setEditingCell(null) }
+    ? {
+        pending: resultEdits, editing: editingCell, editVal,
+        start: startEdit, change: setEditVal, commit: commitCellEdit, cancel: () => setEditingCell(null),
+        connId, schema: result?.edit_schema || schema, colNames: shownColumns ?? [], colInfo: colInfoMap,
+      }
     : null;
 
   const beginSandbox = async () => {

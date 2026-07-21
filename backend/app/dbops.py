@@ -233,12 +233,21 @@ def run_sql(connector: Connector, sql: str, max_rows: int = MAX_ROWS_DEFAULT, sc
         # connection, so the result grid can edit rows by primary key.
         edit_schema = edit_table = ""
         pk_cols: list[str] = []
+        edit_columns: list[dict[str, Any]] = []
         if is_select and len(statements) == 1 and not getattr(connector.profile, "read_only", False):
             edit_schema, edit_table, pk_cols = _editable_source(connector, statements[0], columns, schema)
+            if edit_table:
+                # Column metadata (types, FK targets, enums) so the result grid
+                # can edit with the same datatype-aware editors as the Data tab.
+                try:
+                    edit_columns = [c.model_dump() for c in connector.list_columns(edit_schema, edit_table)]
+                except Exception:
+                    edit_columns = []
         out["editable"] = bool(edit_table)
         out["edit_schema"] = edit_schema
         out["edit_table"] = edit_table
         out["pk_cols"] = pk_cols
+        out["edit_columns"] = edit_columns
         # Multiple SELECTs in one run: expose every result set (the legacy
         # top-level fields keep carrying the last one for old callers).
         if len(result_sets) > 1:
