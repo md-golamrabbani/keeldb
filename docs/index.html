@@ -27,11 +27,13 @@
   html{scroll-behavior:smooth}
   body{margin:0;background:var(--bg);color:var(--text);
     font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    line-height:1.6;-webkit-font-smoothing:antialiased}
+    line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
   a{color:inherit;text-decoration:none}
+  img{max-width:100%}
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
   .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:10px;
     font-weight:600;font-size:15px;border:1px solid var(--border);transition:.15s;cursor:pointer;white-space:nowrap}
+  .btn svg{width:16px;height:16px}
   .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
   .btn-primary:hover{filter:brightness(1.07)}
   .btn-ghost:hover{background:var(--surface-2)}
@@ -52,9 +54,9 @@
   .hero{text-align:center;padding:76px 0 40px}
   .badge{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;
     background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:600;margin-bottom:22px}
-  .hero h1{font-size:clamp(34px,6vw,56px);line-height:1.08;letter-spacing:-.02em;margin:0 0 18px}
+  .hero h1{font-size:clamp(32px,6vw,56px);line-height:1.08;letter-spacing:-.02em;margin:0 0 18px}
   .hero h1 .db{color:var(--accent)}
-  .hero p.lead{font-size:clamp(17px,2.4vw,20px);color:var(--muted);max-width:680px;margin:0 auto 28px}
+  .hero p.lead{font-size:clamp(16px,2.4vw,20px);color:var(--muted);max-width:680px;margin:0 auto 28px}
   .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
   .dbs{margin-top:26px;color:var(--faint);font-size:14px;font-weight:600;letter-spacing:.02em}
   .dbs b{color:var(--muted)}
@@ -66,23 +68,26 @@
 
   section{padding:56px 0}
   .eyebrow{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;text-align:center}
-  h2.title{font-size:clamp(26px,4vw,36px);text-align:center;margin:8px 0 8px;letter-spacing:-.02em}
+  h2.title{font-size:clamp(24px,4vw,36px);text-align:center;margin:8px 0 8px;letter-spacing:-.02em}
   .sub{text-align:center;color:var(--muted);max-width:640px;margin:0 auto 40px}
 
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px}
-  .card h3{margin:6px 0 8px;font-size:18px}
+  .card h3{margin:12px 0 8px;font-size:18px}
   .card p{margin:0;color:var(--muted);font-size:15px}
-  .ico{width:38px;height:38px;border-radius:10px;background:var(--accent-soft);color:var(--accent);
-    display:flex;align-items:center;justify-content:center;font-size:20px}
+  .ico{width:40px;height:40px;border-radius:11px;background:var(--accent-soft);color:var(--accent);
+    display:flex;align-items:center;justify-content:center}
+  .ico svg{width:21px;height:21px}
 
   .shots2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
   .shots2 img{width:100%;height:auto;border-radius:12px;border:1px solid var(--border)}
   @media(max-width:720px){.shots2{grid-template-columns:1fr}}
 
   .dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:12px}
-  .dl .card{text-align:center}
-  .dl .os{font-size:26px}
+  .dl .card{text-align:center;display:flex;flex-direction:column;align-items:center}
+  .os{width:52px;height:52px;border-radius:14px;background:var(--surface-2);color:var(--text);
+    display:flex;align-items:center;justify-content:center;margin-bottom:4px}
+  .os svg{width:30px;height:30px}
   .dl .card h3{margin:10px 0 4px}
   .dl .card .files{color:var(--faint);font-size:13px;font-family:ui-monospace,monospace}
 
@@ -95,6 +100,18 @@
   .foot-in{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
   .kbd{font-family:ui-monospace,monospace;background:var(--surface-2);border:1px solid var(--border);
     border-radius:6px;padding:1px 6px;font-size:12px}
+
+  /* mobile */
+  @media(max-width:640px){
+    .wrap{padding:0 16px}
+    .nav-links a.txt{display:none}
+    .nav-links{gap:6px}
+    .btn{padding:9px 13px;font-size:14px}
+    .hero{padding:44px 0 26px}
+    section{padding:44px 0}
+    .cta .btn{flex:1 1 auto;justify-content:center}
+    .foot-in{justify-content:center;text-align:center}
+  }
 </style>
 </head>
 <body>
@@ -108,7 +125,7 @@
       <a class="txt" href="#features">Features</a>
       <a class="txt" href="#screens">Screenshots</a>
       <a class="txt" href="https://github.com/md-golamrabbani/keeldb#readme">Docs</a>
-      <a class="btn btn-ghost" href="https://github.com/md-golamrabbani/keeldb" target="_blank" rel="noopener">GitHub ★</a>
+      <a class="btn btn-ghost" href="https://github.com/md-golamrabbani/keeldb" target="_blank" rel="noopener">GitHub</a>
       <a class="btn btn-primary" href="https://github.com/md-golamrabbani/keeldb/releases" target="_blank" rel="noopener">Download</a>
     </nav>
   </div>
@@ -122,7 +139,10 @@
       — or an imported <code>.sql</code> dump — from one clean app. On the web, and as a native
       desktop app for Windows, macOS and Linux.</p>
     <div class="cta">
-      <a class="btn btn-primary" href="https://github.com/md-golamrabbani/keeldb/releases" target="_blank" rel="noopener">⤓ Download the app</a>
+      <a class="btn btn-primary" href="https://github.com/md-golamrabbani/keeldb/releases" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        Download the app
+      </a>
       <a class="btn btn-ghost" href="https://github.com/md-golamrabbani/keeldb" target="_blank" rel="noopener">View on GitHub</a>
     </div>
     <div class="dbs">Works with <b>MySQL</b> · <b>PostgreSQL</b> · <b>Supabase</b> · <b>Neon</b> · <b>SQLite / .sql dumps</b></div>
@@ -137,17 +157,17 @@
       <h2 class="title">Everything you reach for, in one place</h2>
       <p class="sub">A GUI-driven toolkit for real database work — safe by default, fast on big tables.</p>
       <div class="grid">
-        <div class="card"><div class="ico">⇄</div><h3>Migrate</h3>
+        <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg></div><h3>Migrate</h3>
           <p>Any-to-any across MySQL, PostgreSQL, Supabase and Neon (or a <code>.sql</code> dump) with a visual column-mapping canvas, casts, sandboxed transforms, dry-runs and batched idempotent writes.</p></div>
-        <div class="card"><div class="ico">▤</div><h3>Explore</h3>
+        <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg></div><h3>Explore</h3>
           <p>A fast tabbed browser: filter, sort, inline Workbench-style editing (staged saves), copy/paste rows, FK peek-and-jump, and CSV/JSON/SQL import &amp; export.</p></div>
-        <div class="card"><div class="ico">◫</div><h3>Design &amp; guard</h3>
+        <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg></div><h3>Design &amp; guard</h3>
           <p>Interactive ERD, structure editing, health checks, and safety rails — production writes need confirmation, read-only mode blocks writes, big tables load instantly.</p></div>
-        <div class="card"><div class="ico">⌘</div><h3>SQL editor</h3>
+        <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></svg></div><h3>SQL editor</h3>
           <p>Autocomplete, live error checks, run-the-selection, saved queries with search, editable results (edit rows by primary key), and a chart view.</p></div>
-        <div class="card"><div class="ico">✦</div><h3>AI assist</h3>
+        <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></div><h3>AI assist</h3>
           <p>Optional natural-language → SQL with Claude, ChatGPT or Groq using your own key. The model only <em>suggests</em> a read-only query — it never runs anything.</p></div>
-        <div class="card"><div class="ico">🧰</div><h3>Developer toolkit</h3>
+        <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z"/></svg></div><h3>Developer toolkit</h3>
           <p>25+ built-in SQL &amp; data-prep utilities — IN-clause builder, CSV→SQL, bulk insert/update, dedupe, JWT inspector, sample-data generator and more.</p></div>
       </div>
     </div>
@@ -172,11 +192,14 @@
       <p class="sub">Native desktop builds with the database backend bundled — nothing else to install.</p>
       <div class="dl">
         <a class="card" href="https://github.com/md-golamrabbani/keeldb/releases" target="_blank" rel="noopener">
-          <div class="os">🪟</div><h3>Windows</h3><div class="files">.msi · .exe</div></a>
+          <div class="os"><svg viewBox="0 0 24 24" fill="currentColor" aria-label="Windows"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg></div>
+          <h3>Windows</h3><div class="files">.msi · .exe</div></a>
         <a class="card" href="https://github.com/md-golamrabbani/keeldb/releases" target="_blank" rel="noopener">
-          <div class="os">🍎</div><h3>macOS</h3><div class="files">.dmg (Apple&nbsp;Silicon)</div></a>
+          <div class="os"><svg viewBox="0 0 24 24" fill="currentColor" aria-label="macOS"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg></div>
+          <h3>macOS</h3><div class="files">.dmg (Apple&nbsp;Silicon)</div></a>
         <a class="card" href="https://github.com/md-golamrabbani/keeldb/releases" target="_blank" rel="noopener">
-          <div class="os">🐧</div><h3>Linux</h3><div class="files">.AppImage · .deb · .rpm</div></a>
+          <div class="os"><svg viewBox="0 0 24 24" fill="currentColor" aria-label="Linux"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065zm2.8 2.142c.358 1.417 1.196 3.475 1.735 4.473.286.534.855 1.659 1.102 3.024.156-.005.33.018.513.064.646-1.671-.546-3.467-1.089-3.966-.22-.2-.232-.335-.123-.335.59.534 1.365 1.572 1.646 2.757.13.535.16 1.104.021 1.67.067.028.135.06.205.067 1.032.534 1.413.938 1.23 1.537v-.043c-.06-.003-.12 0-.18 0h-.016c.151-.467-.182-.825-1.065-1.224-.915-.4-1.646-.336-1.77.465-.008.043-.013.066-.018.135-.068.023-.139.053-.209.064-.43.268-.662.669-.793 1.187-.13.533-.17 1.156-.205 1.869v.003c-.02.334-.17.838-.319 1.35-1.5 1.072-3.58 1.538-5.348.334a2.645 2.645 0 00-.402-.533 1.45 1.45 0 00-.275-.333c.182 0 .338-.03.465-.067a.615.615 0 00.314-.334c.108-.267 0-.697-.345-1.163-.345-.467-.931-.995-1.788-1.521-.63-.4-.986-.87-1.15-1.396-.165-.534-.143-1.085-.015-1.645.245-1.07.873-2.11 1.274-2.763.107-.065.037.135-.408.974-.396.751-1.14 2.497-.122 3.854a8.123 8.123 0 01.647-2.876c.564-1.278 1.743-3.504 1.836-5.268.048.036.217.135.289.202.218.133.38.333.59.465.21.201.477.335.876.335.039.003.075.006.11.006.412 0 .73-.134.997-.268.29-.134.52-.334.74-.4h.005c.467-.135.835-.402 1.044-.7zm2.185 8.958c.037.6.343 1.245.882 1.377.588.134 1.434-.333 1.791-.765l.211-.01c.315-.007.577.01.847.268l.003.003c.208.199.305.53.391.876.085.4.154.78.409 1.066.486.527.645.906.636 1.14l.003-.007v.018l-.003-.012c-.015.262-.185.396-.498.595-.63.401-1.746.712-2.457 1.57-.618.737-1.37 1.14-2.036 1.191-.664.053-1.237-.2-1.574-.898l-.005-.003c-.21-.4-.12-1.025.056-1.69.176-.668.428-1.344.463-1.897.037-.714.076-1.335.195-1.814.12-.465.308-.797.641-.984l.045-.022zm-10.814.049h.01c.053 0 .105.005.157.014.376.055.706.333 1.023.752l.91 1.664.003.003c.243.533.754 1.064 1.189 1.637.434.598.77 1.131.729 1.57v.006c-.057.744-.48 1.148-1.125 1.294-.645.135-1.52.002-2.395-.464-.968-.536-2.118-.469-2.857-.602-.369-.066-.61-.2-.723-.4-.11-.2-.113-.602.123-1.23v-.004l.002-.003c.117-.334.03-.752-.027-1.118-.055-.401-.083-.71.043-.94.16-.334.396-.4.69-.533.294-.135.64-.202.915-.47h.002v-.002c.256-.268.445-.601.668-.838.19-.201.38-.336.663-.336zm7.159-9.074c-.435.201-.945.535-1.488.535-.542 0-.97-.267-1.28-.466-.154-.134-.28-.268-.373-.335-.164-.134-.144-.333-.074-.333.109.016.129.134.199.2.096.066.215.2.36.333.292.2.68.467 1.167.467.485 0 1.053-.267 1.398-.466.195-.135.445-.334.648-.467.156-.136.149-.267.279-.267.128.016.034.134-.147.332a8.097 8.097 0 01-.69.468zm-1.082-1.583V5.64c-.006-.02.013-.042.029-.05.074-.043.18-.027.26.004.063 0 .16.067.15.135-.006.049-.085.066-.135.066-.055 0-.092-.043-.141-.068-.052-.018-.146-.008-.163-.065zm-.551 0c-.02.058-.113.049-.166.066-.047.025-.086.068-.14.068-.05 0-.13-.02-.136-.068-.01-.066.088-.133.15-.133.08-.031.184-.047.259-.005.019.009.036.03.03.05v.02h.003z"/></svg></div>
+          <h3>Linux</h3><div class="files">.AppImage · .deb · .rpm</div></a>
       </div>
       <p class="sub" style="margin-top:22px">Prefer to run from source? <code>git clone</code> and follow the
         <a href="https://github.com/md-golamrabbani/keeldb#-run-from-source" style="color:var(--accent);font-weight:600">quick start</a>.</p>
@@ -193,7 +216,7 @@
         <span class="chip">SQLAlchemy</span><span class="chip">Fernet-encrypted secrets</span><span class="chip">SSH tunnels</span>
       </div>
       <div class="cta" style="margin-top:30px">
-        <a class="btn btn-primary" href="https://github.com/md-golamrabbani/keeldb" target="_blank" rel="noopener">★ Star on GitHub</a>
+        <a class="btn btn-primary" href="https://github.com/md-golamrabbani/keeldb" target="_blank" rel="noopener">Star on GitHub</a>
         <a class="btn btn-ghost" href="https://github.com/md-golamrabbani/keeldb/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contribute</a>
       </div>
     </div>
