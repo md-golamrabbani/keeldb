@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import type { ColumnInfo, Environment, Flavor, QueryPlan, QueryResult, SnapshotMeta, Snippet } from "@/lib/types";
 import { analyzeSql, type StmtInfo } from "@/lib/sqlguard";
 import CellEditor, { FkValueSelect } from "./CellEditor";
+import ColumnMenu, { type ColumnMenuState } from "./ColumnMenu";
 import SqlCodeEditor from "./SqlCodeEditor";
 import GuardDialog from "./GuardDialog";
 import SqlSidebar, { type SaveState } from "./SqlSidebar";
@@ -280,6 +281,7 @@ export default function SqlEditor({
   const [aiMsg, setAiMsg] = useState("");
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [resultView, setResultView] = useState<"results" | "chart">("results");
+  const [colMenu, setColMenu] = useState<ColumnMenuState | null>(null);
 
   // Guard extras: statement timeout, pre-write snapshots (undo), tx sandbox.
   const [timeoutS, setTimeoutS] = useState(0);
@@ -988,8 +990,10 @@ export default function SqlEditor({
                     <thead>
                       <tr className="text-left uppercase tracking-wide muted">
                         {shownColumns.map((c, i) => (
-                          <th key={i} className="border-b px-2.5 py-2 font-mono normal-case"
-                            style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--surface-2)" }}>
+                          <th key={i} className="cursor-context-menu border-b px-2.5 py-2 font-mono normal-case"
+                            style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--surface-2)" }}
+                            title="Right-click for column actions"
+                            onContextMenu={(e) => { e.preventDefault(); setColMenu({ x: e.clientX, y: e.clientY, column: c, colIndex: i }); }}>
                             {c}
                           </th>
                         ))}
@@ -1012,6 +1016,12 @@ export default function SqlEditor({
           )}
         </>
       )}
+
+      <ColumnMenu
+        state={colMenu}
+        values={colMenu && shownColumns ? (shownRows ?? []).map((r) => r[colMenu.colIndex]) : []}
+        onClose={() => setColMenu(null)}
+      />
 
       {guard && (
         <GuardDialog
