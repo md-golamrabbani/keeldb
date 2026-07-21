@@ -92,7 +92,7 @@ export default function SqlCodeEditor({
     const startY = e.clientY;
     const startH = height;
     const onMove = (ev: PointerEvent) =>
-      setHeight(Math.max(120, startH + (ev.clientY - startY)));
+      setHeight(Math.max(72, startH + (ev.clientY - startY)));
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
@@ -201,7 +201,7 @@ export default function SqlCodeEditor({
 
   return (
     <div className="flex flex-col">
-    <div className="relative flex" style={{ height, minHeight: 120, overflow: "hidden" }}>
+    <div className="relative flex" style={{ height, minHeight: 72, overflow: "hidden" }}>
       <div ref={gutterRef} className="shrink-0 overflow-hidden border-r text-right"
         style={{ width: gutterW, background: "var(--surface-2)", paddingTop: PADY, paddingBottom: PADY }}>
         {lines.map((_, i) => (

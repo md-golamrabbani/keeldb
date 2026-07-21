@@ -770,7 +770,7 @@ export default function SqlEditor({
           onChange={setSql}
           onRun={run}
           onSelectionChange={setSelection}
-          minHeight={168}
+          minHeight={90}
           errorLine={lintError?.line ?? null}
           tableNames={tableNames}
           columns={colCache}
