@@ -15,7 +15,7 @@ import Checkbox from "@/components/ui/Checkbox";
 import Select from "@/components/ui/Select";
 import { toast } from "@/lib/toast";
 import {
-  IconCheck, IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, IconClose, IconCopy, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
+  IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, IconClose, IconCopy, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
 } from "@/components/icons";
 
 type Cell = string | number | boolean | null;
@@ -57,10 +57,11 @@ export default function DataGrid({
   const [pending, setPending] = useState<Record<string, Cell>>({}); // staged cell edits, key `${r}::${c}`
   const [saving, setSaving] = useState(false);
   const [exportMenu, setExportMenu] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [newRow, setNewRow] = useState<Record<string, string>>({});
-  const [addError, setAddError] = useState(""); // error shown inside the Add-row dialog
-  const [addBusy, setAddBusy] = useState(false);
+  // Draft rows being composed inline (Add row adds one; Paste adds many,
+  // pre-filled). The user edits them, then inserts all together.
+  const [drafts, setDrafts] = useState<Record<string, string>[]>([]);
+  const [draftError, setDraftError] = useState("");
+  const [draftBusy, setDraftBusy] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [colMenu, setColMenu] = useState<ColumnMenuState | null>(null);
@@ -175,24 +176,32 @@ export default function DataGrid({
     });
   };
 
-  const addRow = async () => {
-    // Keep the dialog open and show the error *inside* it on failure (e.g. a
-    // duplicate key), so the user never loses what they typed.
-    setAddError(""); setAddBusy(true);
-    try {
-      const values: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(newRow)) if (v !== "") values[k] = v;
-      await api.insertRow(connId, schema, table, values);
-      setAdding(false); setNewRow({}); flash("Row inserted"); load();
-    } catch (e) {
-      setAddError(String(e));
-    } finally {
-      setAddBusy(false);
-    }
-  };
+  const addDraft = () => { setDraftError(""); setDrafts((d) => [...d, {}]); };
+  const cancelDrafts = () => { setDrafts([]); setDraftError(""); };
+  const patchDraft = (i: number, col: string, v: string) =>
+    setDrafts((d) => d.map((r, j) => (j === i ? { ...r, [col]: v } : r)));
+  const removeDraft = (i: number) => setDrafts((d) => d.filter((_, j) => j !== i));
 
-  const openAddRow = () => { setNewRow({}); setAddError(""); setAdding(true); };
-  const closeAddRow = () => { setAdding(false); setAddError(""); };
+  // Insert every draft row. On a failure (e.g. a duplicate/unique key), stop and
+  // keep the failed row plus the rest as drafts so the user can fix and retry.
+  const insertDrafts = async () => {
+    if (!drafts.length) return;
+    setDraftBusy(true); setDraftError("");
+    const remaining = [...drafts];
+    let ok = 0;
+    let failure = "";
+    while (remaining.length) {
+      const values: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(remaining[0])) if (v !== "") values[k] = v;
+      try { await api.insertRow(connId, schema, table, values); ok++; remaining.shift(); }
+      catch (e) { failure = `Inserted ${ok} of ${drafts.length}; the highlighted row failed — fix it and insert again.\n${String(e)}`; break; }
+    }
+    setDrafts(remaining);
+    setDraftBusy(false);
+    if (ok > 0) load();
+    if (failure) setDraftError(failure);
+    else toast(`Inserted ${ok} row${ok === 1 ? "" : "s"}`);
+  };
 
   // Copy selected rows (or all shown rows if none selected) to the clipboard as
   // TSV — pastes cleanly into spreadsheets and back into this grid.
@@ -209,48 +218,31 @@ export default function DataGrid({
     }
   };
 
-  // Paste rows from the clipboard (TSV, e.g. copied from a spreadsheet or this
-  // grid). Columns map by position to this table; a header row matching the
-  // column names is skipped. Confirms before inserting.
+  // Paste rows from the clipboard (TSV, e.g. from a spreadsheet or this grid) as
+  // editable DRAFT rows — columns map left-to-right, a matching header row is
+  // skipped, and auto-increment PKs are dropped. The user edits the drafts
+  // (e.g. a unique slug) and then inserts them.
   const pasteRows = async () => {
-    setError("");
+    setError(""); setDraftError("");
     let text = "";
     try { text = await navigator.clipboard.readText(); }
     catch (e) { setError(`Could not read clipboard: ${e}`); return; }
     const lines = text.replace(/\r\n/g, "\n").split("\n").filter((l) => l.length > 0);
     if (!lines.length) { setError("Clipboard is empty."); return; }
     let parsed = lines.map((l) => l.split("\t"));
-    // Skip a header row if it matches this table's columns.
     if (parsed[0].join("\t").toLowerCase() === colnames.join("\t").toLowerCase()) parsed = parsed.slice(1);
     if (!parsed.length) { setError("Nothing to paste after the header row."); return; }
-    // Auto-increment primary keys are skipped so a copied row inserts as a NEW
-    // row instead of colliding on the PK.
     const autoPk = new Set((data?.columns ?? []).filter((c) => c.is_pk && c.auto_increment).map((c) => c.name));
     const rows = parsed.map((cells) => {
-      const values: Record<string, unknown> = {};
+      const r: Record<string, string> = {};
       cells.forEach((v, i) => {
         const name = colnames[i];
-        if (i < colnames.length && v !== "" && !autoPk.has(name)) values[name] = v;
+        if (i < colnames.length && v !== "" && !autoPk.has(name)) r[name] = v;
       });
-      return values;
+      return r;
     });
-    setConfirm({
-      title: "Paste rows",
-      message: `Insert ${rows.length} row(s) into ${table}? Empty cells become NULL/defaults${autoPk.size ? "; auto-increment keys are skipped" : ""}. Columns map left-to-right.`,
-      confirmLabel: `Insert ${rows.length}`,
-      onConfirm: async () => {
-        let ok = 0;
-        let failure = "";
-        for (const values of rows) {
-          try { await api.insertRow(connId, schema, table, values); ok++; }
-          catch (e) { failure = `Inserted ${ok} of ${rows.length}; stopped at row ${ok + 1}: ${String(e)}`; break; }
-        }
-        // Report via toast — the error banner would be wiped by the reload below.
-        if (failure) toast(failure, "error");
-        else toast(`Pasted ${ok} row${ok === 1 ? "" : "s"}`);
-        if (ok > 0) load();
-      },
-    });
+    setDrafts((d) => [...d, ...rows]);
+    toast(`Pasted ${rows.length} row${rows.length === 1 ? "" : "s"} — edit, then Insert`);
   };
 
   const runSqlFile = async (f: File) => {
@@ -312,7 +304,7 @@ export default function DataGrid({
         </button>
         <button className="btn btn-secondary btn-sm !h-9" onClick={load} disabled={loading || dirty}
           title={dirty ? "Save or revert your changes first" : ""}><IconRefresh width={14} height={14} /> Refresh</button>
-        <button className="btn btn-secondary btn-sm !h-9" onClick={() => (adding ? closeAddRow() : openAddRow())} disabled={!editable || dirty}
+        <button className="btn btn-secondary btn-sm !h-9" onClick={addDraft} disabled={!editable || dirty}
           title={!editable ? "Table has no primary key — rows can't be added safely" : dirty ? "Save or revert your changes first" : ""}>
           <IconPlus width={14} height={14} /> Add row
         </button>
@@ -412,20 +404,25 @@ export default function DataGrid({
         </div>
       )}
 
-      {/* Inline add row: the draft row is rendered at the top of the grid below.
-          This banner carries the help text, the error, and the Insert/Cancel. */}
-      {adding && data && (
+      {/* Draft rows: rendered as editable rows at the top of the grid below.
+          This banner carries the help text, error, and Insert/Cancel. */}
+      {drafts.length > 0 && data && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm"
           style={{ background: "var(--accent-soft)", borderColor: "var(--accent)" }}>
-          <span className="font-medium" style={{ color: "var(--accent)" }}>New row</span>
-          <span className="text-xs faint">Fill the highlighted row below (<span style={{ color: "var(--danger)" }}>*</span> = required · empty = NULL · Enter to insert)</span>
+          <span className="font-medium" style={{ color: "var(--accent)" }}>
+            {drafts.length} new row{drafts.length === 1 ? "" : "s"}
+          </span>
+          <span className="text-xs faint">Edit the highlighted row{drafts.length === 1 ? "" : "s"} below (empty = NULL/default), then Insert.</span>
           <div className="ml-auto flex gap-2">
-            <button className="btn btn-ghost btn-sm !h-8" onClick={closeAddRow} disabled={addBusy}>Cancel</button>
-            <button className="btn btn-primary btn-sm !h-8" onClick={addRow} disabled={addBusy}>
-              <IconPlus width={13} height={13} /> {addBusy ? "Inserting…" : "Insert row"}
+            <button className="btn btn-secondary btn-sm !h-8" onClick={addDraft} disabled={draftBusy}>
+              <IconPlus width={13} height={13} /> Add another
+            </button>
+            <button className="btn btn-ghost btn-sm !h-8" onClick={cancelDrafts} disabled={draftBusy}>Cancel</button>
+            <button className="btn btn-primary btn-sm !h-8" onClick={insertDrafts} disabled={draftBusy}>
+              {draftBusy ? "Inserting…" : `Insert ${drafts.length} row${drafts.length === 1 ? "" : "s"}`}
             </button>
           </div>
-          {addError && <div className="alert-danger w-full whitespace-pre-wrap text-sm">{addError}</div>}
+          {draftError && <div className="alert-danger w-full whitespace-pre-wrap text-sm">{draftError}</div>}
         </div>
       )}
 
@@ -460,9 +457,9 @@ export default function DataGrid({
             </tr>
           </thead>
           <tbody>
-            {/* Inline draft row for adding — editable cells right in the grid. */}
-            {adding && data && (
-              <tr>
+            {/* Draft rows for adding/pasting — editable cells right in the grid. */}
+            {data && drafts.map((draft, di) => (
+              <tr key={`draft-${di}`}>
                 {editable && (
                   <td style={{ ...stCell(0, "var(--accent-soft)"), width: CHECK_W, minWidth: CHECK_W }} className="border-b px-0 py-1 text-center">
                     <IconPlus width={12} height={12} style={{ color: "var(--accent)", margin: "0 auto" }} />
@@ -471,8 +468,7 @@ export default function DataGrid({
                 {hasPk && (
                   <td style={{ ...stCell(actLeft, "var(--accent-soft)"), width: ACT_W, minWidth: ACT_W }} className="border-b px-0 py-1">
                     <div className="flex items-center justify-center gap-0.5">
-                      <button className="btn btn-ghost !p-1" onClick={addRow} disabled={addBusy} aria-label="Insert row" title="Insert row"><IconCheck width={13} height={13} style={{ color: "var(--accent)" }} /></button>
-                      <button className="btn btn-ghost !p-1" onClick={closeAddRow} disabled={addBusy} aria-label="Cancel" title="Cancel"><IconClose width={13} height={13} /></button>
+                      <button className="btn btn-ghost !p-1" onClick={() => removeDraft(di)} disabled={draftBusy} aria-label="Remove draft row" title="Remove this draft row"><IconClose width={13} height={13} /></button>
                     </div>
                   </td>
                 )}
@@ -483,22 +479,22 @@ export default function DataGrid({
                       <FkValueSelect
                         connId={connId} schema={schema} fkTarget={col.fk_target} nullable={col.nullable}
                         className="!h-7 !py-0 !text-xs min-w-[8rem]"
-                        value={newRow[col.name] ?? ""}
-                        onChange={(v) => setNewRow((n) => ({ ...n, [col.name]: v }))}
+                        value={draft[col.name] ?? ""}
+                        onChange={(v) => patchDraft(di, col.name, v)}
                       />
                     ) : (
                       <CellEditor
                         col={col}
                         className="!h-7 !py-0 !text-xs min-w-[8rem]"
-                        value={newRow[col.name] ?? ""}
-                        onChange={(v) => setNewRow((n) => ({ ...n, [col.name]: v }))}
-                        onKeyDown={(e) => { if (e.key === "Enter") addRow(); if (e.key === "Escape") closeAddRow(); }}
+                        value={draft[col.name] ?? ""}
+                        onChange={(v) => patchDraft(di, col.name, v)}
+                        onKeyDown={(e) => { if (e.key === "Enter") insertDrafts(); if (e.key === "Escape") cancelDrafts(); }}
                       />
                     )}
                   </td>
                 ))}
               </tr>
-            )}
+            ))}
             {data?.rows.map((row, r) => {
               const rowBg = selected.has(r) ? "var(--accent-soft)" : "var(--surface)";
               return (
