@@ -298,6 +298,7 @@ export interface ColumnInfo {
   data_type: string;
   nullable: boolean;
   is_pk: boolean;
+  auto_increment?: boolean;
   is_fk: boolean;
   fk_target: string;
   default: string | null;

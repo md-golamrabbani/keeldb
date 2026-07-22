@@ -99,6 +99,7 @@ class ColumnInfo(BaseModel):
     data_type: str
     nullable: bool = True
     is_pk: bool = False
+    auto_increment: bool = False
     is_fk: bool = False
     fk_target: str = ""
     default: Optional[str] = None
