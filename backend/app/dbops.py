@@ -382,13 +382,25 @@ def read_table(
 
     columns = [c.model_dump() for c in connector.list_columns(schema, table)]
     pk_cols = [c.name for c in t.primary_key.columns]
-    # Compile the exact SELECT (values inlined) so the UI can show/copy the query
-    # for the current view — handy to share with someone using another tool.
+    # A clean, shareable query for the current view: SELECT * (not the full
+    # column list, which is noise on wide tables), with the same WHERE / ORDER /
+    # LIMIT and values inlined.
     try:
-        query = str(q.compile(
+        qd = sa.select(sa.literal_column("*")).select_from(t)
+        if clauses:
+            qd = qd.where(sa.and_(*clauses))
+        if order_by and order_by in t.c:
+            oc = t.c[order_by]
+            qd = qd.order_by(oc.desc() if order_dir == "desc" else oc.asc())
+        qd = qd.limit(max(1, min(limit, 500))).offset(max(0, offset))
+        query = str(qd.compile(
             dialect=connector.engine.dialect,
             compile_kwargs={"literal_binds": True},
-        )).replace("\n", " ").strip()
+        )).replace("\n", " ")
+        # Drop the schema.table. prefix on column refs for readability (only when
+        # identifiers are unquoted; quoted identifiers are left untouched).
+        query = query.replace(f"{schema}.{table}.", "") if schema else query.replace(f"{table}.", "")
+        query = " ".join(query.split())
     except Exception:
         query = ""
     return {
