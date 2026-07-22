@@ -495,6 +495,7 @@ export interface TableData {
   total: number;
   total_estimated?: boolean; // true when `total` is a fast catalog estimate, not exact
   pk_cols: string[];
+  query?: string; // the compiled SELECT for the current view (for show/copy)
 }
 
 export interface ExportResult {

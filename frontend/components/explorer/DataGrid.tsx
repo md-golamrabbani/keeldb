@@ -7,6 +7,7 @@ import AdvancedFilter from "./AdvancedFilter";
 import CellEditor, { FkValueSelect } from "./CellEditor";
 import ColumnMenu, { type ColumnMenuState } from "./ColumnMenu";
 import ConfirmDialog, { type ConfirmState } from "./ConfirmDialog";
+import Modal from "./Modal";
 import DependentsDialog from "./DependentsDialog";
 import ErrorBanner from "./ErrorBanner";
 import FkPeekDialog, { parseFk } from "./FkPeekDialog";
@@ -15,7 +16,7 @@ import Checkbox from "@/components/ui/Checkbox";
 import Select from "@/components/ui/Select";
 import { toast } from "@/lib/toast";
 import {
-  IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, IconClose, IconCopy, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTrash, IconUpload,
+  IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, IconClose, IconCopy, IconDownload, IconFilter, IconLink, IconPlus, IconRefresh, IconSearch, IconTerminal, IconTrash, IconUpload,
 } from "@/components/icons";
 
 type Cell = string | number | boolean | null;
@@ -65,6 +66,7 @@ export default function DataGrid({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [colMenu, setColMenu] = useState<ColumnMenuState | null>(null);
+  const [showSql, setShowSql] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -305,6 +307,12 @@ export default function DataGrid({
         </button>
         <button className="btn btn-secondary btn-sm !h-9" onClick={load} disabled={loading || dirty}
           title={dirty ? "Save or revert your changes first" : ""}><IconRefresh width={14} height={14} /> Refresh</button>
+        {data?.query && (
+          <button className="btn btn-secondary btn-sm !h-9" onClick={() => setShowSql(true)}
+            title="Show the SQL for this view (filters, sort, search) — copy to share">
+            <IconTerminal width={14} height={14} /> SQL
+          </button>
+        )}
         <button className="btn btn-secondary btn-sm !h-9" onClick={addDraft} disabled={!editable || dirty}
           title={!editable ? "Table has no primary key — rows can't be added safely" : dirty ? "Save or revert your changes first" : ""}>
           <IconPlus width={14} height={14} /> Add row
@@ -611,6 +619,22 @@ export default function DataGrid({
         onSortAsc={() => { if (colMenu) { setOrderBy(colMenu.column); setOrderDir("asc"); setPage(0); } }}
         onSortDesc={() => { if (colMenu) { setOrderBy(colMenu.column); setOrderDir("desc"); setPage(0); } }}
       />
+      {showSql && data?.query && (
+        <Modal title="Query for this view" wide onClose={() => setShowSql(false)}>
+          <div className="space-y-3">
+            <p className="text-xs muted">The exact SELECT for the current filters, sort, search and page — copy it to run in another tool.</p>
+            <pre className="max-h-[50vh] overflow-auto rounded-lg border p-3 font-mono text-xs"
+              style={{ background: "var(--surface-2)", borderColor: "var(--border)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{data.query}</pre>
+            <div className="flex justify-end gap-2">
+              <button className="btn btn-ghost" onClick={() => setShowSql(false)}>Close</button>
+              <button className="btn btn-primary" onClick={async () => {
+                try { await navigator.clipboard.writeText(data.query!); toast("Query copied"); }
+                catch { toast("Copy failed", "error"); }
+              }}><IconCopy width={14} height={14} /> Copy query</button>
+            </div>
+          </div>
+        </Modal>
+      )}
       <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
       {peek && (
         <FkPeekDialog connId={connId} schema={schema} targetTable={peek.table} targetColumn={peek.column} value={peek.value}
