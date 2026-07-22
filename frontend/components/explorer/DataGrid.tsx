@@ -293,38 +293,38 @@ export default function DataGrid({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      {/* toolbar — all controls share h-9 */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* toolbar — compact controls (h-8) so they fit one line on 1366+ screens */}
+      <div className="flex flex-wrap items-center gap-1.5">
         <div className="relative">
           <IconSearch width={14} height={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-faint)" }} />
-          <input className="input !h-9 !w-56 !py-0 !pl-8" placeholder="Search all columns…" defaultValue={search} disabled={dirty}
+          <input className="input !h-8 !w-44 !py-0 !pl-8" placeholder="Search all columns…" defaultValue={search} disabled={dirty}
             title={dirty ? "Save or revert your changes first" : ""}
             onKeyDown={(e) => { if (e.key === "Enter") { setSearch((e.target as HTMLInputElement).value); setPage(0); } }} />
         </div>
-        <button className="btn btn-secondary btn-sm !h-9" onClick={() => setShowFilter((s) => !s)} disabled={dirty}
+        <button className="btn btn-secondary btn-sm !h-8 !px-2" onClick={() => setShowFilter((s) => !s)} disabled={dirty}
           title={dirty ? "Save or revert your changes first" : ""}>
           <IconFilter width={14} height={14} /> Filter{filters.length ? ` · ${filters.length}` : ""}
         </button>
-        <button className="btn btn-secondary btn-sm !h-9" onClick={load} disabled={loading || dirty}
+        <button className="btn btn-secondary btn-sm !h-8 !px-2" onClick={load} disabled={loading || dirty}
           title={dirty ? "Save or revert your changes first" : ""}><IconRefresh width={14} height={14} /> Refresh</button>
         {data?.query && (
-          <button className="btn btn-secondary btn-sm !h-9" onClick={() => setShowSql(true)}
+          <button className="btn btn-secondary btn-sm !h-8 !px-2" onClick={() => setShowSql(true)}
             title="Show the SQL for this view (filters, sort, search) — copy to share">
             <IconTerminal width={14} height={14} /> SQL
           </button>
         )}
-        <button className="btn btn-secondary btn-sm !h-9" onClick={addDraft} disabled={!editable || dirty}
+        <button className="btn btn-secondary btn-sm !h-8 !px-2" onClick={addDraft} disabled={!editable || dirty}
           title={!editable ? "Table has no primary key — rows can't be added safely" : dirty ? "Save or revert your changes first" : ""}>
           <IconPlus width={14} height={14} /> Add row
         </button>
         {editable && (
-          <button className="btn btn-secondary btn-sm !h-9" onClick={pasteRows} disabled={dirty}
+          <button className="btn btn-secondary btn-sm !h-8 !px-2" onClick={pasteRows} disabled={dirty}
             title={dirty ? "Save or revert your changes first" : "Insert rows from the clipboard (TSV / spreadsheet)"}>
-            <IconUpload width={14} height={14} /> Paste rows
+            <IconUpload width={14} height={14} /> Paste
           </button>
         )}
         {data && data.rows.length > 0 && (
-          <button className="btn btn-secondary btn-sm !h-9" onClick={copyRows}
+          <button className="btn btn-secondary btn-sm !h-8 !px-2" onClick={copyRows}
             title={selected.size ? `Copy ${selected.size} selected row(s) as TSV` : "Copy all shown rows as TSV"}>
             <IconCopy width={14} height={14} /> Copy{selected.size ? ` ${selected.size}` : ""}
           </button>
@@ -332,19 +332,19 @@ export default function DataGrid({
         {selected.size > 0 && (
           <div className="flex items-center gap-2">
             {!dirty && (
-              <button className="btn btn-danger btn-sm !h-9" onClick={bulkDelete}><IconTrash width={14} height={14} /> Delete {selected.size} selected</button>
+              <button className="btn btn-danger btn-sm !h-8 !px-2" onClick={bulkDelete} title={`Delete ${selected.size} selected row(s)`}><IconTrash width={14} height={14} /> Delete {selected.size}</button>
             )}
-            <button className="btn btn-ghost btn-sm !h-9" onClick={() => setSelected(new Set())} title="Clear selection">
+            <button className="btn btn-ghost btn-sm !h-8 !px-2" onClick={() => setSelected(new Set())} title="Clear selection">
               <IconClose width={13} height={13} /> Clear{!dirty ? "" : ` ${selected.size}`}
             </button>
           </div>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1.5">
           <input ref={fileInput} type="file" className="hidden"
             accept={importFormat === "json" ? ".json,application/json" : importFormat === "sql" ? ".sql,text/plain" : ".csv,text/csv"}
             onChange={(e) => { const f = e.target.files?.[0]; if (f) { if (importFormat === "sql") runSqlFile(f); else setImportFile(f); } e.currentTarget.value = ""; }} />
           <div className="relative">
-            <button className="btn btn-secondary btn-sm !h-9" onClick={() => setImportMenu((o) => !o)} disabled={readOnly}
+            <button className="btn btn-secondary btn-sm !h-8 !px-2" onClick={() => setImportMenu((o) => !o)} disabled={readOnly}
               title={readOnly ? "Connection is read-only" : ""}>
               <IconUpload width={14} height={14} /> Import <IconChevronDown width={13} height={13} style={{ color: "var(--text-faint)" }} />
             </button>
@@ -363,7 +363,7 @@ export default function DataGrid({
             )}
           </div>
           <div className="relative">
-            <button className="btn btn-secondary btn-sm !h-9" onClick={() => setExportMenu((o) => !o)}>
+            <button className="btn btn-secondary btn-sm !h-8 !px-2" onClick={() => setExportMenu((o) => !o)}>
               <IconDownload width={14} height={14} /> Export <IconChevronDown width={13} height={13} style={{ color: "var(--text-faint)" }} />
             </button>
             {exportMenu && (
