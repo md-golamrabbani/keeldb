@@ -146,6 +146,9 @@ class Connector(ABC):
                     data_type=str(ctype),
                     nullable=bool(col.get("nullable", True)),
                     is_pk=col["name"] in pk,
+                    # Reflection reports True only for real auto-increment / serial
+                    # / identity columns ('auto' is the DDL default, not that).
+                    auto_increment=col.get("autoincrement") is True,
                     is_fk=col["name"] in fks,
                     fk_target=fks.get(col["name"], ""),
                     default=str(default) if default is not None else None,

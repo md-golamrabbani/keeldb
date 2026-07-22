@@ -223,23 +223,32 @@ export default function DataGrid({
     // Skip a header row if it matches this table's columns.
     if (parsed[0].join("\t").toLowerCase() === colnames.join("\t").toLowerCase()) parsed = parsed.slice(1);
     if (!parsed.length) { setError("Nothing to paste after the header row."); return; }
+    // Auto-increment primary keys are skipped so a copied row inserts as a NEW
+    // row instead of colliding on the PK.
+    const autoPk = new Set((data?.columns ?? []).filter((c) => c.is_pk && c.auto_increment).map((c) => c.name));
     const rows = parsed.map((cells) => {
       const values: Record<string, unknown> = {};
-      cells.forEach((v, i) => { if (i < colnames.length && v !== "") values[colnames[i]] = v; });
+      cells.forEach((v, i) => {
+        const name = colnames[i];
+        if (i < colnames.length && v !== "" && !autoPk.has(name)) values[name] = v;
+      });
       return values;
     });
     setConfirm({
       title: "Paste rows",
-      message: `Insert ${rows.length} row(s) into ${table}? Empty cells become NULL/defaults. Columns map left-to-right.`,
+      message: `Insert ${rows.length} row(s) into ${table}? Empty cells become NULL/defaults${autoPk.size ? "; auto-increment keys are skipped" : ""}. Columns map left-to-right.`,
       confirmLabel: `Insert ${rows.length}`,
       onConfirm: async () => {
         let ok = 0;
+        let failure = "";
         for (const values of rows) {
           try { await api.insertRow(connId, schema, table, values); ok++; }
-          catch (e) { setError(`Inserted ${ok} of ${rows.length}; stopped at row ${ok + 1}: ${e}`); break; }
+          catch (e) { failure = `Inserted ${ok} of ${rows.length}; stopped at row ${ok + 1}: ${String(e)}`; break; }
         }
-        if (ok === rows.length) flash(`Pasted ${ok} row(s)`);
-        load();
+        // Report via toast — the error banner would be wiped by the reload below.
+        if (failure) toast(failure, "error");
+        else toast(`Pasted ${ok} row${ok === 1 ? "" : "s"}`);
+        if (ok > 0) load();
       },
     });
   };
