@@ -81,6 +81,20 @@ function ConnectionSession({
   const [views, setViews] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
+  // Resizable table-list width: current size is the minimum; drag to widen.
+  const [tableListW, setTableListW] = useState(224);
+  const startListResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = tableListW;
+    const onMove = (ev: PointerEvent) => setTableListW(Math.min(600, Math.max(224, startW + (ev.clientX - startX))));
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
 
   // Open tabs are remembered PER connection+schema (Workbench-style): switching
   // schema swaps to that schema's own tab-set, and reopening the app restores
@@ -362,7 +376,7 @@ function ConnectionSession({
       {connId && schema && (
         <div className="flex min-h-0 flex-1 gap-3">
           {/* table list */}
-          <div className="flex w-56 shrink-0 flex-col gap-2">
+          <div className="flex shrink-0 flex-col gap-2" style={{ width: tableListW }}>
             <div className="relative">
               <IconSearch
                 width={13}
@@ -382,6 +396,7 @@ function ConnectionSession({
                 <button
                   key={t.name}
                   onClick={() => openTable(t.name)}
+                  title={t.name}
                   className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors"
                   style={
                     activeTable === t.name
@@ -392,7 +407,7 @@ function ConnectionSession({
                       : { color: "var(--text-muted)" }
                   }
                 >
-                  <IconTable width={14} height={14} />
+                  <IconTable width={14} height={14} className="shrink-0" />
                   <span className="flex-1 truncate">{t.name}</span>
                   {t.row_estimate != null && (
                     <span className="text-[10px] faint">
@@ -415,6 +430,7 @@ function ConnectionSession({
                     <button
                       key={`view:${v}`}
                       onClick={() => openView(v)}
+                      title={v}
                       className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors"
                       style={
                         activeTab?.kind === "view" && activeTab.table === v
@@ -422,13 +438,22 @@ function ConnectionSession({
                           : { color: "var(--text-muted)" }
                       }
                     >
-                      <IconSearch width={13} height={13} />
+                      <IconSearch width={13} height={13} className="shrink-0" />
                       <span className="flex-1 truncate">{v}</span>
                     </button>
                   ))}
                 </>
               )}
             </div>
+          </div>
+
+          {/* drag handle — resize the table list (min = default width) */}
+          <div
+            onPointerDown={startListResize}
+            title="Drag to resize the table list"
+            className="group -mx-1 flex w-2 shrink-0 cursor-col-resize items-center justify-center self-stretch"
+          >
+            <div className="h-10 w-0.5 rounded-full transition-colors group-hover:bg-[var(--accent)]" style={{ background: "var(--border-strong)" }} />
           </div>
 
           {/* documents */}
