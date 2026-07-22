@@ -382,9 +382,19 @@ def read_table(
 
     columns = [c.model_dump() for c in connector.list_columns(schema, table)]
     pk_cols = [c.name for c in t.primary_key.columns]
+    # Compile the exact SELECT (values inlined) so the UI can show/copy the query
+    # for the current view — handy to share with someone using another tool.
+    try:
+        query = str(q.compile(
+            dialect=connector.engine.dialect,
+            compile_kwargs={"literal_binds": True},
+        )).replace("\n", " ").strip()
+    except Exception:
+        query = ""
     return {
         "columns": columns, "colnames": colnames, "rows": data,
         "total": total, "total_estimated": total_estimated, "pk_cols": pk_cols,
+        "query": query,
     }
 
 
