@@ -271,7 +271,8 @@ export default function DataGrid({
   };
 
   const toggleRow = (i: number) => setSelected((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
-  const toggleAll = () => setSelected((s) => (s.size === data!.rows.length ? new Set() : new Set(data!.rows.map((_, i) => i))));
+  // Toggle: if anything is selected, clear it; otherwise select every shown row.
+  const toggleAll = () => setSelected((s) => (s.size > 0 ? new Set() : new Set(data!.rows.map((_, i) => i))));
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / pageSize)) : 1;
 
@@ -320,8 +321,15 @@ export default function DataGrid({
             <IconCopy width={14} height={14} /> Copy{selected.size ? ` ${selected.size}` : ""}
           </button>
         )}
-        {selected.size > 0 && !dirty && (
-          <button className="btn btn-danger btn-sm !h-9" onClick={bulkDelete}><IconTrash width={14} height={14} /> Delete {selected.size} selected</button>
+        {selected.size > 0 && (
+          <div className="flex items-center gap-2">
+            {!dirty && (
+              <button className="btn btn-danger btn-sm !h-9" onClick={bulkDelete}><IconTrash width={14} height={14} /> Delete {selected.size} selected</button>
+            )}
+            <button className="btn btn-ghost btn-sm !h-9" onClick={() => setSelected(new Set())} title="Clear selection">
+              <IconClose width={13} height={13} /> Clear{!dirty ? "" : ` ${selected.size}`}
+            </button>
+          </div>
         )}
         <div className="ml-auto flex items-center gap-2">
           <input ref={fileInput} type="file" className="hidden"
@@ -434,7 +442,7 @@ export default function DataGrid({
             <tr className="text-left uppercase tracking-wide muted">
               {editable && (
                 <th style={{ ...stHead(0), width: CHECK_W, minWidth: CHECK_W }} className="px-0 py-1.5 text-center">
-                  <Checkbox checked={!!data && selected.size === data.rows.length && data.rows.length > 0} onCheckedChange={toggleAll} ariaLabel="Select all rows" />
+                  <Checkbox checked={selected.size > 0} onCheckedChange={toggleAll} ariaLabel={selected.size > 0 ? "Clear selection" : "Select all rows"} title={selected.size > 0 ? "Clear selection" : "Select all rows"} />
                 </th>
               )}
               {hasPk && <th style={{ ...stHead(actLeft), width: ACT_W, minWidth: ACT_W }} className="px-0 py-1.5"></th>}
