@@ -4,6 +4,24 @@ All notable changes to KeelDB are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3]
+
+### Added
+- **Paste rows as editable drafts** — Copy rows, then Paste creates pre-filled, editable draft rows (auto-
+  increment PKs dropped); edit them (e.g. a unique slug), Add another, then Insert all. Failures keep the
+  remaining drafts to fix and retry.
+- **Custom date/time picker** — month + year navigation and hour/minute/second fields, replacing the
+  unreliable native pickers that could block the page.
+- **Right-click a column header** for quick actions: copy name, copy values, copy DISTINCT, copy as a SQL
+  `IN (…)` list, and sort.
+- **Show & copy the grid's SQL** — a `SQL` button shows the `SELECT *` query for the current
+  filters/sort/search/page, ready to copy and share.
+- **Resizable table list** with tooltips for truncated names.
+
+### Changed
+- Row selection is now clearable — the header checkbox toggles select-all/clear, plus a **Clear** button.
+- The shown query uses `SELECT *` (not the full column list) and unqualified columns for readability.
+
 ## [0.1.2]
 
 ### Added
@@ -62,6 +80,7 @@ All notable changes to KeelDB are documented here. The format is based on
 - Developer Toolkit with 25+ SQL/data-prep utilities.
 - Native desktop builds for Windows, macOS, and Linux (Tauri + PyInstaller sidecar).
 
+[0.1.3]: https://github.com/md-golamrabbani/keeldb/releases/tag/v0.1.3
 [0.1.2]: https://github.com/md-golamrabbani/keeldb/releases/tag/v0.1.2
 [0.1.1]: https://github.com/md-golamrabbani/keeldb/releases/tag/v0.1.1
 [0.1.0]: https://github.com/md-golamrabbani/keeldb/releases/tag/v0.1.0
