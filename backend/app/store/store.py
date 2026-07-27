@@ -24,7 +24,11 @@ from ..models import (
     Snippet,
 )
 
-DATA_DIR = Path(os.environ.get("DBMS_DATA_DIR", Path(__file__).resolve().parents[3] / "data"))
+# NB: an *empty* DBMS_DATA_DIR (e.g. the shell passed a blank path) must fall
+# back, not resolve to Path("") == "." — that would scatter data into the
+# process CWD and, across launches, silently lose the credential file.
+_data_env = os.environ.get("DBMS_DATA_DIR", "").strip()
+DATA_DIR = Path(_data_env) if _data_env else Path(__file__).resolve().parents[3] / "data"
 _SECRET_FIELDS = (
     "password",
     "connection_string",

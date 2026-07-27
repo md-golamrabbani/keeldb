@@ -53,19 +53,44 @@ def _norm(s: str) -> str:
 
 
 def _load() -> dict:
+    """Read the credential file, tolerating a missing/empty/corrupt file.
+
+    A present-but-unusable file (empty, ``{}``, truncated write, wrong type)
+    must degrade to ``{}`` — never raise — so callers fall back to setup
+    instead of dead-locking on an unrecoverable "file exists" state.
+    """
     f = _pw_file()
-    return json.loads(f.read_text()) if f.exists() else {}
+    if not f.exists():
+        return {}
+    try:
+        d = json.loads(f.read_text() or "{}")
+    except (ValueError, OSError):
+        return {}
+    return d if isinstance(d, dict) else {}
 
 
 def _save(d: dict) -> None:
+    """Atomically write the credential file so an interrupted write can never
+    leave an empty/half file behind (the exact state that dead-locks unlock)."""
     f = _pw_file()
-    f.write_text(json.dumps(d))
-    f.chmod(0o600)
+    tmp = f.parent / f"{f.name}.tmp"
+    tmp.write_text(json.dumps(d))
+    try:
+        tmp.chmod(0o600)  # best-effort; a no-op on Windows
+    except OSError:
+        pass
+    os.replace(tmp, f)  # atomic on POSIX and Windows
 
 
 # ---- state ---------------------------------------------------------------
 def is_configured() -> bool:
-    return bool(_ENV_PW) or _pw_file().exists()
+    # A file that merely *exists* is not enough: it must hold real credentials.
+    # Otherwise an empty/corrupt file would route the user to the unlock screen
+    # where no password works and recovery reports "no password is set".
+    if _ENV_PW:
+        return True
+    d = _load()
+    return bool(d.get("salt") and d.get("hash"))
 
 
 def needs_setup() -> bool:
@@ -101,7 +126,7 @@ def check_password(pw: str) -> bool:
     if _ENV_PW:
         return hmac.compare_digest(pw or "", _ENV_PW)
     d = _load()
-    if not d:
+    if not (d.get("salt") and d.get("hash")):
         return False
     return hmac.compare_digest(_hash(pw or "", bytes.fromhex(d["salt"])), d["hash"])
 
@@ -112,11 +137,11 @@ def recover(answer: str, new_password: str) -> dict:
     if _ENV_PW:
         raise ValueError("recovery is not available in shared-password mode")
     d = _load()
-    if not d:
+    if not (d.get("salt") and d.get("hash")):
         raise ValueError("no password is set")
     if d.get("blocked"):
         return {"ok": False, "blocked": True, "attempts_left": 0}
-    if hmac.compare_digest(_hash(_norm(answer), bytes.fromhex(d["ans_salt"])), d["ans_hash"]):
+    if hmac.compare_digest(_hash(_norm(answer), bytes.fromhex(d.get("ans_salt", ""))), d.get("ans_hash", "")):
         if not new_password:
             raise ValueError("new password required")
         psalt = os.urandom(16)
