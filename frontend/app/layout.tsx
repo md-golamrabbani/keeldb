@@ -4,6 +4,7 @@ import Toaster from "@/components/Toaster";
 import BackendProvider from "@/components/BackendProvider";
 import CommandPalette from "@/components/CommandPalette";
 import AuthGate from "@/components/AuthGate";
+import PersistentExplorer from "@/components/PersistentExplorer";
 import Splash from "@/components/Splash";
 import "./globals.css";
 
@@ -35,7 +36,12 @@ export default function RootLayout({
           <TopNav />
           <main className="min-h-0 flex-1 overflow-y-auto">
             <div className="w-full p-2 sm:px-3">
-              <BackendProvider>{children}</BackendProvider>
+              <BackendProvider>
+                {/* Mounted once, kept alive across routes (hidden off /explorer)
+                    so Explorer tab state fully survives navigation. */}
+                <PersistentExplorer />
+                {children}
+              </BackendProvider>
             </div>
           </main>
           <CommandPalette />
