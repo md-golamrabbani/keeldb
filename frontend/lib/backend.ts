@@ -28,6 +28,22 @@ export function apiBaseSync(): string {
   return cached ?? "/api";
 }
 
+/** Open a URL in the user's real browser. In the Tauri webview a plain
+ *  <a target="_blank"> / window.open does nothing, so route through the shell
+ *  opener there; on the web, window.open is correct. */
+export async function openExternal(url: string): Promise<void> {
+  if (isTauri()) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("open_url", { url });
+      return;
+    } catch {
+      /* fall through to window.open */
+    }
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 /** Wait until the backend answers /health (used by the desktop startup gate). */
 export async function waitForBackend(timeoutMs = 20000): Promise<boolean> {
   const base = await resolveApiBase();

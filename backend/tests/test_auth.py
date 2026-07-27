@@ -75,6 +75,19 @@ def test_empty_or_corrupt_file_is_not_configured(data_dir, body):
     assert auth.check_password("fresh1") is True
 
 
+def test_change_password(data_dir):
+    _setup(pw="hunter2", q="First pet?", a="Rex")
+    auth.change_password("hunter2", "newpass")
+    assert auth.check_password("newpass") is True
+    assert auth.check_password("hunter2") is False
+    # security question/answer survive a password change
+    assert auth.security_question() == "First pet?"
+    assert auth.recover("Rex", "viarecover")["ok"] is True
+    # wrong current password is rejected
+    with pytest.raises(ValueError):
+        auth.change_password("wrong", "whatever")
+
+
 def test_token_round_trip_and_expiry(data_dir):
     assert auth.verify_token(auth.issue_token()) is True
     assert auth.verify_token("garbage") is False

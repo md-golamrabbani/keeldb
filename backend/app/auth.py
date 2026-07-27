@@ -131,6 +131,23 @@ def check_password(pw: str) -> bool:
     return hmac.compare_digest(_hash(pw or "", bytes.fromhex(d["salt"])), d["hash"])
 
 
+def change_password(current: str, new_password: str) -> None:
+    """Change the password from inside the app (knowing the current one).
+    The security question/answer are left unchanged."""
+    if _ENV_PW:
+        raise ValueError("password is managed via KEELDB_PASSWORD")
+    if not check_password(current):
+        raise ValueError("current password is incorrect")
+    if not new_password:
+        raise ValueError("new password required")
+    d = _load()
+    if not (d.get("salt") and d.get("hash")):
+        raise ValueError("no password is set")
+    psalt = os.urandom(16)
+    d["salt"], d["hash"] = psalt.hex(), _hash(new_password, psalt)
+    _save(d)
+
+
 def recover(answer: str, new_password: str) -> dict:
     """Reset the password using the security answer. Returns {ok, blocked,
     attempts_left}. Wrong answers count toward a permanent block."""

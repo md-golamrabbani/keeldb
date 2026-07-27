@@ -6,7 +6,7 @@ use std::net::TcpListener;
 use std::sync::Mutex;
 
 use tauri::{Manager, State, WindowEvent};
-use tauri_plugin_shell::process::CommandChild;
+use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
 struct Backend {
@@ -17,6 +17,26 @@ struct Backend {
 #[tauri::command]
 fn backend_port(state: State<Backend>) -> u16 {
     state.port
+}
+
+// Open a URL in the user's default browser. In the Tauri webview a plain
+// window.open / <a target="_blank"> does nothing, so the frontend routes
+// external links (e.g. the "Update available" download page) through here.
+// Uses the per-OS opener directly — no extra plugin/permission needed.
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("refusing to open non-http(s) url".into());
+    }
+    #[cfg(target_os = "macos")]
+    let spawned = std::process::Command::new("open").arg(&url).spawn();
+    #[cfg(target_os = "windows")]
+    let spawned = std::process::Command::new("cmd")
+        .args(["/C", "start", "", &url])
+        .spawn();
+    #[cfg(target_os = "linux")]
+    let spawned = std::process::Command::new("xdg-open").arg(&url).spawn();
+    spawned.map(|_| ()).map_err(|e| e.to_string())
 }
 
 fn free_port() -> u16 {
@@ -68,9 +88,33 @@ pub fn run() {
                 child: Mutex::new(Some(child)),
             });
 
-            // Drain the sidecar's stdout/stderr so its pipe never fills up.
+            // Drain the sidecar's stdout/stderr (so its pipe never fills up) AND
+            // tee it to <data_dir>/backend.log. Without this the sidecar's output
+            // is lost, so a backend that starts then crashes leaves no trace —
+            // the log captures the traceback and the Terminated exit code/signal.
+            let log_path = data_dir.join("backend.log");
             tauri::async_runtime::spawn(async move {
-                while rx.recv().await.is_some() {}
+                use std::io::Write;
+                let mut log = std::fs::File::create(&log_path).ok();
+                let mut write = |s: String| {
+                    if let Some(f) = log.as_mut() {
+                        let _ = f.write_all(s.as_bytes());
+                        let _ = f.flush();
+                    }
+                };
+                while let Some(event) = rx.recv().await {
+                    match event {
+                        CommandEvent::Stdout(b) | CommandEvent::Stderr(b) => {
+                            write(String::from_utf8_lossy(&b).into_owned())
+                        }
+                        CommandEvent::Error(e) => write(format!("[sidecar error] {e}\n")),
+                        CommandEvent::Terminated(p) => write(format!(
+                            "[sidecar terminated] code={:?} signal={:?}\n",
+                            p.code, p.signal
+                        )),
+                        _ => {}
+                    }
+                }
             });
             Ok(())
         })
@@ -83,7 +127,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![backend_port])
+        .invoke_handler(tauri::generate_handler![backend_port, open_url])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

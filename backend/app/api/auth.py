@@ -23,6 +23,11 @@ class RecoverIn(BaseModel):
     new_password: str = ""
 
 
+class ChangeIn(BaseModel):
+    current: str = ""
+    new_password: str = ""
+
+
 @router.get("/status")
 def status():
     return {
@@ -69,6 +74,22 @@ def recover(req: RecoverIn):
     if res["ok"]:
         return {"ok": True, "token": auth.issue_token()}
     return res  # {ok: false, blocked, attempts_left}
+
+
+@router.post("/change")
+def change(req: ChangeIn, request: Request):
+    if not auth.enabled():
+        return {"ok": True}
+    # The global auth middleware exempts /auth/*, so verify the session here:
+    # changing the password requires being unlocked AND knowing the current one.
+    token = auth.token_from_header(request.headers.get("authorization", ""))
+    if not auth.verify_token(token):
+        raise HTTPException(401, "authentication required")
+    try:
+        auth.change_password(req.current, req.new_password)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True}
 
 
 @router.post("/refresh")
