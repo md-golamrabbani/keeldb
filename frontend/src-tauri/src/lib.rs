@@ -36,14 +36,31 @@ pub fn run() {
         .setup(move |app| {
             // Persist connection/mapping profiles in the OS app-data folder.
             let data_dir = app.path().app_data_dir().unwrap_or_default();
+
+            // One-time migration: earlier builds shipped under the
+            // `net.fiberathome.keeldb` identifier. If that folder still exists
+            // and the new one doesn't, move it so upgraders keep their saved
+            // connections, encryption key, and unlock password.
+            if let Some(parent) = data_dir.parent() {
+                let legacy = parent.join("net.fiberathome.keeldb");
+                if legacy.is_dir() && !data_dir.exists() {
+                    let _ = std::fs::rename(&legacy, &data_dir);
+                }
+            }
             let _ = std::fs::create_dir_all(&data_dir);
 
-            let sidecar = app
+            let mut sidecar = app
                 .shell()
                 .sidecar("keeldb-backend")
                 .expect("sidecar binary 'keeldb-backend' not found")
-                .args([port.to_string()])
-                .env("DBMS_DATA_DIR", data_dir.to_string_lossy().to_string());
+                .args([port.to_string()]);
+            // Only pass the data dir when we actually resolved one — an empty
+            // value would make the backend fall back to its own default rather
+            // than treating "" as a real (and wrong) path.
+            let data_dir_str = data_dir.to_string_lossy().to_string();
+            if !data_dir_str.is_empty() {
+                sidecar = sidecar.env("DBMS_DATA_DIR", data_dir_str);
+            }
 
             let (mut rx, child) = sidecar.spawn().expect("failed to spawn backend sidecar");
             app.manage(Backend {

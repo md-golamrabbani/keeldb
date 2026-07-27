@@ -60,6 +60,21 @@ def test_recover_wrong_answer_counts_down_then_blocks(data_dir):
     assert auth.recover("Rex", "y")["blocked"] is True
 
 
+@pytest.mark.parametrize("body", ["", "{}", "   ", "not json", "[]", '{"salt": "aa"}'])
+def test_empty_or_corrupt_file_is_not_configured(data_dir, body):
+    # Regression: a present-but-unusable credential file must route to setup,
+    # not to an unlock screen where no password works and recovery reports
+    # "no password is set". See is_configured()/_load().
+    (data_dir / "auth_password.json").write_text(body)
+    assert not auth.is_configured()
+    assert auth.needs_setup()
+    assert auth.check_password("anything") is False
+    # setup must be allowed to recover from the junk file (not "already set")
+    _setup(pw="fresh1")
+    assert auth.is_configured()
+    assert auth.check_password("fresh1") is True
+
+
 def test_token_round_trip_and_expiry(data_dir):
     assert auth.verify_token(auth.issue_token()) is True
     assert auth.verify_token("garbage") is False
