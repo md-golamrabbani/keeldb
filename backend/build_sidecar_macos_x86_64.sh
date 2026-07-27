@@ -37,6 +37,17 @@ if [ "$arch" != "x86_64" ]; then
   exit 1
 fi
 
+# The standalone x86_64 CPython reports a low macOS deployment target, so pip
+# would reject the prebuilt macosx_10_12+ wheels (cryptography, pydantic-core,
+# bcrypt, pynacl, psycopg-binary) and fall back to a *source* build — which
+# cross-compile-fails against the arm64 host's OpenSSL. Advertise a modern
+# target so pip picks the x86_64/universal2 wheels, exactly as the arm64 build
+# does. --only-binary makes any remaining source build fail loudly rather than
+# silently attempt a broken cross-compile.
+export MACOSX_DEPLOYMENT_TARGET=11.0
+export PIP_ONLY_BINARY=cryptography,pydantic-core,bcrypt,PyNaCl,cffi,psycopg-binary
+echo "pip platform tag: $("$PYTHON" -c 'import sysconfig; print(sysconfig.get_platform())')"
+
 PYTHON="$PYTHON" bash build_sidecar.sh
 
 echo "Sidecar arch: $(file dist/keeldb-backend)"
