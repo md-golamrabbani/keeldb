@@ -16,16 +16,14 @@ cd "$(dirname "$0")"
 # Rosetta 2 lets the x86_64 interpreter run on Apple Silicon (no-op if present).
 sudo softwareupdate --install-rosetta --agree-to-license >/dev/null 2>&1 || true
 
-# Resolve a standalone x86_64 macOS CPython 3.12 (python-build-standalone).
-asset=$(curl -fsSL https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest \
-  | grep -oE 'https://[^"]*cpython-3\.12\.[0-9]+\+[0-9]+-x86_64-apple-darwin-install_only\.tar\.gz' \
-  | head -1)
-if [ -z "$asset" ]; then
-  echo "ERROR: could not resolve an x86_64 CPython build-standalone asset" >&2
-  exit 1
-fi
-echo "Fetching x86_64 CPython: $asset"
-curl -fsSL "$asset" -o /tmp/py-x64.tar.gz
+# Standalone x86_64 macOS CPython (python-build-standalone). Pinned to a known
+# asset rather than resolved via the GitHub API: the unauthenticated API is
+# rate-limited on CI runners, and its browser_download_url percent-encodes the
+# "+" as "%2B". Bump this when moving Python versions.
+PY_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20260718/cpython-3.12.13%2B20260718-x86_64-apple-darwin-install_only.tar.gz"
+
+echo "Fetching x86_64 CPython: $PY_URL"
+curl -fL --retry 5 --retry-all-errors --connect-timeout 30 -o /tmp/py-x64.tar.gz "$PY_URL"
 rm -rf /tmp/py-x64 && mkdir -p /tmp/py-x64
 tar -xzf /tmp/py-x64.tar.gz -C /tmp/py-x64   # install_only extracts to python/
 PYTHON="/tmp/py-x64/python/bin/python3"
