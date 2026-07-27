@@ -4,6 +4,7 @@ Passwords are never returned by the API and never logged."""
 from __future__ import annotations
 
 import json
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
@@ -11,6 +12,8 @@ from pathlib import Path
 from typing import Optional
 
 from cryptography.fernet import Fernet
+
+log = logging.getLogger(__name__)
 
 from ..models import (
     AiSettings,
@@ -36,6 +39,32 @@ _SECRET_FIELDS = (
     "ssh_password",
     "ssh_private_key",
 )
+
+
+def _read_json(path: Path, default):
+    """Read JSON, tolerating a missing/empty/corrupt file — it must never raise,
+    so one bad file can't 500 an endpoint or brick a store. A file that exists
+    but won't parse is preserved as ``<name>.corrupt`` (never silently
+    destroyed) so the data can be recovered, and ``default`` is returned so the
+    app keeps working."""
+    if not path.exists():
+        return default
+    try:
+        text = path.read_text()
+    except OSError:
+        return default
+    if not text.strip():
+        return default
+    try:
+        return json.loads(text)
+    except ValueError:
+        backup = path.parent / f"{path.name}.corrupt"
+        try:
+            path.replace(backup)
+            log.warning("Corrupt JSON store %s preserved as %s", path.name, backup.name)
+        except OSError:
+            log.warning("Corrupt JSON store %s could not be read", path.name)
+        return default
 
 
 def _fernet() -> Fernet:
@@ -72,9 +101,8 @@ class _JsonStore:
         self.path = DATA_DIR / self.filename
 
     def _load(self) -> dict[str, dict]:
-        if not self.path.exists():
-            return {}
-        return json.loads(self.path.read_text())
+        data = _read_json(self.path, {})
+        return data if isinstance(data, dict) else {}
 
     def _save(self, items: dict[str, dict]) -> None:
         tmp = self.path.with_suffix(".tmp")
@@ -276,9 +304,7 @@ class HistoryStore(_JsonStore):
     MAX = 200
 
     def _load_list(self) -> list[dict]:
-        if not self.path.exists():
-            return []
-        data = json.loads(self.path.read_text())
+        data = _read_json(self.path, [])
         return data if isinstance(data, list) else []
 
     def record(self, entry: HistoryEntry) -> HistoryEntry:
