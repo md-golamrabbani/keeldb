@@ -21,11 +21,14 @@ jobs:
         include:
           - os: ubuntu-22.04      # linux x86_64
           - os: windows-latest    # windows x86_64
-          - os: macos-latest      # macOS arm64 (Apple Silicon)
-          # macos-13 (Intel) is dropped for now: the hosted Intel runner queues
-          # indefinitely on this account and auto-cancels at 24h, failing the run.
-          # Apple-Silicon .dmg covers most Macs; Intel users can build from source.
-          # See issue #1 for restoring Intel via a universal macOS binary.
+          # Both macOS arches build on the Apple-Silicon runner: arm64 natively
+          # and x86_64 (Intel) cross-built under Rosetta. This ships an Intel
+          # .dmg without the hosted Intel runner (which queues indefinitely on
+          # this account). Fixes #51.
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
     runs-on: ${{ matrix.os }}
     # Safeguard: never let a stuck job burn the full 24h window.
     timeout-minutes: 45
@@ -38,15 +41,28 @@ jobs:
         with: { node-version: "20" }
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Add Rust target (macOS)
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
+
       - name: Linux system deps (WebKitGTK)
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf build-essential
 
-      - name: Build backend sidecar (Unix)
-        if: runner.os != 'Windows'
+      - name: Build backend sidecar (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
         run: bash backend/build_sidecar.sh
+
+      - name: Build backend sidecar (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          if [ "${{ matrix.target }}" = "x86_64-apple-darwin" ]; then
+            bash backend/build_sidecar_macos_x86_64.sh   # Intel slice via Rosetta
+          else
+            bash backend/build_sidecar.sh                 # native arm64
+          fi
 
       - name: Build backend sidecar (Windows)
         if: runner.os == 'Windows'
@@ -55,7 +71,8 @@ jobs:
       - name: Place sidecar with target-triple name
         shell: bash
         run: |
-          TRIPLE=$(rustc -Vv | grep '^host:' | cut -d' ' -f2)
+          TRIPLE="${{ matrix.target }}"
+          [ -n "$TRIPLE" ] || TRIPLE=$(rustc -Vv | grep '^host:' | cut -d' ' -f2)
           mkdir -p frontend/src-tauri/binaries
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp backend/dist/keeldb-backend.exe "frontend/src-tauri/binaries/keeldb-backend-${TRIPLE}.exe"
@@ -78,13 +95,20 @@ jobs:
 
       - name: Build desktop app
         working-directory: frontend
-        run: npx tauri build
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            npx tauri build --target ${{ matrix.target }}
+          else
+            npx tauri build
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: keeldb-${{ matrix.os }}
+          # Unique per job — the two macOS jobs share the same runner os.
+          name: keeldb-${{ matrix.os }}-${{ matrix.target || 'native' }}
           path: |
-            frontend/src-tauri/target/release/bundle/**/*.dmg
+            frontend/src-tauri/target/*/release/bundle/**/*.dmg
             frontend/src-tauri/target/release/bundle/**/*.AppImage
             frontend/src-tauri/target/release/bundle/**/*.deb
             frontend/src-tauri/target/release/bundle/**/*.rpm
@@ -100,7 +124,7 @@ jobs:
         with:
           draft: true
           files: |
-            frontend/src-tauri/target/release/bundle/**/*.dmg
+            frontend/src-tauri/target/*/release/bundle/**/*.dmg
             frontend/src-tauri/target/release/bundle/**/*.deb
             frontend/src-tauri/target/release/bundle/**/*.rpm
             frontend/src-tauri/target/release/bundle/**/*.msi
