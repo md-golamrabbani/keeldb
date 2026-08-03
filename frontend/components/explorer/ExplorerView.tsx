@@ -84,6 +84,7 @@ function ConnectionSession({
   const [views, setViews] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
   const [schemaFilter, setSchemaFilter] = useState("");
+  const [connFilter, setConnFilter] = useState("");
   const [error, setError] = useState("");
   // Resizable table-list width: current size is the minimum; drag to widen.
   const [tableListW, setTableListW] = useState(224);
@@ -214,6 +215,10 @@ function ConnectionSession({
     () => schemas.filter((s) => s.toLowerCase().includes(schemaFilter.toLowerCase())),
     [schemas, schemaFilter],
   );
+  const filteredConns = useMemo(() => {
+    const q = connFilter.toLowerCase();
+    return connections.filter((c) => c.name.toLowerCase().includes(q) || c.flavor.toLowerCase().includes(q));
+  }, [connections, connFilter]);
 
   const openView = (name: string) => {
     const existing = tabs.find((t) => t.kind === "view" && t.table === name);
@@ -658,14 +663,47 @@ function ConnectionSession({
         </div>
       )}
 
+      {/* No connection yet: same master-detail style — a searchable connection
+          list on the left, a blank placeholder on the right. */}
       {!connId && !error && (
-        <div className="card card-pad flex flex-col items-center gap-2 py-16 text-center">
-          <IconTable width={28} height={28} />
-          <p className="font-medium">Connect to a database</p>
-          <p className="text-sm muted">
-            Select a connection to open tables in tabs, run SQL, edit rows &amp;
-            structure, and view the ERD.
-          </p>
+        <div className="flex min-h-0 flex-1 gap-3">
+          {/* left: searchable connection list */}
+          <div className="flex shrink-0 flex-col gap-2" style={{ width: tableListW }}>
+            <div className="relative">
+              <IconSearch width={13} height={13}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2"
+                style={{ color: "var(--text-faint)" }} />
+              <input className="input !h-9 !py-0 !pl-8 text-xs" placeholder="Search connections…"
+                value={connFilter} onChange={(e) => setConnFilter(e.target.value)} />
+            </div>
+            <div className="card min-h-0 flex-1 overflow-y-auto p-1.5">
+              {filteredConns.length === 0 ? (
+                <p className="px-2 py-3 text-center text-xs muted">
+                  {connections.length === 0 ? "No connections yet." : "No matches."}
+                </p>
+              ) : (
+                filteredConns.map((c) => (
+                  <button key={c.id} onClick={() => setConnId(c.id)} title={c.name}
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-[var(--surface-2)]"
+                    style={{ color: "var(--text-muted)" }}>
+                    <IconDatabase width={14} height={14} className="shrink-0" />
+                    <span className="flex-1 truncate">{c.name}</span>
+                    <span className="shrink-0 text-[10px] faint">{c.flavor}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* right: blank placeholder */}
+          <div className="card flex min-w-0 flex-1 flex-col items-center justify-center gap-2 text-center">
+            <IconTable width={30} height={30} style={{ color: "var(--text-faint)" }} />
+            <p className="font-medium">Connect to a database</p>
+            <p className="max-w-sm text-sm muted">
+              Select a connection from the list to open tables in tabs, run SQL, edit rows &amp;
+              structure, and view the ERD.
+            </p>
+          </div>
         </div>
       )}
     </div>
