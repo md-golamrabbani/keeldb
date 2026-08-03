@@ -81,6 +81,7 @@ function ConnectionSession({
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [views, setViews] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
+  const [schemaFilter, setSchemaFilter] = useState("");
   const [error, setError] = useState("");
   // Resizable table-list width: current size is the minimum; drag to widen.
   const [tableListW, setTableListW] = useState(224);
@@ -197,6 +198,10 @@ function ConnectionSession({
   const filteredViews = useMemo(
     () => views.filter((v) => v.toLowerCase().includes(filter.toLowerCase())),
     [views, filter],
+  );
+  const filteredSchemas = useMemo(
+    () => schemas.filter((s) => s.toLowerCase().includes(schemaFilter.toLowerCase())),
+    [schemas, schemaFilter],
   );
 
   const openView = (name: string) => {
@@ -573,38 +578,46 @@ function ConnectionSession({
         </div>
       )}
 
-      {/* Connection chosen but no database yet: a clear, one-click database
-          picker instead of hoping the user notices the toolbar dropdown. */}
+      {/* Connection chosen but no database yet: master-detail — a searchable
+          database list on the left, a blank placeholder on the right. */}
       {connId && !schema && !error && (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="card card-pad mx-auto mt-4 w-full max-w-2xl">
-            <div className="flex items-center gap-2">
-              <IconDatabase width={18} height={18} style={{ color: "var(--accent)" }} />
-              <h2 className="text-base font-semibold">Select a database</h2>
+        <div className="flex min-h-0 flex-1 gap-3">
+          {/* left: searchable database list */}
+          <div className="flex shrink-0 flex-col gap-2" style={{ width: tableListW }}>
+            <div className="relative">
+              <IconSearch width={13} height={13}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2"
+                style={{ color: "var(--text-faint)" }} />
+              <input className="input !h-9 !py-0 !pl-8 text-xs" placeholder="Search databases…"
+                value={schemaFilter} onChange={(e) => setSchemaFilter(e.target.value)} />
             </div>
-            <p className="mt-1 text-sm muted">
-              Choose a database to browse its tables, run SQL, and design its schema.
-            </p>
-            {schemasLoading ? (
-              <div className="flex items-center justify-center gap-2 py-10 text-sm muted">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-transparent"
-                  style={{ borderTopColor: "var(--accent)", borderRightColor: "var(--accent)" }} />
-                Loading databases…
-              </div>
-            ) : schemas.length === 0 ? (
-              <p className="py-10 text-center text-sm muted">No databases found on this connection.</p>
-            ) : (
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {schemas.map((s) => (
+            <div className="card min-h-0 flex-1 overflow-y-auto p-1.5">
+              {schemasLoading ? (
+                <p className="px-2 py-3 text-center text-xs muted">Loading…</p>
+              ) : filteredSchemas.length === 0 ? (
+                <p className="px-2 py-3 text-center text-xs muted">
+                  {schemas.length === 0 ? "No databases." : "No matches."}
+                </p>
+              ) : (
+                filteredSchemas.map((s) => (
                   <button key={s} onClick={() => setSchema(s)} title={s}
-                    className="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-[var(--accent-soft)]"
-                    style={{ borderColor: "var(--border-strong)", color: "var(--text-muted)" }}>
-                    <IconDatabase width={15} height={15} className="shrink-0" style={{ color: "var(--text-faint)" }} />
-                    <span className="truncate">{s}</span>
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-[var(--surface-2)]"
+                    style={{ color: "var(--text-muted)" }}>
+                    <IconDatabase width={14} height={14} className="shrink-0" />
+                    <span className="flex-1 truncate">{s}</span>
                   </button>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* right: blank placeholder */}
+          <div className="card flex min-w-0 flex-1 flex-col items-center justify-center gap-2 text-center">
+            <IconDatabase width={30} height={30} style={{ color: "var(--text-faint)" }} />
+            <p className="font-medium">Select a database</p>
+            <p className="max-w-sm text-sm muted">
+              Choose a database from the list to browse its tables, run SQL, and design its schema.
+            </p>
           </div>
         </div>
       )}
