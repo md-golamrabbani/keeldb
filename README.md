@@ -14,7 +14,7 @@ on the web and as a native desktop app.
 [![Platforms](https://img.shields.io/badge/desktop-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-informational)](https://github.com/md-golamrabbani/keeldb/releases)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[**Download**](#-download) · [**Quick start**](#-run-from-source) · [**Features**](#-features) · [**Docs**](#-documentation) · [**Contributing**](CONTRIBUTING.md)
+[**Download**](https://github.com/md-golamrabbani/keeldb/releases/latest) · [**Quick start**](#-run-from-source) · [**Features**](#-features) · [**Docs**](#-documentation) · [**Contributing**](CONTRIBUTING.md)
 
 </div>
 
