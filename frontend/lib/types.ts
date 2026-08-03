@@ -12,6 +12,7 @@ export interface ConnectionProfileIn {
   user: string;
   password: string;
   ssl: boolean;
+  sslmode: string; // "" = auto; disable/allow/prefer/require/verify-ca/verify-full
   connection_string: string;
   service_role_key: string;
   extra_params: Record<string, string>;
@@ -35,6 +36,7 @@ export interface ConnectionProfile {
   database: string;
   user: string;
   ssl: boolean;
+  sslmode: string;
   has_password: boolean;
   has_connection_string: boolean;
   extra_params: Record<string, string>;

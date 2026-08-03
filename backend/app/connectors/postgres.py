@@ -17,24 +17,39 @@ class PostgresConnector(Connector):
 
     default_port = 5432
 
+    def _sslmode(self) -> str:
+        """Resolve the effective libpq sslmode. An explicit choice (field or
+        extra_params) always wins — so a user can force `disable`/`prefer` on a
+        self-hosted Supabase/pgbouncer pooler that has no TLS. Otherwise managed
+        flavors and the SSL toggle default to `require`; plain Postgres returns
+        "" (libpq's `prefer`, which works with and without SSL)."""
+        p = self.profile
+        explicit = (getattr(p, "sslmode", "") or p.extra_params.get("sslmode", "")).strip()
+        if explicit:
+            return explicit
+        if p.ssl or p.flavor in ("supabase", "neon"):
+            return "require"
+        return ""
+
     def url(self) -> str:
         p = self.profile
+        mode = self._sslmode()
         if p.connection_string:
             cs = p.connection_string
             for prefix in ("postgres://", "postgresql://"):
                 if cs.startswith(prefix):
                     cs = "postgresql+psycopg://" + cs[len(prefix):]
                     break
-            if p.flavor in ("supabase", "neon") and "sslmode=" not in cs:
-                cs += ("&" if "?" in cs else "?") + "sslmode=require"
+            if mode and "sslmode=" not in cs:
+                cs += ("&" if "?" in cs else "?") + f"sslmode={mode}"
             return cs
         url = (
             f"postgresql+psycopg://{quote_plus(p.user)}:{quote_plus(p.password)}"
             f"@{self.effective_host}:{self.effective_port}/{p.database}"
         )
         params = dict(p.extra_params)
-        if p.ssl or p.flavor in ("supabase", "neon"):
-            params.setdefault("sslmode", "require")
+        if mode:
+            params["sslmode"] = mode
         if params:
             url += "?" + "&".join(f"{k}={quote_plus(v)}" for k, v in params.items())
         return url

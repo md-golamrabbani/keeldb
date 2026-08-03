@@ -30,6 +30,10 @@ class ConnectionProfileIn(BaseModel):
     user: str = ""
     password: str = ""
     ssl: bool = False
+    # Postgres SSL negotiation: "" = auto (require for supabase/neon or when ssl
+    # is on, else libpq's prefer). Explicit values (disable/allow/prefer/require/
+    # verify-ca/verify-full) override — e.g. a self-hosted pooler without TLS.
+    sslmode: str = ""
     # Supabase/Neon preset: paste a full connection string instead of host fields.
     connection_string: str = ""
     service_role_key: str = ""
@@ -60,6 +64,7 @@ class ConnectionProfileOut(BaseModel):
     database: str = ""
     user: str = ""
     ssl: bool = False
+    sslmode: str = ""
     has_password: bool = False
     has_connection_string: bool = False
     extra_params: dict[str, str] = Field(default_factory=dict)
@@ -272,6 +277,7 @@ class SavedConnection(BaseModel):
     user: str = ""
     password: str = ""  # plaintext in memory only; encrypted at rest
     ssl: bool = False
+    sslmode: str = ""
     connection_string: str = ""
     service_role_key: str = ""
     extra_params: dict[str, str] = Field(default_factory=dict)
@@ -298,6 +304,7 @@ class SavedConnection(BaseModel):
             database=self.database,
             user=self.user,
             ssl=self.ssl,
+            sslmode=self.sslmode,
             has_password=bool(self.password),
             has_connection_string=bool(self.connection_string),
             extra_params=self.extra_params,
