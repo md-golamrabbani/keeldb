@@ -16,6 +16,18 @@ const DB_FLAVORS: { id: Flavor; label: string; hint: string }[] = [
 ];
 const DEFAULT_PORT: Record<string, number> = { mysql: 3306, postgresql: 5432, supabase: 5432, neon: 5432 };
 
+// Postgres libpq SSL modes. "Auto" = let the backend decide (require for
+// managed Supabase/Neon, otherwise libpq's `prefer` which falls back to
+// no-SSL). Pick "Disable"/"Prefer" for a self-hosted pooler without TLS.
+const SSL_MODES = [
+  { value: "", label: "Auto (recommended)" },
+  { value: "disable", label: "Disable — no SSL" },
+  { value: "prefer", label: "Prefer — SSL if available" },
+  { value: "require", label: "Require" },
+  { value: "verify-ca", label: "Verify CA" },
+  { value: "verify-full", label: "Verify full" },
+];
+
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3 rounded-xl border p-4" style={{ borderColor: "var(--border)" }}>
@@ -37,6 +49,7 @@ const empty = (flavor: Flavor = "mysql"): ConnectionProfileIn => ({
   user: "",
   password: "",
   ssl: flavor === "supabase" || flavor === "neon",
+  sslmode: "",
   connection_string: "",
   service_role_key: "",
   extra_params: {},
@@ -66,6 +79,7 @@ export default function ConnectionForm({
     initial
       ? { ...empty(initial.flavor), name: initial.name, flavor: initial.flavor, host: initial.host,
           port: initial.port, database: initial.database, user: initial.user, ssl: initial.ssl,
+          sslmode: initial.sslmode ?? "",
           ssh_enabled: initial.ssh_enabled, ssh_host: initial.ssh_host, ssh_port: initial.ssh_port,
           ssh_user: initial.ssh_user, environment: initial.environment, read_only: initial.read_only }
       : empty()
@@ -79,6 +93,14 @@ export default function ConnectionForm({
   const fileInput = useRef<HTMLInputElement>(null);
 
   const isPreset = form.flavor === "supabase" || form.flavor === "neon";
+  const isPg = form.flavor === "postgresql" || isPreset;
+  const sslModeField = (
+    <div>
+      <label className="label">SSL mode</label>
+      <Select className="w-full" ariaLabel="SSL mode" value={form.sslmode}
+        onValueChange={(v) => set({ sslmode: v })} options={SSL_MODES} />
+    </div>
+  );
   const set = (patch: Partial<ConnectionProfileIn>) => setForm((f) => ({ ...f, ...patch }));
 
   // Fetch and unmask the saved credentials for an existing connection so the
@@ -306,10 +328,11 @@ export default function ConnectionForm({
                     onChange={(e) => set({ connection_string: e.target.value })} />
                   <p className="mt-1.5 text-xs faint">
                     {form.flavor === "supabase"
-                      ? "Supabase → Project Settings → Database. sslmode=require is added automatically."
-                      : "Neon → Dashboard → Connection Details. sslmode=require is added automatically."}
+                      ? "Supabase → Project Settings → Database. SSL is required by default (set SSL mode below to override, e.g. a self-hosted pooler without TLS)."
+                      : "Neon → Dashboard → Connection Details. SSL is required by default (set SSL mode below to override)."}
                   </p>
                 </div>
+                {sslModeField}
                 {form.flavor === "supabase" && (
                   <div>
                     <label className="label">Service-role key (optional)</label>
@@ -348,10 +371,12 @@ export default function ConnectionForm({
                       onChange={(e) => set({ password: e.target.value })} />
                   </div>
                 </div>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={form.ssl} onCheckedChange={(v) => set({ ssl: v })} />
-                  Use SSL
-                </label>
+                {isPg ? sslModeField : (
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={form.ssl} onCheckedChange={(v) => set({ ssl: v })} />
+                    Use SSL
+                  </label>
+                )}
               </>
             )}
             </Section>
