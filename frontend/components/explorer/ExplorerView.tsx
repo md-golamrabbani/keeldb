@@ -15,6 +15,7 @@ import TableDocument from "@/components/explorer/TableDocument";
 import ViewDocument from "@/components/explorer/ViewDocument";
 import RoutinesView from "@/components/explorer/RoutinesView";
 import SqlEditor from "@/components/explorer/SqlEditor";
+import SchemaRowMenu from "@/components/explorer/SchemaRowMenu";
 import DesignerView from "@/components/explorer/DesignerView";
 import HealthView from "@/components/explorer/HealthView";
 import DatabaseMenu from "@/components/explorer/DatabaseMenu";
@@ -78,6 +79,7 @@ function ConnectionSession({
   const [schema, setSchema] = useState(wsSaved?.schema ?? "");
   const [schemas, setSchemas] = useState<string[]>([]);
   const [schemasLoading, setSchemasLoading] = useState(false);
+  const [showSql, setShowSql] = useState(false); // connection-level SQL, no schema
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [views, setViews] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
@@ -174,6 +176,7 @@ function ConnectionSession({
     if (!firstConnRun.current) setSchema("");
     firstConnRun.current = false;
     setTables([]);
+    setShowSql(false);
     setError("");
     if (!connId) return;
     setSchemasLoading(true);
@@ -185,6 +188,14 @@ function ConnectionSession({
       })
       .catch((e) => setError(String(e)))
       .finally(() => setSchemasLoading(false));
+  }, [connId]);
+
+  // Refresh the database list after a rename/drop from a row menu.
+  const reloadSchemas = useCallback(() => {
+    if (!connId) return;
+    setSchemasLoading(true);
+    api.listSchemas(connId).then(setSchemas)
+      .catch((e) => setError(String(e))).finally(() => setSchemasLoading(false));
   }, [connId]);
 
   // Refresh the table/view list whenever the connection or schema changes.
@@ -579,10 +590,11 @@ function ConnectionSession({
       )}
 
       {/* Connection chosen but no database yet: master-detail — a searchable
-          database list on the left, a blank placeholder on the right. */}
+          database list (with per-row actions) on the left, and either a blank
+          placeholder or a connection-level SQL editor on the right. */}
       {connId && !schema && !error && (
         <div className="flex min-h-0 flex-1 gap-3">
-          {/* left: searchable database list */}
+          {/* left: searchable database list with per-row menu */}
           <div className="flex shrink-0 flex-col gap-2" style={{ width: tableListW }}>
             <div className="relative">
               <IconSearch width={13} height={13}
@@ -600,25 +612,49 @@ function ConnectionSession({
                 </p>
               ) : (
                 filteredSchemas.map((s) => (
-                  <button key={s} onClick={() => setSchema(s)} title={s}
-                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-[var(--surface-2)]"
-                    style={{ color: "var(--text-muted)" }}>
-                    <IconDatabase width={14} height={14} className="shrink-0" />
-                    <span className="flex-1 truncate">{s}</span>
-                  </button>
+                  <div key={s}
+                    className="group flex items-center rounded-md pr-1 transition-colors hover:bg-[var(--surface-2)]">
+                    <button onClick={() => setSchema(s)} title={s}
+                      className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5 text-left text-sm"
+                      style={{ color: "var(--text-muted)" }}>
+                      <IconDatabase width={14} height={14} className="shrink-0" />
+                      <span className="flex-1 truncate">{s}</span>
+                    </button>
+                    <SchemaRowMenu connId={connId} database={s}
+                      onOpen={() => setSchema(s)} onChanged={reloadSchemas} />
+                  </div>
                 ))
               )}
             </div>
           </div>
 
-          {/* right: blank placeholder */}
-          <div className="card flex min-w-0 flex-1 flex-col items-center justify-center gap-2 text-center">
-            <IconDatabase width={30} height={30} style={{ color: "var(--text-faint)" }} />
-            <p className="font-medium">Select a database</p>
-            <p className="max-w-sm text-sm muted">
-              Choose a database from the list to browse its tables, run SQL, and design its schema.
-            </p>
-          </div>
+          {/* right: SQL editor (no database) or the blank placeholder */}
+          {showSql ? (
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <button className="btn btn-ghost btn-sm" onClick={() => setShowSql(false)}>← Databases</button>
+                <span className="text-xs muted">
+                  No database selected — run <code>USE db;</code> to switch, or qualify names as <code>db.table</code>.
+                </span>
+              </div>
+              <div className="min-h-0 flex-1">
+                <SqlEditor connId={connId} schema="" flavor={conn?.flavor} tableNames={[]}
+                  environment={conn?.environment ?? "dev"} readOnly={conn?.read_only ?? false} />
+              </div>
+            </div>
+          ) : (
+            <div className="card flex min-w-0 flex-1 flex-col items-center justify-center gap-2 text-center">
+              <IconDatabase width={30} height={30} style={{ color: "var(--text-faint)" }} />
+              <p className="font-medium">Select a database</p>
+              <p className="max-w-sm text-sm muted">
+                Choose a database from the list to browse its tables, run SQL, and design its schema.
+              </p>
+              <button className="btn btn-secondary btn-sm mt-2" onClick={() => setShowSql(true)}>
+                <IconTerminal width={14} height={14} /> Open SQL editor
+              </button>
+              <p className="text-xs faint">Run SQL without picking a database (e.g. <code>USE db;</code>).</p>
+            </div>
+          )}
         </div>
       )}
 
