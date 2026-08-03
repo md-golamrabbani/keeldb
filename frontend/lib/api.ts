@@ -104,6 +104,14 @@ export const api = {
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Recovery failed");
     return res.json();
   },
+  authChange: async (current: string, newPassword: string): Promise<{ ok: boolean }> => {
+    const res = await fetch(`${await resolveApiBase()}/auth/change`, {
+      method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ current, new_password: newPassword }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Could not change the password");
+    return res.json();
+  },
   authRefresh: async (): Promise<{ token: string }> => {
     const res = await fetch(`${await resolveApiBase()}/auth/refresh`, { method: "POST", headers: authHeaders() });
     if (!res.ok) throw new Error("session expired");

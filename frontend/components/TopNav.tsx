@@ -3,9 +3,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
+import ChangePasswordDialog from "./ChangePasswordDialog";
+import { openExternal } from "@/lib/backend";
+import pkg from "../package.json";
 import { IconArrows, IconBookmark, IconColumns, IconDatabase, IconDownload, IconLock, IconTable, IconWrench } from "./icons";
 
-export const APP_VERSION = "0.1.3";
+// Single source of truth — bumped by the release, so the app never mislabels
+// its own version or nags you to "update" to the version you're already on.
+export const APP_VERSION = pkg.version;
 const RELEASES_API = "https://api.github.com/repos/md-golamrabbani/keeldb/releases/latest";
 const RELEASES_PAGE = "https://github.com/md-golamrabbani/keeldb/releases/latest";
 
@@ -48,6 +53,7 @@ const LINKS = [
 export default function TopNav() {
   const pathname = usePathname();
   const latest = useUpdateCheck();
+  const [showChange, setShowChange] = useState(false);
   return (
     <header className="z-30 shrink-0 border-b backdrop-blur"
       style={{ background: "color-mix(in srgb, var(--surface) 88%, transparent)", borderColor: "var(--border)" }}>
@@ -75,20 +81,31 @@ export default function TopNav() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          {latest && (
-            <a href={RELEASES_PAGE} target="_blank" rel="noreferrer"
+          {latest ? (
+            <button type="button" onClick={() => openExternal(RELEASES_PAGE)}
               className="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold sm:inline-flex"
               style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
-              title={`You are on v${APP_VERSION}; ${latest} is available`}>
-              <IconDownload width={13} height={13} /> Update {latest}
-            </a>
+              title={`You're on v${APP_VERSION}. Version ${latest} is available — click to open the download page.`}>
+              <IconDownload width={13} height={13} /> Update to {latest}
+            </button>
+          ) : (
+            <span className="hidden text-xs font-medium sm:inline" style={{ color: "var(--text-faint)" }}
+              title="You're on the latest version">
+              v{APP_VERSION}
+            </span>
           )}
+          <button type="button" onClick={() => setShowChange(true)}
+            className="rounded-lg p-2 transition-colors hover:bg-[var(--surface-2)]"
+            style={{ color: "var(--text-muted)" }} title="Change password" aria-label="Change password">
+            <IconLock width={16} height={16} />
+          </button>
           <kbd className="hidden h-6 items-center justify-center gap-1 rounded-md border px-1.5 text-[11px] font-medium leading-none lg:inline-flex"
             style={{ borderColor: "var(--border-strong)", color: "var(--text-faint)" }}
             title="Command palette">⌘K</kbd>
           <ThemeToggle />
         </div>
       </div>
+      {showChange && <ChangePasswordDialog onClose={() => setShowChange(false)} />}
     </header>
   );
 }
