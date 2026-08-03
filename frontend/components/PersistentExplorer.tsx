@@ -12,7 +12,7 @@ export default function PersistentExplorer() {
   const active = usePathname() === "/explorer";
   return (
     <div className={active ? "h-full" : "hidden"} aria-hidden={!active}>
-      <ExplorerView />
+      <ExplorerView active={active} />
     </div>
   );
 }

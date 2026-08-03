@@ -77,6 +77,7 @@ function ConnectionSession({
   const [connId, setConnId] = useState(wsSaved?.connId ?? initialConnId ?? "");
   const [schema, setSchema] = useState(wsSaved?.schema ?? "");
   const [schemas, setSchemas] = useState<string[]>([]);
+  const [schemasLoading, setSchemasLoading] = useState(false);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [views, setViews] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
@@ -174,13 +175,15 @@ function ConnectionSession({
     setTables([]);
     setError("");
     if (!connId) return;
+    setSchemasLoading(true);
     api
       .listSchemas(connId)
       .then((s) => {
         setSchemas(s);
-        if (s.length === 1) setSchema(s[0]);
+        if (s.length === 1) setSchema(s[0]); // single db → skip the picker
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => setError(String(e)))
+      .finally(() => setSchemasLoading(false));
   }, [connId]);
 
   // Refresh the table/view list whenever the connection or schema changes.
@@ -570,6 +573,42 @@ function ConnectionSession({
         </div>
       )}
 
+      {/* Connection chosen but no database yet: a clear, one-click database
+          picker instead of hoping the user notices the toolbar dropdown. */}
+      {connId && !schema && !error && (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="card card-pad mx-auto mt-4 w-full max-w-2xl">
+            <div className="flex items-center gap-2">
+              <IconDatabase width={18} height={18} style={{ color: "var(--accent)" }} />
+              <h2 className="text-base font-semibold">Select a database</h2>
+            </div>
+            <p className="mt-1 text-sm muted">
+              Choose a database to browse its tables, run SQL, and design its schema.
+            </p>
+            {schemasLoading ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm muted">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-transparent"
+                  style={{ borderTopColor: "var(--accent)", borderRightColor: "var(--accent)" }} />
+                Loading databases…
+              </div>
+            ) : schemas.length === 0 ? (
+              <p className="py-10 text-center text-sm muted">No databases found on this connection.</p>
+            ) : (
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {schemas.map((s) => (
+                  <button key={s} onClick={() => setSchema(s)} title={s}
+                    className="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-[var(--accent-soft)]"
+                    style={{ borderColor: "var(--border-strong)", color: "var(--text-muted)" }}>
+                    <IconDatabase width={15} height={15} className="shrink-0" style={{ color: "var(--text-faint)" }} />
+                    <span className="truncate">{s}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {!connId && !error && (
         <div className="card card-pad flex flex-col items-center gap-2 py-16 text-center">
           <IconTable width={28} height={28} />
@@ -595,10 +634,18 @@ interface Workspace {
  * is a fully independent ConnectionSession; all stay mounted so switching
  * between databases keeps every open document, grid and editor intact.
  */
-function Explorer() {
+function Explorer({ active }: { active: boolean }) {
   const params = useSearchParams();
   const [connections, setConnections] = useState<ConnectionProfile[]>([]);
   const [error, setError] = useState("");
+
+  // Explorer stays mounted across navigation, so refetch the connection list
+  // whenever it becomes active again — otherwise a connection saved on the
+  // Connections page wouldn't show up here (nor open via the Explore button).
+  useEffect(() => {
+    if (!active) return;
+    api.listConnections().then(setConnections).catch(() => {});
+  }, [active]);
 
   // Rehydrate the workspace strip from the UI store (survives navigation).
   const savedExplorer = useUiStore.getState().explorer;
@@ -751,10 +798,10 @@ function Explorer() {
   );
 }
 
-export default function ExplorerView() {
+export default function ExplorerView({ active }: { active: boolean }) {
   return (
     <Suspense fallback={<p className="muted">Loading…</p>}>
-      <Explorer />
+      <Explorer active={active} />
     </Suspense>
   );
 }
