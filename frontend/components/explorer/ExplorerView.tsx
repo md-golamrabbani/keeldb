@@ -15,6 +15,7 @@ import TableDocument from "@/components/explorer/TableDocument";
 import ViewDocument from "@/components/explorer/ViewDocument";
 import RoutinesView from "@/components/explorer/RoutinesView";
 import SqlEditor from "@/components/explorer/SqlEditor";
+import SchemaRowMenu from "@/components/explorer/SchemaRowMenu";
 import DesignerView from "@/components/explorer/DesignerView";
 import HealthView from "@/components/explorer/HealthView";
 import DatabaseMenu from "@/components/explorer/DatabaseMenu";
@@ -77,9 +78,13 @@ function ConnectionSession({
   const [connId, setConnId] = useState(wsSaved?.connId ?? initialConnId ?? "");
   const [schema, setSchema] = useState(wsSaved?.schema ?? "");
   const [schemas, setSchemas] = useState<string[]>([]);
+  const [schemasLoading, setSchemasLoading] = useState(false);
+  const [showSql, setShowSql] = useState(false); // connection-level SQL, no schema
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [views, setViews] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
+  const [schemaFilter, setSchemaFilter] = useState("");
+  const [connFilter, setConnFilter] = useState("");
   const [error, setError] = useState("");
   // Resizable table-list width: current size is the minimum; drag to widen.
   const [tableListW, setTableListW] = useState(224);
@@ -172,15 +177,26 @@ function ConnectionSession({
     if (!firstConnRun.current) setSchema("");
     firstConnRun.current = false;
     setTables([]);
+    setShowSql(false);
     setError("");
     if (!connId) return;
+    setSchemasLoading(true);
     api
       .listSchemas(connId)
       .then((s) => {
         setSchemas(s);
-        if (s.length === 1) setSchema(s[0]);
+        if (s.length === 1) setSchema(s[0]); // single db → skip the picker
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => setError(String(e)))
+      .finally(() => setSchemasLoading(false));
+  }, [connId]);
+
+  // Refresh the database list after a rename/drop from a row menu.
+  const reloadSchemas = useCallback(() => {
+    if (!connId) return;
+    setSchemasLoading(true);
+    api.listSchemas(connId).then(setSchemas)
+      .catch((e) => setError(String(e))).finally(() => setSchemasLoading(false));
   }, [connId]);
 
   // Refresh the table/view list whenever the connection or schema changes.
@@ -195,6 +211,14 @@ function ConnectionSession({
     () => views.filter((v) => v.toLowerCase().includes(filter.toLowerCase())),
     [views, filter],
   );
+  const filteredSchemas = useMemo(
+    () => schemas.filter((s) => s.toLowerCase().includes(schemaFilter.toLowerCase())),
+    [schemas, schemaFilter],
+  );
+  const filteredConns = useMemo(() => {
+    const q = connFilter.toLowerCase();
+    return connections.filter((c) => c.name.toLowerCase().includes(q) || c.flavor.toLowerCase().includes(q));
+  }, [connections, connFilter]);
 
   const openView = (name: string) => {
     const existing = tabs.find((t) => t.kind === "view" && t.table === name);
@@ -570,14 +594,116 @@ function ConnectionSession({
         </div>
       )}
 
+      {/* Connection chosen but no database yet: master-detail — a searchable
+          database list (with per-row actions) on the left, and either a blank
+          placeholder or a connection-level SQL editor on the right. */}
+      {connId && !schema && !error && (
+        <div className="flex min-h-0 flex-1 gap-3">
+          {/* left: searchable database list with per-row menu */}
+          <div className="flex shrink-0 flex-col gap-2" style={{ width: tableListW }}>
+            <div className="relative">
+              <IconSearch width={13} height={13}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2"
+                style={{ color: "var(--text-faint)" }} />
+              <input className="input !h-9 !py-0 !pl-8 text-xs" placeholder="Search databases…"
+                value={schemaFilter} onChange={(e) => setSchemaFilter(e.target.value)} />
+            </div>
+            <div className="card min-h-0 flex-1 overflow-y-auto p-1.5">
+              {schemasLoading ? (
+                <p className="px-2 py-3 text-center text-xs muted">Loading…</p>
+              ) : filteredSchemas.length === 0 ? (
+                <p className="px-2 py-3 text-center text-xs muted">
+                  {schemas.length === 0 ? "No databases." : "No matches."}
+                </p>
+              ) : (
+                filteredSchemas.map((s) => (
+                  <div key={s}
+                    className="group flex items-center rounded-md pr-1 transition-colors hover:bg-[var(--surface-2)]">
+                    <button onClick={() => setSchema(s)} title={s}
+                      className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5 text-left text-sm"
+                      style={{ color: "var(--text-muted)" }}>
+                      <IconDatabase width={14} height={14} className="shrink-0" />
+                      <span className="flex-1 truncate">{s}</span>
+                    </button>
+                    <SchemaRowMenu connId={connId} database={s}
+                      onOpen={() => setSchema(s)} onChanged={reloadSchemas} />
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* right: SQL editor (no database) or the blank placeholder */}
+          {showSql ? (
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <button className="btn btn-ghost btn-sm" onClick={() => setShowSql(false)}>← Databases</button>
+                <span className="text-xs muted">
+                  No database selected — run <code>USE db;</code> to switch, or qualify names as <code>db.table</code>.
+                </span>
+              </div>
+              <div className="min-h-0 flex-1">
+                <SqlEditor connId={connId} schema="" flavor={conn?.flavor} tableNames={[]}
+                  environment={conn?.environment ?? "dev"} readOnly={conn?.read_only ?? false} />
+              </div>
+            </div>
+          ) : (
+            <div className="card flex min-w-0 flex-1 flex-col items-center justify-center gap-2 text-center">
+              <IconDatabase width={30} height={30} style={{ color: "var(--text-faint)" }} />
+              <p className="font-medium">Select a database</p>
+              <p className="max-w-sm text-sm muted">
+                Choose a database from the list to browse its tables, run SQL, and design its schema.
+              </p>
+              <button className="btn btn-secondary btn-sm mt-2" onClick={() => setShowSql(true)}>
+                <IconTerminal width={14} height={14} /> Open SQL editor
+              </button>
+              <p className="text-xs faint">Run SQL without picking a database (e.g. <code>USE db;</code>).</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* No connection yet: same master-detail style — a searchable connection
+          list on the left, a blank placeholder on the right. */}
       {!connId && !error && (
-        <div className="card card-pad flex flex-col items-center gap-2 py-16 text-center">
-          <IconTable width={28} height={28} />
-          <p className="font-medium">Connect to a database</p>
-          <p className="text-sm muted">
-            Select a connection to open tables in tabs, run SQL, edit rows &amp;
-            structure, and view the ERD.
-          </p>
+        <div className="flex min-h-0 flex-1 gap-3">
+          {/* left: searchable connection list */}
+          <div className="flex shrink-0 flex-col gap-2" style={{ width: tableListW }}>
+            <div className="relative">
+              <IconSearch width={13} height={13}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2"
+                style={{ color: "var(--text-faint)" }} />
+              <input className="input !h-9 !py-0 !pl-8 text-xs" placeholder="Search connections…"
+                value={connFilter} onChange={(e) => setConnFilter(e.target.value)} />
+            </div>
+            <div className="card min-h-0 flex-1 overflow-y-auto p-1.5">
+              {filteredConns.length === 0 ? (
+                <p className="px-2 py-3 text-center text-xs muted">
+                  {connections.length === 0 ? "No connections yet." : "No matches."}
+                </p>
+              ) : (
+                filteredConns.map((c) => (
+                  <button key={c.id} onClick={() => setConnId(c.id)} title={c.name}
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-[var(--surface-2)]"
+                    style={{ color: "var(--text-muted)" }}>
+                    <IconDatabase width={14} height={14} className="shrink-0" />
+                    <span className="flex-1 truncate">{c.name}</span>
+                    <span className="shrink-0 text-[10px] faint">{c.flavor}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* right: blank placeholder */}
+          <div className="card flex min-w-0 flex-1 flex-col items-center justify-center gap-2 text-center">
+            <IconTable width={30} height={30} style={{ color: "var(--text-faint)" }} />
+            <p className="font-medium">Connect to a database</p>
+            <p className="max-w-sm text-sm muted">
+              Select a connection from the list to open tables in tabs, run SQL, edit rows &amp;
+              structure, and view the ERD.
+            </p>
+          </div>
         </div>
       )}
     </div>
@@ -595,10 +721,18 @@ interface Workspace {
  * is a fully independent ConnectionSession; all stay mounted so switching
  * between databases keeps every open document, grid and editor intact.
  */
-function Explorer() {
+function Explorer({ active }: { active: boolean }) {
   const params = useSearchParams();
   const [connections, setConnections] = useState<ConnectionProfile[]>([]);
   const [error, setError] = useState("");
+
+  // Explorer stays mounted across navigation, so refetch the connection list
+  // whenever it becomes active again — otherwise a connection saved on the
+  // Connections page wouldn't show up here (nor open via the Explore button).
+  useEffect(() => {
+    if (!active) return;
+    api.listConnections().then(setConnections).catch(() => {});
+  }, [active]);
 
   // Rehydrate the workspace strip from the UI store (survives navigation).
   const savedExplorer = useUiStore.getState().explorer;
@@ -751,10 +885,10 @@ function Explorer() {
   );
 }
 
-export default function ExplorerView() {
+export default function ExplorerView({ active }: { active: boolean }) {
   return (
     <Suspense fallback={<p className="muted">Loading…</p>}>
-      <Explorer />
+      <Explorer active={active} />
     </Suspense>
   );
 }
