@@ -16,6 +16,9 @@ import ViewDocument from "@/components/explorer/ViewDocument";
 import RoutinesView from "@/components/explorer/RoutinesView";
 import SqlEditor from "@/components/explorer/SqlEditor";
 import SchemaRowMenu from "@/components/explorer/SchemaRowMenu";
+import ExportDialog from "@/components/explorer/ExportDialog";
+import ConfirmDialog, { type ConfirmState } from "@/components/explorer/ConfirmDialog";
+import Checkbox from "@/components/ui/Checkbox";
 import DesignerView from "@/components/explorer/DesignerView";
 import HealthView from "@/components/explorer/HealthView";
 import DatabaseMenu from "@/components/explorer/DatabaseMenu";
@@ -80,6 +83,9 @@ function ConnectionSession({
   const [schemas, setSchemas] = useState<string[]>([]);
   const [schemasLoading, setSchemasLoading] = useState(false);
   const [showSql, setShowSql] = useState(false); // connection-level SQL, no schema
+  const [selected, setSelected] = useState<Set<string>>(new Set()); // multi-select tables
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [exportSel, setExportSel] = useState<string[] | null>(null); // non-null → export these
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [views, setViews] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
@@ -211,6 +217,37 @@ function ConnectionSession({
     () => views.filter((v) => v.toLowerCase().includes(filter.toLowerCase())),
     [views, filter],
   );
+
+  // Multi-select tables → bulk empty/drop/export ("With selected", Workbench/phpMyAdmin style).
+  useEffect(() => { setSelected(new Set()); }, [connId, schema]);
+  const toggleSel = (name: string) =>
+    setSelected((s) => { const n = new Set(s); n.has(name) ? n.delete(name) : n.add(name); return n; });
+  const allSelected = filtered.length > 0 && filtered.every((t) => selected.has(t.name));
+  const toggleAll = () =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (filtered.every((t) => n.has(t.name))) filtered.forEach((t) => n.delete(t.name));
+      else filtered.forEach((t) => n.add(t.name));
+      return n;
+    });
+  const confirmBulk = (action: "drop" | "empty") => {
+    const names = [...selected];
+    setConfirm({
+      title: action === "drop" ? "Drop tables" : "Empty tables",
+      message: `${action === "drop" ? "Drop" : "Empty"} ${names.length} selected table(s)? This cannot be undone.`,
+      confirmLabel: action === "drop" ? "Drop" : "Empty",
+      danger: true,
+      onConfirm: async () => {
+        const r = await api.bulkTableOp(connId, schema, names, action);
+        setSelected(new Set());
+        loadTables();
+        if (r.failed) {
+          throw new Error(`${r.failed} of ${names.length} failed:\n` +
+            r.results.filter((x) => !x.ok).map((x) => `• ${x.table}: ${x.error}`).join("\n"));
+        }
+      },
+    });
+  };
   const filteredSchemas = useMemo(
     () => schemas.filter((s) => s.toLowerCase().includes(schemaFilter.toLowerCase())),
     [schemas, schemaFilter],
@@ -372,6 +409,7 @@ function ConnectionSession({
                 loadTables();
                 openTable(n, "structure");
               }}
+              onRefresh={loadTables}
             />
           </div>
         )}
@@ -415,30 +453,44 @@ function ConnectionSession({
                 onChange={(e) => setFilter(e.target.value)}
               />
             </div>
+            {selected.size > 0 && (
+              <div className="flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs"
+                style={{ borderColor: "var(--border-strong)", background: "var(--surface-2)" }}>
+                <span className="font-medium">{selected.size} selected</span>
+                <div className="ml-auto flex items-center gap-1">
+                  <button className="btn btn-ghost btn-sm !h-7" onClick={() => setExportSel([...selected])}>Export</button>
+                  <button className="btn btn-ghost btn-sm !h-7" onClick={() => confirmBulk("empty")}>Empty</button>
+                  <button className="btn btn-ghost btn-sm !h-7" style={{ color: "var(--danger)" }} onClick={() => confirmBulk("drop")}>Drop</button>
+                </div>
+              </div>
+            )}
             <div className="card min-h-0 flex-1 overflow-y-auto p-1.5">
+              {filtered.length > 0 && (
+                <label className="flex items-center gap-2 px-2.5 py-1 text-[11px] faint">
+                  <Checkbox checked={allSelected} onCheckedChange={toggleAll} ariaLabel="Select all tables" />
+                  Select all
+                </label>
+              )}
               {filtered.map((t) => (
-                <button
-                  key={t.name}
-                  onClick={() => openTable(t.name)}
-                  title={t.name}
-                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors"
-                  style={
-                    activeTable === t.name
-                      ? {
-                          background: "var(--accent-soft)",
-                          color: "var(--accent)",
-                        }
-                      : { color: "var(--text-muted)" }
-                  }
-                >
-                  <IconTable width={14} height={14} className="shrink-0" />
-                  <span className="flex-1 truncate">{t.name}</span>
-                  {t.row_estimate != null && (
-                    <span className="text-[10px] faint">
-                      {t.row_estimate.toLocaleString()}
-                    </span>
-                  )}
-                </button>
+                <div key={t.name}
+                  className="group flex items-center gap-1 rounded-md pl-1.5"
+                  style={activeTable === t.name ? { background: "var(--accent-soft)" } : undefined}>
+                  <Checkbox checked={selected.has(t.name)} onCheckedChange={() => toggleSel(t.name)} ariaLabel={`Select ${t.name}`} />
+                  <button
+                    onClick={() => openTable(t.name)}
+                    title={t.name}
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-sm transition-colors"
+                    style={activeTable === t.name ? { color: "var(--accent)" } : { color: "var(--text-muted)" }}
+                  >
+                    <IconTable width={14} height={14} className="shrink-0" />
+                    <span className="flex-1 truncate">{t.name}</span>
+                    {t.row_estimate != null && (
+                      <span className="text-[10px] faint">
+                        {t.row_estimate.toLocaleString()}
+                      </span>
+                    )}
+                  </button>
+                </div>
               ))}
               {filtered.length === 0 && (
                 <p className="px-2 py-3 text-center text-xs muted">
@@ -705,6 +757,11 @@ function ConnectionSession({
             </p>
           </div>
         </div>
+      )}
+
+      <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
+      {exportSel && (
+        <ExportDialog connId={connId} schema={schema} tables={exportSel} onClose={() => setExportSel(null)} />
       )}
     </div>
   );
