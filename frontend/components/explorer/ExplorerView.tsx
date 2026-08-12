@@ -466,9 +466,9 @@ function ConnectionSession({
             )}
             <div className="card min-h-0 flex-1 overflow-y-auto p-1.5">
               {filtered.length > 0 && (
-                <label className="flex items-center gap-2 px-2.5 py-1 text-[11px] faint">
+                <label className="flex items-center gap-1 pl-1.5 py-1 text-[11px] faint">
                   <Checkbox checked={allSelected} onCheckedChange={toggleAll} ariaLabel="Select all tables" />
-                  Select all
+                  <span className="pl-1.5">Select all</span>
                 </label>
               )}
               {filtered.map((t) => (

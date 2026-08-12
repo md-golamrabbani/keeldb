@@ -2,8 +2,10 @@
 import { useRef, useState } from "react";
 import Modal from "./Modal";
 import Checkbox from "@/components/ui/Checkbox";
-import { importSqlStream, type ImportEvent } from "@/lib/api";
+import { importSqlFile, type ImportEvent } from "@/lib/api";
 import { IconTable } from "@/components/icons";
+
+const fmtMB = (b: number) => `${(b / 1e6).toFixed(1)} MB`;
 
 // Import (run) a .sql script against the current database, streaming
 // per-statement progress. Best-effort by default; optionally stop on first error.
@@ -15,22 +17,21 @@ export default function ImportDialog({ connId, schema, onClose, onDone }: {
   const [busy, setBusy] = useState(false);
   const [prog, setProg] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [errors, setErrors] = useState<{ statement: string; message: string }[]>([]);
-  const [summary, setSummary] = useState<{ executed: number; failed: number; total: number } | null>(null);
+  const [summary, setSummary] = useState<{ executed: number; failed: number } | null>(null);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const run = async () => {
     if (!file) return;
-    setBusy(true); setError(""); setErrors([]); setSummary(null); setProg({ done: 0, total: 0 });
+    setBusy(true); setError(""); setErrors([]); setSummary(null); setProg({ done: 0, total: file.size });
     const errs: { statement: string; message: string }[] = [];
     let fatal = "";
     try {
-      const sql = await file.text();
-      await importSqlStream(connId, { schema_name: schema, sql, stop_on_error: stopOnError }, (e: ImportEvent) => {
-        if (e.type === "start") setProg({ done: 0, total: e.total });
-        else if (e.type === "progress") setProg({ done: e.done, total: e.total });
-        else if (e.type === "error") { setProg({ done: e.done, total: e.total }); errs.push({ statement: e.statement, message: e.message }); }
-        else if (e.type === "done") setSummary({ executed: e.executed, failed: e.failed, total: e.total });
+      await importSqlFile(connId, file, schema, stopOnError, (e: ImportEvent) => {
+        if (e.type === "start") setProg({ done: 0, total: e.bytes_total });
+        else if (e.type === "progress") setProg({ done: e.bytes_done, total: e.bytes_total });
+        else if (e.type === "error") errs.push({ statement: e.statement, message: e.message });
+        else if (e.type === "done") setSummary({ executed: e.executed, failed: e.failed });
         else if (e.type === "fatal") fatal = e.message;
       });
       if (fatal) setError(fatal);
@@ -69,8 +70,8 @@ export default function ImportDialog({ connId, schema, onClose, onDone }: {
             </div>
             <p className="text-xs muted">
               {summary
-                ? `Done — ${summary.executed} run, ${summary.failed} failed of ${summary.total}.`
-                : `Running ${prog.done}/${prog.total}…`}
+                ? `Done — ${summary.executed} statement(s) run, ${summary.failed} failed.`
+                : `Running… ${fmtMB(prog.done)} / ${fmtMB(prog.total)}`}
             </p>
           </div>
         )}

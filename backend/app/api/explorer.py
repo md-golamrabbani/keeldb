@@ -429,12 +429,36 @@ def export_stream(conn_id: str, req: ExportReq):
 
 @router.post("/{conn_id}/import/stream")
 def import_stream(conn_id: str, req: ImportReq):
-    """Run a .sql script against the database, streaming per-statement progress."""
+    """Run an in-memory .sql string, streaming per-statement progress."""
     c = _connector(conn_id)
 
     def gen():
         try:
             for ev in importer.import_stream(c, req.schema_name, req.sql, req.stop_on_error):
+                yield json.dumps(ev, default=str) + "\n"
+        except Exception as exc:  # noqa: BLE001 — surface as a stream event
+            yield json.dumps({"type": "fatal", "message": dbops.clean_error(exc)}) + "\n"
+        finally:
+            c.dispose()
+
+    return StreamingResponse(gen(), media_type="application/x-ndjson")
+
+
+@router.post("/{conn_id}/import/upload")
+def import_upload(conn_id: str, file: UploadFile = File(...),
+                  schema_name: str = Form(""), stop_on_error: bool = Form(False)):
+    """Run an uploaded .sql file, processed incrementally so multi-GB dumps work.
+    The upload spools to a temp file (not RAM); we read it in chunks and stream
+    per-chunk byte progress."""
+    c = _connector(conn_id)
+    fh = file.file  # SpooledTemporaryFile — on disk for large uploads
+    fh.seek(0, 2)
+    total = fh.tell()
+    fh.seek(0)
+
+    def gen():
+        try:
+            for ev in importer.import_file_stream(c, schema_name, fh, total, stop_on_error):
                 yield json.dumps(ev, default=str) + "\n"
         except Exception as exc:  # noqa: BLE001 — surface as a stream event
             yield json.dumps({"type": "fatal", "message": dbops.clean_error(exc)}) + "\n"

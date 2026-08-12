@@ -1,4 +1,5 @@
 """Bulk table ops, export modes/streaming, and streaming import (roundtrip)."""
+import io
 import sqlite3
 
 import pytest
@@ -90,6 +91,24 @@ def test_export_then_import_roundtrip(tmp_path):
     done = evs[-1]
     assert done["type"] == "done" and done["failed"] == 0 and done["executed"] > 0
     assert _count(dst, "a") == 2 and _count(dst, "b") == 1
+
+
+class _Trickle(io.BytesIO):
+    """Return tiny reads so statements span many chunks (stress the splitter)."""
+    def read(self, n=-1):  # noqa: ARG002
+        return super().read(5)
+
+
+def test_import_file_stream_across_chunk_boundaries(tmp_path):
+    dst = _conn(tmp_path, "d.db", "CREATE TABLE a (id INTEGER, name TEXT);")
+    # A semicolon INSIDE a string literal must not split the statement, even when
+    # the statement is fed 5 bytes at a time.
+    sql = "INSERT INTO a VALUES (1, 'hello; world'); INSERT INTO a VALUES (2, 'x');"
+    data = sql.encode()
+    evs = list(importer.import_file_stream(dst, "", _Trickle(data), len(data)))
+    done = evs[-1]
+    assert done["executed"] == 2 and done["failed"] == 0
+    assert _count(dst, "a") == 2
 
 
 def test_import_reports_and_skips_bad_statements(tmp_path):
