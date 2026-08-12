@@ -43,18 +43,41 @@ def backup_database(connector: Connector, schema: str) -> dict:
             "sql": header + "\n".join(parts) + ("\n" if parts else "")}
 
 
-def backup_table(connector: Connector, schema: str, table: str) -> dict:
+def backup_table(connector: Connector, schema: str, table: str,
+                 include_ddl: bool = True, include_data: bool = True) -> dict:
     t = connector._table(schema, table)
-    ddl = str(sa.schema.CreateTable(t).compile(connector.engine)).strip()
-    lines = [ddl.rstrip(";") + ";", ""]
+    lines: list[str] = []
+    if include_ddl:
+        ddl = str(sa.schema.CreateTable(t).compile(connector.engine)).strip()
+        lines += [ddl.rstrip(";") + ";", ""]
 
     count = 0
-    with connector.engine.connect() as conn:
-        for row in conn.execute(sa.select(t)).mappings():
-            values = {k: _literal_safe(t, k, v) for k, v in dict(row).items()}
-            stmt = t.insert().values(**values)
-            sql = str(stmt.compile(connector.engine, compile_kwargs={"literal_binds": True}))
-            lines.append(sql.rstrip(";") + ";")
-            count += 1
+    if include_data:
+        with connector.engine.connect() as conn:
+            for row in conn.execute(sa.select(t)).mappings():
+                values = {k: _literal_safe(t, k, v) for k, v in dict(row).items()}
+                stmt = t.insert().values(**values)
+                sql = str(stmt.compile(connector.engine, compile_kwargs={"literal_binds": True}))
+                lines.append(sql.rstrip(";") + ";")
+                count += 1
 
-    return {"table": table, "rows": count, "sql": "\n".join(lines) + "\n"}
+    return {"table": table, "rows": count, "sql": "\n".join(lines) + ("\n" if lines else "")}
+
+
+def export_iter(connector: Connector, schema: str, tables=None,
+                include_ddl: bool = True, include_data: bool = True):
+    """Stream a .sql export table-by-table so the UI can show progress. Yields
+    a "start" event, one "table" event per table (carrying that table's SQL),
+    then a "done" summary."""
+    if tables is None:
+        insp = sa.inspect(connector.engine)
+        tables = sorted(insp.get_table_names(schema=schema or None))
+    n = len(tables)
+    yield {"type": "start", "total": n, "schema": schema or ""}
+    total_rows = 0
+    for i, t in enumerate(tables, 1):
+        b = backup_table(connector, schema, t, include_ddl, include_data)
+        total_rows += b["rows"]
+        yield {"type": "table", "index": i, "total": n, "table": t, "rows": b["rows"],
+               "sql": f"-- ---- {t} ({b['rows']} rows) ----\n{b['sql']}"}
+    yield {"type": "done", "tables": n, "rows": total_rows}

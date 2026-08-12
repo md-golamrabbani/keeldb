@@ -202,6 +202,9 @@ export const api = {
     req<{ table: string; rows: number; sql: string }>(`/db/${connId}/backup`, { method: "POST", body: JSON.stringify({ schema_name: schema, table }) }),
   backupDatabase: (connId: string, schema: string) =>
     req<{ schema: string; tables: number; rows: number; sql: string }>(`/db/${connId}/backup-database`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
+  bulkTableOp: (connId: string, schema: string, tables: string[], action: "drop" | "empty") =>
+    req<{ ok: boolean; done: number; failed: number; results: { table: string; ok: boolean; error?: string }[] }>(
+      `/db/${connId}/tables/bulk`, { method: "POST", body: JSON.stringify({ schema_name: schema, tables, action }) }),
   indexAdvice: (connId: string, schema: string) =>
     req<IndexAdvice>(`/db/${connId}/index-advice`, { method: "POST", body: JSON.stringify({ schema_name: schema }) }),
   activity: (connId: string) => req<ActivityReport>(`/db/${connId}/activity`),
@@ -475,4 +478,88 @@ export async function createSupabaseAuthUsers(
     for (const line of lines) if (line.trim()) onEvent(JSON.parse(line) as SupabaseAuthEvent);
   }
   if (buffer.trim()) onEvent(JSON.parse(buffer) as SupabaseAuthEvent);
+}
+
+/** Consume a Response body that streams newline-delimited JSON events. */
+async function readNdjson<E>(res: Response, onEvent: (e: E) => void): Promise<void> {
+  if (!res.ok || !res.body) {
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail ?? detail; } catch {}
+    throw new Error(detail);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) if (line.trim()) onEvent(JSON.parse(line) as E);
+  }
+  if (buffer.trim()) onEvent(JSON.parse(buffer) as E);
+}
+
+/** POST a JSON body to an endpoint that streams NDJSON events. */
+async function streamNdjson<E>(path: string, body: unknown, onEvent: (e: E) => void): Promise<void> {
+  const res = await fetch(`${await resolveApiBase()}${path}`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  return readNdjson(res, onEvent);
+}
+
+export type ExportEvent =
+  | { type: "start"; total: number; schema?: string }
+  | { type: "table"; index: number; total: number; table: string; rows: number; sql: string }
+  | { type: "done"; tables: number; rows: number }
+  | { type: "fatal"; message: string };
+
+export type ImportEvent =
+  | { type: "start"; bytes_total: number }
+  | { type: "progress"; bytes_done: number; bytes_total: number; executed: number; failed: number }
+  | { type: "error"; statement: string; message: string; executed: number; failed: number }
+  | { type: "done"; executed: number; failed: number; bytes_total?: number }
+  | { type: "fatal"; message: string };
+
+/** Stream a .sql export table-by-table (progress + SQL chunks). */
+export function exportDatabaseStream(
+  connId: string,
+  body: { schema_name: string; tables: string[] | null; include_ddl: boolean; include_data: boolean },
+  onEvent: (e: ExportEvent) => void,
+): Promise<void> {
+  return streamNdjson(`/db/${connId}/export/stream`, body, onEvent);
+}
+
+/** Stream an in-memory .sql import (small scripts). */
+export function importSqlStream(
+  connId: string,
+  body: { schema_name: string; sql: string; stop_on_error: boolean },
+  onEvent: (e: ImportEvent) => void,
+): Promise<void> {
+  return streamNdjson(`/db/${connId}/import/stream`, body, onEvent);
+}
+
+/** Upload a .sql FILE and run it, streaming byte progress. The browser streams
+ *  the file from disk and the server spools+reads it in chunks, so a multi-GB
+ *  dump never sits in memory on either side. */
+export async function importSqlFile(
+  connId: string,
+  file: File,
+  schema: string,
+  stopOnError: boolean,
+  onEvent: (e: ImportEvent) => void,
+): Promise<void> {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("schema_name", schema);
+  fd.append("stop_on_error", String(stopOnError));
+  const res = await fetch(`${await resolveApiBase()}/db/${connId}/import/upload`, {
+    method: "POST",
+    headers: authHeaders(), // let the browser set multipart Content-Type + boundary
+    body: fd,
+  });
+  return readNdjson(res, onEvent);
 }

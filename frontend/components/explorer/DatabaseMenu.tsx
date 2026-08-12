@@ -11,18 +11,20 @@ import Modal from "./Modal";
 import TypeSelect from "./TypeSelect";
 import UsersModal from "./UsersModal";
 import SnapshotsModal from "./SnapshotsModal";
-import { downloadFile } from "@/lib/toast";
+import ExportDialog from "./ExportDialog";
+import ImportDialog from "./ImportDialog";
 import { IconChevronDown, IconPlus, IconTrash } from "@/components/icons";
 
-type Dialog = null | "createTable" | "createDb" | "renameDb" | "dropDb" | "privileges" | "integrity" | "users" | "snapshots";
+type Dialog = null | "createTable" | "createDb" | "renameDb" | "dropDb" | "privileges" | "integrity" | "users" | "snapshots" | "export" | "import";
 
 export default function DatabaseMenu({
-  connId, schema, database, onTableCreated,
+  connId, schema, database, onTableCreated, onRefresh,
 }: {
   connId: string;
   schema: string;
   database: string;
   onTableCreated: (name: string) => void;
+  onRefresh?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -40,14 +42,6 @@ export default function DatabaseMenu({
         title={disabled ? "Select a schema first" : undefined}
         onClick={() => { setOpen(false); setError(""); setDialog(d); }}>{label}</button>
     );
-  };
-
-  const exportDatabase = async () => {
-    setOpen(false); setError("");
-    try {
-      const res = await api.backupDatabase(connId, schema);
-      downloadFile(res.sql, `${database || schema || "database"}.sql`, "application/sql");
-    } catch (e) { setError(String(e)); }
   };
 
   return (
@@ -72,9 +66,8 @@ export default function DatabaseMenu({
             {item("Snapshots (undo history)", "snapshots")}
             {item("Check integrity (FK orphans)", "integrity", { needsSchema: true })}
             <div className="my-1 border-t" />
-            <button className="block w-full px-3 py-2 text-left text-sm transition-colors enabled:hover:bg-[var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed"
-              disabled={!schema} title={!schema ? "Select a schema first" : undefined}
-              onClick={exportDatabase}>Export database (.sql)</button>
+            {item("Export database (.sql)", "export", { needsSchema: true })}
+            {item("Import (.sql)", "import", { needsSchema: true })}
             <div className="my-1 border-t" />
             {item("Drop database…", "dropDb", { danger: true })}
           </div>
@@ -117,6 +110,12 @@ export default function DatabaseMenu({
       )}
       {dialog === "snapshots" && (
         <SnapshotsModal connId={connId} onClose={() => setDialog(null)} />
+      )}
+      {dialog === "export" && (
+        <ExportDialog connId={connId} schema={schema} onClose={() => setDialog(null)} />
+      )}
+      {dialog === "import" && (
+        <ImportDialog connId={connId} schema={schema} onClose={() => setDialog(null)} onDone={onRefresh} />
       )}
     </div>
   );

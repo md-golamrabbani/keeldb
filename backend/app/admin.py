@@ -173,6 +173,44 @@ def truncate_table(connector: Connector, schema: str, table: str) -> dict[str, A
     return {"ok": True}
 
 
+def bulk_table_op(connector: Connector, schema: str, tables: list[str], action: str) -> dict[str, Any]:
+    """Drop or empty several tables in one batch, with FK enforcement relaxed so
+    order doesn't matter (MySQL SET FOREIGN_KEY_CHECKS / SQLite PRAGMA / Postgres
+    CASCADE). Best-effort: a failure on one table doesn't abort the rest —
+    per-table results are returned."""
+    if getattr(connector.profile, "read_only", False):
+        raise ValueError("This connection is read-only. Turn off read-only mode on the connection to make changes.")
+    if action not in ("drop", "empty"):
+        raise ValueError("action must be 'drop' or 'empty'")
+    d = _dialect(connector)
+    results: list[dict[str, Any]] = []
+    # One AUTOCOMMIT session so the FK-check toggle persists across each DDL.
+    with connector.engine.connect() as conn:
+        conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+        if d == "mysql":
+            conn.execute(sa.text("SET FOREIGN_KEY_CHECKS=0"))
+        elif d == "sqlite":
+            conn.execute(sa.text("PRAGMA foreign_keys=OFF"))
+        for t in tables:
+            tgt = _qualified(connector, schema, t)
+            try:
+                if action == "drop":
+                    conn.execute(sa.text(f"DROP TABLE {tgt}" + (" CASCADE" if d == "postgresql" else "")))
+                elif d == "sqlite":
+                    conn.execute(sa.text(f"DELETE FROM {tgt}"))
+                elif d == "postgresql":
+                    conn.execute(sa.text(f"TRUNCATE TABLE {tgt} CASCADE"))
+                else:
+                    conn.execute(sa.text(f"TRUNCATE TABLE {tgt}"))
+                results.append({"table": t, "ok": True})
+            except Exception as e:  # noqa: BLE001 — report per-table, keep going
+                results.append({"table": t, "ok": False, "error": str(e)})
+        if d == "mysql":
+            conn.execute(sa.text("SET FOREIGN_KEY_CHECKS=1"))
+    done = sum(1 for r in results if r["ok"])
+    return {"ok": done == len(tables), "done": done, "failed": len(tables) - done, "results": results}
+
+
 # -- column operations -----------------------------------------------------
 def add_column(connector: Connector, schema: str, table: str, name: str, col_type: str,
                nullable: bool = True, default: Optional[str] = None) -> dict[str, Any]:

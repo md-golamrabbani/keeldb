@@ -4,14 +4,15 @@ from typing import Any, Optional
 
 import csv
 import io
+import json
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
 
 from .. import (
-    activity, advisor, ai, alerts, backup, bloat, dbops, duplicates, explain, health,
-    metrics, profiler, relational, sandbox, snapshots, verify,
+    activity, admin, advisor, ai, alerts, backup, bloat, dbops, duplicates, explain,
+    health, importer, metrics, profiler, relational, sandbox, snapshots, verify,
 )
 from ..connectors import connector_for
 from ..models import HistoryEntry
@@ -373,6 +374,98 @@ def backup_database(conn_id: str, req: OrphanRequest):
         raise HTTPException(502, dbops.clean_error(exc))
     finally:
         c.dispose()
+
+
+class BulkTablesReq(BaseModel):
+    schema_name: str = ""
+    tables: list[str]
+    action: str  # "drop" | "empty"
+
+
+class ExportReq(BaseModel):
+    schema_name: str = ""
+    tables: Optional[list[str]] = None  # None = whole database
+    include_ddl: bool = True
+    include_data: bool = True
+
+
+class ImportReq(BaseModel):
+    schema_name: str = ""
+    sql: str
+    stop_on_error: bool = False
+
+
+@router.post("/{conn_id}/tables/bulk")
+def tables_bulk(conn_id: str, req: BulkTablesReq):
+    """Drop or empty several tables at once (FK checks relaxed for the batch)."""
+    c = _connector(conn_id)
+    try:
+        return admin.bulk_table_op(c, req.schema_name, req.tables, req.action)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, dbops.clean_error(exc))
+    finally:
+        c.dispose()
+
+
+@router.post("/{conn_id}/export/stream")
+def export_stream(conn_id: str, req: ExportReq):
+    """Stream a .sql export table-by-table (NDJSON) so the UI shows progress."""
+    c = _connector(conn_id)
+
+    def gen():
+        try:
+            for ev in backup.export_iter(c, req.schema_name, req.tables,
+                                         req.include_ddl, req.include_data):
+                yield json.dumps(ev, default=str) + "\n"
+        except Exception as exc:  # noqa: BLE001 — surface as a stream event
+            yield json.dumps({"type": "fatal", "message": dbops.clean_error(exc)}) + "\n"
+        finally:
+            c.dispose()
+
+    return StreamingResponse(gen(), media_type="application/x-ndjson")
+
+
+@router.post("/{conn_id}/import/stream")
+def import_stream(conn_id: str, req: ImportReq):
+    """Run an in-memory .sql string, streaming per-statement progress."""
+    c = _connector(conn_id)
+
+    def gen():
+        try:
+            for ev in importer.import_stream(c, req.schema_name, req.sql, req.stop_on_error):
+                yield json.dumps(ev, default=str) + "\n"
+        except Exception as exc:  # noqa: BLE001 — surface as a stream event
+            yield json.dumps({"type": "fatal", "message": dbops.clean_error(exc)}) + "\n"
+        finally:
+            c.dispose()
+
+    return StreamingResponse(gen(), media_type="application/x-ndjson")
+
+
+@router.post("/{conn_id}/import/upload")
+def import_upload(conn_id: str, file: UploadFile = File(...),
+                  schema_name: str = Form(""), stop_on_error: bool = Form(False)):
+    """Run an uploaded .sql file, processed incrementally so multi-GB dumps work.
+    The upload spools to a temp file (not RAM); we read it in chunks and stream
+    per-chunk byte progress."""
+    c = _connector(conn_id)
+    fh = file.file  # SpooledTemporaryFile — on disk for large uploads
+    fh.seek(0, 2)
+    total = fh.tell()
+    fh.seek(0)
+
+    def gen():
+        try:
+            for ev in importer.import_file_stream(c, schema_name, fh, total, stop_on_error):
+                yield json.dumps(ev, default=str) + "\n"
+        except Exception as exc:  # noqa: BLE001 — surface as a stream event
+            yield json.dumps({"type": "fatal", "message": dbops.clean_error(exc)}) + "\n"
+        finally:
+            c.dispose()
+
+    return StreamingResponse(gen(), media_type="application/x-ndjson")
 
 
 @router.post("/{conn_id}/index-advice")
